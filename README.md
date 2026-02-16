@@ -22,16 +22,41 @@ The project provides a structured and extensible foundation for managing session
 
 - .NET 10 SDK (Preview)
 - Git
+- EF Core CLI tool
 
-### Running Locally
+If you don't have the EF tool installed:
 
-Clone the repository and start the application:
+```bash
+dotnet tool install --global dotnet-ef
+```
+---
+### Clone the Repository
 
 ```bash
 git clone https://github.com/charleslevesque/session-planner-api.git
 cd session-planner-api
+```
+---
+### Restore Dependencies
+
+```bash
 dotnet restore
-dotnet build
+```
+---
+### Database Setup (SQLite + EF Core)
+
+```bash
+dotnet ef database update -p src/SessionPlanner.Infrastructure -s src/SessionPlanner.Api
+```
+This will:
+- Apply migrations
+- Create the local SQLite database
+- Generate required tables
+
+---
+### Run the API:
+
+```bash
 dotnet run --project src/SessionPlanner.Api
 ```
 The API will start locally.
