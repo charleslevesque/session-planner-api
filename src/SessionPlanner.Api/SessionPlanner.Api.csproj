@@ -20,4 +20,9 @@
     <ProjectReference Include="..\SessionPlanner.Infrastructure\SessionPlanner.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Dtos\" />
+    <Folder Include="Dtos\Softwares\" />
+  </ItemGroup>
+
 </Project>
