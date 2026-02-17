@@ -10,5 +10,7 @@ public class AppDbContext : DbContext
     {
     }
 
-    public DbSet<Session> Sessions => Set<Session>();
+    public DbSet<Software> Softwares => Set<Software>();
+    public DbSet<SoftwareVersion> SoftwareVersions => Set<SoftwareVersion>();
+     public DbSet<Session> Sessions => Set<Session>();
 }
