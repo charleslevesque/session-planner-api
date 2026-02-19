@@ -30,3 +30,6 @@ Thumbs.db
 
 # Test results
 TestResults/
+
+*.mdf
+*.ldf
