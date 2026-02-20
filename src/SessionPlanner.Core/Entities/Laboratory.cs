@@ -1,0 +1,7 @@
+namespace SessionPlanner.Core.Entities;
+
+public class Laboratory
+{
+    public int Id {get; set;}
+    public string Name {get; set;} = null!;
+}
