@@ -9,4 +9,7 @@ public class SoftwareVersion
 
     public int SoftwareId {get; set;}
     public Software Software {get; set;} = null!;
+
+    public int OsId {get; set;}
+    public OS OS {get; set;} = null!;
 }

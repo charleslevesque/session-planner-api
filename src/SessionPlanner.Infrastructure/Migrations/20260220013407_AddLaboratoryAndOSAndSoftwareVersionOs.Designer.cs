@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SessionPlanner.Infrastructure.Data;
 
@@ -10,9 +11,11 @@ using SessionPlanner.Infrastructure.Data;
 namespace SessionPlanner.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260220013407_AddLaboratoryAndOSAndSoftwareVersionOs")]
+    partial class AddLaboratoryAndOSAndSoftwareVersionOs
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.3");
@@ -23,19 +26,9 @@ namespace SessionPlanner.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("Building")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("TEXT");
-
-                    b.Property<int>("NumberOfPCs")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("SeatingCapacity")
-                        .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 
@@ -121,30 +114,6 @@ namespace SessionPlanner.Infrastructure.Migrations
                     b.ToTable("SoftwareVersions");
                 });
 
-            modelBuilder.Entity("SessionPlanner.Core.Entities.Workstation", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("Count")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("LaboratoryId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("OperatingSystemId")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("LaboratoryId");
-
-                    b.HasIndex("OperatingSystemId");
-
-                    b.ToTable("Workstations");
-                });
-
             modelBuilder.Entity("SessionPlanner.Core.Entities.SoftwareVersion", b =>
                 {
                     b.HasOne("SessionPlanner.Core.Entities.OS", "OS")
@@ -162,30 +131,6 @@ namespace SessionPlanner.Infrastructure.Migrations
                     b.Navigation("OS");
 
                     b.Navigation("Software");
-                });
-
-            modelBuilder.Entity("SessionPlanner.Core.Entities.Workstation", b =>
-                {
-                    b.HasOne("SessionPlanner.Core.Entities.Laboratory", "Laboratory")
-                        .WithMany("Workstations")
-                        .HasForeignKey("LaboratoryId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("SessionPlanner.Core.Entities.OS", "OperatingSystem")
-                        .WithMany()
-                        .HasForeignKey("OperatingSystemId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Laboratory");
-
-                    b.Navigation("OperatingSystem");
-                });
-
-            modelBuilder.Entity("SessionPlanner.Core.Entities.Laboratory", b =>
-                {
-                    b.Navigation("Workstations");
                 });
 
             modelBuilder.Entity("SessionPlanner.Core.Entities.OS", b =>
