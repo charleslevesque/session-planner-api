@@ -14,5 +14,6 @@ public class AppDbContext : DbContext
     public DbSet<SoftwareVersion> SoftwareVersions => Set<SoftwareVersion>();
     public DbSet<Laboratory> Laboratories => Set<Laboratory>();
     public DbSet<OS> OperatingSystems => Set<OS>();
-     public DbSet<Session> Sessions => Set<Session>();
+    public DbSet<Workstation> Workstations => Set<Workstation>();
+    public DbSet<Session> Sessions => Set<Session>();
 }
