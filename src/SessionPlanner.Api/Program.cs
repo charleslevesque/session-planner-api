@@ -1,31 +1,27 @@
 using Microsoft.EntityFrameworkCore;
 using SessionPlanner.Infrastructure.Data;
-using SessionPlanner.Core.Entities;
+using Asp.Versioning;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+
+builder.Services.AddApiVersioning(options =>
+{
+    options.DefaultApiVersion = new ApiVersion(1, 0);
+    options.AssumeDefaultVersionWhenUnspecified = true;
+    options.ReportApiVersions = true;
+
+    options.ApiVersionReader = new UrlSegmentApiVersionReader();
+});
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite("Data Source=SessionPlanner.db"));
 
+builder.Services.AddControllers();
+
 var app = builder.Build();
 
-app.MapPost("/sessions", async (AppDbContext db, Session session) =>
-{
-    db.Sessions.Add(session);
-    await db.SaveChangesAsync();
-    return Results.Created($"/sessions/{session.Id}", session);
-});
-
-app.MapGet("/sessions", async (AppDbContext db) =>
-{
-    return await db.Sessions.ToListAsync();    
-});
-
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
@@ -33,5 +29,6 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.MapControllers();
 
 app.Run();

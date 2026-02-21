@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SessionPlanner.Infrastructure.Data;
 
@@ -10,9 +11,11 @@ using SessionPlanner.Infrastructure.Data;
 namespace SessionPlanner.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260217213507_AddSoftwareAndVersions")]
+    partial class AddSoftwareAndVersions
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.3");
@@ -37,7 +40,7 @@ namespace SessionPlanner.Infrastructure.Migrations
 
             modelBuilder.Entity("SessionPlanner.Core.Entities.Software", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<int>("ID")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
@@ -45,7 +48,7 @@ namespace SessionPlanner.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.HasKey("Id");
+                    b.HasKey("ID");
 
                     b.ToTable("Softwares");
                 });
