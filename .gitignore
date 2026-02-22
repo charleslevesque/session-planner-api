@@ -30,6 +30,7 @@ Thumbs.db
 
 # Test results
 TestResults/
+coveragereport/
 
 *.mdf
 *.ldf
