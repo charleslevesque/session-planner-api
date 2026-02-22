@@ -60,3 +60,54 @@ This will:
 dotnet run --project src/SessionPlanner.Api
 ```
 The API will start locally.
+
+---
+
+## Testing
+
+The project includes comprehensive unit and integration tests using **xUnit** and **FluentAssertions**.
+
+### Run All Tests
+
+```bash
+dotnet test
+```
+
+### Run Tests with Code Coverage
+
+```bash
+dotnet test --settings tests/coverlet.runsettings --collect:"XPlat Code Coverage"
+```
+
+### Generate Coverage Report (HTML)
+
+First, install the report generator tool:
+
+```bash
+dotnet tool install -g dotnet-reportgenerator-globaltool
+```
+
+Then generate the report:
+
+```bash
+reportgenerator -reports:"tests/**/coverage.cobertura.xml" -targetdir:"coveragereport" -reporttypes:Html
+```
+
+Open `coveragereport/index.html` in your browser to view the detailed coverage report.
+
+### Test Projects
+
+| Project | Type | Description |
+|---------|------|-------------|
+| `SessionPlanner.Tests.Unit` | Unit Tests | Tests for mappings, DTOs, and entities |
+| `SessionPlanner.Tests.Integration` | Integration Tests | Tests for API controllers using in-memory database |
+
+### Useful Test Commands
+
+| Command | Description |
+|---------|-------------|
+| `dotnet test --filter "ClassName=LaboratoriesControllerTests"` | Run tests for a specific class |
+| `dotnet test --verbosity detailed` | Run with detailed output |
+| `dotnet test --no-build` | Run without rebuilding |
+| `dotnet test tests/SessionPlanner.Tests.Unit` | Run only unit tests |
+| `dotnet test tests/SessionPlanner.Tests.Integration` | Run only integration tests |

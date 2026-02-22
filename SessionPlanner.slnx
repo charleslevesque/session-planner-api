@@ -5,6 +5,7 @@
     <Project Path="src/SessionPlanner.Infrastructure/SessionPlanner.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/SessionPlanner.Tests.Integration/SessionPlanner.Tests.Integration.csproj" />
     <Project Path="tests/SessionPlanner.Tests.Unit/SessionPlanner.Tests.Unit.csproj" />
   </Folder>
 </Solution>
