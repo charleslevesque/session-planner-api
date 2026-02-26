@@ -23,7 +23,7 @@ public class OperatingSystemsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<OSResponse>>> GetAll()
     {
-        var osList = await _db.OperatingSystems.ToListAsync();
+        var osList = await _db.OperatingSystems.Include(s => s.SoftwareVersions).ToListAsync();
         return Ok(osList.Select(os => os.ToResponse()));
     }
 

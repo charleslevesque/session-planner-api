@@ -6,7 +6,17 @@ namespace SessionPlanner.Api.Mappings;
 public static class OSMappings
 {
     public static OSResponse ToResponse(this OS os)
-        => new(os.Id, os.Name);
+     {
+
+        return new OSResponse(
+
+            os.Id,
+            os.Name,
+            os.SoftwareVersions.Select(v => v.ToResponse())
+
+        );
+
+     }
 
      public static OS toEntity(this CreateOSRequest os)
         => new()

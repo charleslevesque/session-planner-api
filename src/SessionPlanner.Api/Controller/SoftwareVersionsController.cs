@@ -36,7 +36,10 @@ public class SoftwareVersionsController : ControllerBase
         {
 
             SoftwareId = request.SoftwareId,
-            VersionNumber = request.VersionNumber
+            VersionNumber = request.VersionNumber,
+            OsId = request.OsId,
+            InstallationDetails = request.InstallationDetails,
+            Notes = request.Notes,
 
         };
 
@@ -53,8 +56,18 @@ public class SoftwareVersionsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<SoftwareVersionResponse>>> GetAll()
     {
-        var softwareVersions = await _db.SoftwareVersions.ToListAsync();
+        var softwareVersions = await _db.SoftwareVersions
+        .ToListAsync();
         return Ok(softwareVersions.Select(s => s.ToResponse()));
+    }
+
+    [HttpGet("{id}")]
+    public async Task<ActionResult<SoftwareVersionResponse>> GetById(int id)
+    {
+        var softwareVersion = await _db.SoftwareVersions.FindAsync(id);
+        if (softwareVersion is null)
+            return NotFound();
+        return Ok(softwareVersion.ToResponse());
     }
 
     [HttpGet("/api/v{version:apiVersion}/softwares/{softwareId:int}/[controller]")]
@@ -81,6 +94,7 @@ public class SoftwareVersionsController : ControllerBase
         if (softwareVersion is null)
             return NotFound();
 
+        softwareVersion.OsId = request.OsId;
         softwareVersion.VersionNumber = request.VersionNumber;
         softwareVersion.InstallationDetails = request.InstallationDetails;
         softwareVersion.Notes = request.Notes;

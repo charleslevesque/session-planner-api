@@ -43,8 +43,19 @@ public class SoftwaresController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<SoftwareResponse>>> GetAll()
     {
-        var softwares = await _db.Softwares.ToListAsync();
+        var softwares = await _db.Softwares.Include(s => s.SoftwareVersions).ToListAsync();
         return Ok(softwares.Select(s => s.ToResponse()));
+    }
+
+    [HttpGet("{id}")]
+    public async Task<ActionResult<SoftwareResponse>> GetById(int id)
+    {
+        var software = await _db.Softwares
+            .Include(s => s.SoftwareVersions)
+            .FirstOrDefaultAsync(s => s.Id == id);
+        if (software is null)
+            return NotFound();
+        return Ok(software.ToResponse());
     }
 
     [HttpPut("{id}")]

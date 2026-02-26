@@ -6,5 +6,11 @@ namespace SessionPlanner.Api.Mappings;
 public static class SoftwareMappings
 {
     public static SoftwareResponse ToResponse(this Software software)
-        => new(software.Id, software.Name);
+    {
+        return new SoftwareResponse(
+            software.Id,
+            software.Name,
+            software.SoftwareVersions.Select(v => v.ToResponse())
+        );
+    }
 }
