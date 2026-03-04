@@ -20,7 +20,7 @@ public class LaboratoryMappingTests
             SeatingCapacity = 35,
             Workstations = new List<Workstation>
             {
-                new() { Id = 1, LaboratoryId = 1, OperatingSystemId = 1, OperatingSystem = os, Count = 25 }
+                new() { Id = 1, Name = "WS-01", LaboratoryId = 1, OSId = 1, OS = os }
             }
         };
 
@@ -32,7 +32,7 @@ public class LaboratoryMappingTests
         response.NumberOfPCs.Should().Be(30);
         response.SeatingCapacity.Should().Be(35);
         response.Workstations.Should().HaveCount(1);
-        response.Workstations.First().OperatingSystemName.Should().Be("Windows 11");
+        response.Workstations.First().OSName.Should().Be("Windows 11");
     }
 
     [Fact]

@@ -1,3 +1,4 @@
+using SessionPlanner.Core.Entities.Joins;
 namespace SessionPlanner.Core.Entities;
 
 public class Laboratory
@@ -9,4 +10,7 @@ public class Laboratory
     public int SeatingCapacity { get; set; }
     
     public ICollection<Workstation> Workstations { get; set; } = new List<Workstation>();
+    //Joins 
+    public ICollection<CourseLaboratory> CourseLaboratories { get; set; } = new List<CourseLaboratory>();
+    public ICollection<LaboratoryConfiguration> LaboratoryConfigurations { get; set; } = new List<LaboratoryConfiguration>();
 }

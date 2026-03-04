@@ -14,42 +14,41 @@ public class WorkstationMappingsTests
         var workstation = new Workstation
         {
             Id = 1,
+            Name = "Workstation-01",
             LaboratoryId = 1,
             Laboratory = lab,
-            OperatingSystemId = 2,
-            OperatingSystem = os,
-            Count = 25
+            OSId = 2,
+            OS = os
         };
 
         var response = workstation.ToResponse();
 
         response.Id.Should().Be(1);
+        response.Name.Should().Be("Workstation-01");
         response.LaboratoryId.Should().Be(1);
-        response.OperatingSystemId.Should().Be(2);
-        response.OperatingSystemName.Should().Be("Windows 11");
-        response.Count.Should().Be(25);
+        response.OSId.Should().Be(2);
+        response.OSName.Should().Be("Windows 11");
     }
 
     [Theory]
-    [InlineData(1, "Windows 11", 10)]
-    [InlineData(5, "Ubuntu 22.04", 25)]
-    [InlineData(10, "macOS Sonoma", 50)]
-    public void ToResponse_ShouldHandleVariousCounts(int osId, string osName, int count)
+    [InlineData(1, "Windows 11")]
+    [InlineData(5, "Ubuntu 22.04")]
+    [InlineData(10, "macOS Sonoma")]
+    public void ToResponse_ShouldHandleVariousOS(int osId, string osName)
     {
         var os = new OS { Id = osId, Name = osName };
         var workstation = new Workstation
         {
             Id = 1,
+            Name = "WS-Test",
             LaboratoryId = 1,
-            OperatingSystemId = osId,
-            OperatingSystem = os,
-            Count = count
+            OSId = osId,
+            OS = os
         };
 
         var response = workstation.ToResponse();
 
-        response.OperatingSystemId.Should().Be(osId);
-        response.OperatingSystemName.Should().Be(osName);
-        response.Count.Should().Be(count);
+        response.OSId.Should().Be(osId);
+        response.OSName.Should().Be(osName);
     }
 }
