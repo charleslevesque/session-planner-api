@@ -30,7 +30,7 @@ public class LaboratoriesController : ControllerBase
     {
         var query = _db.Laboratories
             .Include(l => l.Workstations)
-                .ThenInclude(w => w.OperatingSystem)
+                .ThenInclude(w => w.OS)
             .AsQueryable();
 
         if (!string.IsNullOrEmpty(building))
@@ -58,7 +58,7 @@ public class LaboratoriesController : ControllerBase
     {
         var lab = await _db.Laboratories
             .Include(l => l.Workstations)
-                .ThenInclude(w => w.OperatingSystem)
+                .ThenInclude(w => w.OS)
             .FirstOrDefaultAsync(l => l.Id == id);
 
         if (lab is null)
@@ -119,46 +119,35 @@ public class LaboratoriesController : ControllerBase
         if (lab is null)
             return NotFound();
 
-        var os = await _db.OperatingSystems.FindAsync(request.OperatingSystemId);
+        var os = await _db.OperatingSystems.FindAsync(request.OSId);
         if (os is null)
             return BadRequest("Operating system not found");
 
-        var existingWorkstation = await _db.Workstations
-            .FirstOrDefaultAsync(w => w.LaboratoryId == id && w.OperatingSystemId == request.OperatingSystemId);
-
-        if (existingWorkstation is not null)
-        {
-            existingWorkstation.Count += request.Count;
-            await _db.SaveChangesAsync();
-            await _db.Entry(existingWorkstation).Reference(w => w.OperatingSystem).LoadAsync();
-            return Ok(existingWorkstation.ToResponse());
-        }
-
         var workstation = new Workstation
         {
+            Name = request.Name,
             LaboratoryId = id,
-            OperatingSystemId = request.OperatingSystemId,
-            Count = request.Count
+            OSId = request.OSId
         };
 
         _db.Workstations.Add(workstation);
         await _db.SaveChangesAsync();
 
-        await _db.Entry(workstation).Reference(w => w.OperatingSystem).LoadAsync();
+        await _db.Entry(workstation).Reference(w => w.OS).LoadAsync();
 
         return CreatedAtAction(nameof(GetById), new { id = lab.Id }, workstation.ToResponse());
     }
 
     // DELETE /api/v1/Laboratories/{id}/workstations/{osId} - Retirer OS
-    [HttpDelete("{id}/workstations/{osId}")]
-    public async Task<IActionResult> RemoveWorkstation(int id, int osId)
+    [HttpDelete("{id}/workstations/{workstationId}")]
+    public async Task<IActionResult> RemoveWorkstation(int id, int workstationId)
     {
         var lab = await _db.Laboratories.FindAsync(id);
         if (lab is null)
             return NotFound();
 
         var workstation = await _db.Workstations
-            .FirstOrDefaultAsync(w => w.LaboratoryId == id && w.OperatingSystemId == osId);
+            .FirstOrDefaultAsync(w => w.LaboratoryId == id && w.Id == workstationId);
 
         if (workstation is null)
             return NotFound();

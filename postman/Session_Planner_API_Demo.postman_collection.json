@@ -1,0 +1,401 @@
+{
+	"info": {
+		"_postman_id": "session-planner-demo",
+		"name": "Session Planner API - Demo",
+		"description": "Collection pour la démo de l'API CRUD Laboratoires et Systèmes d'exploitation",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:5290/api/v1"
+		}
+	],
+	"item": [
+		{
+			"name": "1. Operating Systems",
+			"item": [
+				{
+					"name": "1.1 GET - Liste tous les OS",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/OperatingSystems",
+							"host": ["{{baseUrl}}"],
+							"path": ["OperatingSystems"]
+						},
+						"description": "Récupère la liste de tous les systèmes d'exploitation disponibles avec leurs versions de logiciels."
+					}
+				},
+				{
+					"name": "1.2 GET - OS par ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/OperatingSystems/1",
+							"host": ["{{baseUrl}}"],
+							"path": ["OperatingSystems", "1"]
+						},
+						"description": "Récupère les détails d'un système d'exploitation spécifique."
+					}
+				},
+				{
+					"name": "1.3 POST - Créer un OS",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Fedora 40\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/OperatingSystems",
+							"host": ["{{baseUrl}}"],
+							"path": ["OperatingSystems"]
+						},
+						"description": "Crée un nouveau système d'exploitation. Retourne 201 Created."
+					}
+				},
+				{
+					"name": "1.4 PUT - Modifier un OS",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Fedora 40 Workstation\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/OperatingSystems/5",
+							"host": ["{{baseUrl}}"],
+							"path": ["OperatingSystems", "5"]
+						},
+						"description": "Modifie un système d'exploitation existant. Retourne 204 No Content."
+					}
+				},
+				{
+					"name": "1.5 DELETE - Supprimer un OS",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/OperatingSystems/5",
+							"host": ["{{baseUrl}}"],
+							"path": ["OperatingSystems", "5"]
+						},
+						"description": "Supprime un système d'exploitation. Retourne 204 No Content."
+					}
+				}
+			]
+		},
+		{
+			"name": "2. Laboratories",
+			"item": [
+				{
+					"name": "2.1 GET - Liste tous les labos",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/Laboratories",
+							"host": ["{{baseUrl}}"],
+							"path": ["Laboratories"]
+						},
+						"description": "Récupère la liste complète des laboratoires avec leurs postes de travail."
+					}
+				},
+				{
+					"name": "2.2 GET - Filtrer par bâtiment",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/Laboratories?building=Bâtiment A",
+							"host": ["{{baseUrl}}"],
+							"path": ["Laboratories"],
+							"query": [
+								{
+									"key": "building",
+									"value": "Bâtiment A"
+								}
+							]
+						},
+						"description": "Filtre les laboratoires par nom de bâtiment."
+					}
+				},
+				{
+					"name": "2.3 GET - Filtrer par capacité min",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/Laboratories?minCapacity=35",
+							"host": ["{{baseUrl}}"],
+							"path": ["Laboratories"],
+							"query": [
+								{
+									"key": "minCapacity",
+									"value": "35"
+								}
+							]
+						},
+						"description": "Filtre les laboratoires par capacité minimale."
+					}
+				},
+				{
+					"name": "2.4 GET - Filtres combinés",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/Laboratories?building=Bâtiment A&minCapacity=30&maxCapacity=50",
+							"host": ["{{baseUrl}}"],
+							"path": ["Laboratories"],
+							"query": [
+								{
+									"key": "building",
+									"value": "Bâtiment A"
+								},
+								{
+									"key": "minCapacity",
+									"value": "30"
+								},
+								{
+									"key": "maxCapacity",
+									"value": "50"
+								}
+							]
+						},
+						"description": "Combine plusieurs filtres: bâtiment et plage de capacité."
+					}
+				},
+				{
+					"name": "2.5 GET - Labo par ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/Laboratories/2",
+							"host": ["{{baseUrl}}"],
+							"path": ["Laboratories", "2"]
+						},
+						"description": "Récupère les détails d'un laboratoire avec tous ses postes de travail."
+					}
+				},
+				{
+					"name": "2.6 POST - Créer un labo",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Lab D-301\",\n    \"building\": \"Bâtiment D\",\n    \"numberOfPCs\": 20,\n    \"seatingCapacity\": 25\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/Laboratories",
+							"host": ["{{baseUrl}}"],
+							"path": ["Laboratories"]
+						},
+						"description": "Crée un nouveau laboratoire. Retourne 201 Created."
+					}
+				},
+				{
+					"name": "2.7 PUT - Modifier un labo",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Lab D-301 - Multimédia\",\n    \"building\": \"Bâtiment D\",\n    \"numberOfPCs\": 22,\n    \"seatingCapacity\": 28\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/Laboratories/4",
+							"host": ["{{baseUrl}}"],
+							"path": ["Laboratories", "4"]
+						},
+						"description": "Modifie un laboratoire existant. Retourne 204 No Content."
+					}
+				},
+				{
+					"name": "2.8 DELETE - Supprimer un labo",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/Laboratories/4",
+							"host": ["{{baseUrl}}"],
+							"path": ["Laboratories", "4"]
+						},
+						"description": "Supprime un laboratoire et tous ses postes de travail. Retourne 204 No Content."
+					}
+				}
+			]
+		},
+		{
+			"name": "3. Workstations",
+			"item": [
+				{
+					"name": "3.1 POST - Ajouter postes Windows",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"operatingSystemId\": 1,\n    \"count\": 12\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/Laboratories/4/workstations",
+							"host": ["{{baseUrl}}"],
+							"path": ["Laboratories", "4", "workstations"]
+						},
+						"description": "Ajoute des postes de travail Windows 11 (ID=1) au laboratoire."
+					}
+				},
+				{
+					"name": "3.2 POST - Ajouter postes Ubuntu",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"operatingSystemId\": 3,\n    \"count\": 10\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/Laboratories/4/workstations",
+							"host": ["{{baseUrl}}"],
+							"path": ["Laboratories", "4", "workstations"]
+						},
+						"description": "Ajoute des postes de travail Ubuntu (ID=3) au laboratoire."
+					}
+				},
+				{
+					"name": "3.3 POST - Incrémenter postes existants",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"operatingSystemId\": 1,\n    \"count\": 5\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/Laboratories/4/workstations",
+							"host": ["{{baseUrl}}"],
+							"path": ["Laboratories", "4", "workstations"]
+						},
+						"description": "Si l'OS existe déjà, le compteur est incrémenté automatiquement."
+					}
+				},
+				{
+					"name": "3.4 DELETE - Retirer un OS du labo",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/Laboratories/4/workstations/3",
+							"host": ["{{baseUrl}}"],
+							"path": ["Laboratories", "4", "workstations", "3"]
+						},
+						"description": "Retire tous les postes d'un OS spécifique du laboratoire."
+					}
+				}
+			]
+		},
+		{
+			"name": "4. Gestion des erreurs",
+			"item": [
+				{
+					"name": "4.1 GET - Labo inexistant (404)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/Laboratories/999",
+							"host": ["{{baseUrl}}"],
+							"path": ["Laboratories", "999"]
+						},
+						"description": "Démontre la gestion de l'erreur 404 Not Found."
+					}
+				},
+				{
+					"name": "4.2 POST - OS invalide (400)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"operatingSystemId\": 999,\n    \"count\": 5\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/Laboratories/1/workstations",
+							"host": ["{{baseUrl}}"],
+							"path": ["Laboratories", "1", "workstations"]
+						},
+						"description": "Démontre la validation: erreur 400 si l'OS n'existe pas."
+					}
+				}
+			]
+		},
+		{
+			"name": "5. Documentation",
+			"item": [
+				{
+					"name": "5.1 GET - OpenAPI Spec",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:5290/openapi/v1.json",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "5290",
+							"path": ["openapi", "v1.json"]
+						},
+						"description": "Récupère la spécification OpenAPI de l'API."
+					}
+				}
+			]
+		}
+	]
+}

@@ -208,7 +208,7 @@ public class LaboratoriesControllerTests : IClassFixture<CustomWebApplicationFac
         var os = await osResponse.Content.ReadFromJsonAsync<dynamic>();
         int osId = (int)os!.GetProperty("id").GetInt32();
 
-        var wsRequest = new AddWorkstationRequest(osId, 10);
+        var wsRequest = new AddWorkstationRequest("WS-01", osId);
         var response = await _client.PostAsJsonAsync($"{BaseUrl}/{lab!.Id}/workstations", wsRequest);
 
         response.StatusCode.Should().BeOneOf(HttpStatusCode.Created, HttpStatusCode.OK);
@@ -217,7 +217,7 @@ public class LaboratoriesControllerTests : IClassFixture<CustomWebApplicationFac
     [Fact]
     public async Task AddWorkstation_ToNonExistingLab_ReturnsNotFound()
     {
-        var wsRequest = new AddWorkstationRequest(1, 10);
+        var wsRequest = new AddWorkstationRequest("WS-Test", 1);
         var response = await _client.PostAsJsonAsync($"{BaseUrl}/99999/workstations", wsRequest);
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
@@ -230,31 +230,33 @@ public class LaboratoriesControllerTests : IClassFixture<CustomWebApplicationFac
         var labResponse = await _client.PostAsJsonAsync(BaseUrl, labRequest);
         var lab = await labResponse.Content.ReadFromJsonAsync<LaboratoryResponse>();
 
-        var wsRequest = new AddWorkstationRequest(99999, 10);
+        var wsRequest = new AddWorkstationRequest("WS-Invalid", 99999);
         var response = await _client.PostAsJsonAsync($"{BaseUrl}/{lab!.Id}/workstations", wsRequest);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     [Fact]
-    public async Task AddWorkstation_ExistingOS_IncreasesCount()
+    public async Task AddWorkstation_MultipleWorkstations_ReturnsCreated()
     {
-        var labRequest = new CreateLaboratoryRequest("Lab Existing WS", "Building EWS", 30, 35);
+        var labRequest = new CreateLaboratoryRequest("Lab Multi WS", "Building MWS", 30, 35);
         var labResponse = await _client.PostAsJsonAsync(BaseUrl, labRequest);
         var lab = await labResponse.Content.ReadFromJsonAsync<LaboratoryResponse>();
 
         var osResponse = await _client.PostAsJsonAsync("/api/v1/OperatingSystems", 
-            new { Name = "Windows 10 EWS", Version = "22H2" });
+            new { Name = "Windows 10 MWS", Version = "22H2" });
         var os = await osResponse.Content.ReadFromJsonAsync<dynamic>();
         int osId = (int)os!.GetProperty("id").GetInt32();
 
-        var wsRequest = new AddWorkstationRequest(osId, 5);
-        await _client.PostAsJsonAsync($"{BaseUrl}/{lab!.Id}/workstations", wsRequest);
-        var response = await _client.PostAsJsonAsync($"{BaseUrl}/{lab.Id}/workstations", wsRequest);
+        var wsRequest1 = new AddWorkstationRequest("WS-01", osId);
+        await _client.PostAsJsonAsync($"{BaseUrl}/{lab!.Id}/workstations", wsRequest1);
+        
+        var wsRequest2 = new AddWorkstationRequest("WS-02", osId);
+        var response = await _client.PostAsJsonAsync($"{BaseUrl}/{lab.Id}/workstations", wsRequest2);
 
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.StatusCode.Should().BeOneOf(HttpStatusCode.Created, HttpStatusCode.OK);
         var ws = await response.Content.ReadFromJsonAsync<WorkstationResponse>();
-        ws!.Count.Should().Be(10); // 5 + 5
+        ws!.Name.Should().Be("WS-02");
     }
 
     [Fact]
@@ -270,11 +272,11 @@ public class LaboratoriesControllerTests : IClassFixture<CustomWebApplicationFac
         int osId = (int)os!.GetProperty("id").GetInt32();
 
 
-        var wsRequest = new AddWorkstationRequest(osId, 5);
-        await _client.PostAsJsonAsync($"{BaseUrl}/{lab!.Id}/workstations", wsRequest);
+        var wsRequest = new AddWorkstationRequest("WS-ToRemove", osId);
+        var wsResponse = await _client.PostAsJsonAsync($"{BaseUrl}/{lab!.Id}/workstations", wsRequest);
+        var ws = await wsResponse.Content.ReadFromJsonAsync<WorkstationResponse>();
 
-
-        var response = await _client.DeleteAsync($"{BaseUrl}/{lab.Id}/workstations/{osId}");
+        var response = await _client.DeleteAsync($"{BaseUrl}/{lab.Id}/workstations/{ws!.Id}");
 
         response.StatusCode.Should().Be(HttpStatusCode.NoContent);
     }

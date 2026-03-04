@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SessionPlanner.Core.Entities;
+using SessionPlanner.Core.Entities.Joins;
 
 namespace SessionPlanner.Infrastructure.Data;
 
@@ -16,4 +17,5 @@ public class AppDbContext : DbContext
     public DbSet<OS> OperatingSystems => Set<OS>();
     public DbSet<Workstation> Workstations => Set<Workstation>();
     public DbSet<Session> Sessions => Set<Session>();
+    
 }

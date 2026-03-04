@@ -7,10 +7,10 @@ public static class WorkstationMappings
 {
     public static WorkstationResponse ToResponse(this Workstation workstation)
         => new(
-            workstation.Id,
-            workstation.LaboratoryId,
-            workstation.OperatingSystemId,
-            workstation.OperatingSystem.Name,
-            workstation.Count
+        workstation.Id,
+        workstation.Name,
+        workstation.LaboratoryId,
+        workstation.OSId,
+        workstation.OS.Name
         );
 }
