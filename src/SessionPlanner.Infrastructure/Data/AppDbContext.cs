@@ -25,10 +25,21 @@ public class AppDbContext : DbContext
     public DbSet<SaaSProduct> SaaSProducts => Set<SaaSProduct>();
     public DbSet<EquipmentModel> EquipmentModels => Set<EquipmentModel>();
     public DbSet<Personnel> Personnel => Set<Personnel>();
+    public DbSet<User> Users => Set<User>();
+    public DbSet<Permission> Permissions => Set<Permission>();
+    public DbSet<UserPermission> UserPermissions => Set<UserPermission>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<User>()
+            .HasIndex(x => x.Username)
+            .IsUnique();
+
+        modelBuilder.Entity<Permission>()
+            .HasIndex(x => x.Name)
+            .IsUnique();
 
         // Configure composite keys for join entities
         modelBuilder.Entity<CourseSoftware>()
@@ -78,5 +89,7 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<ConfigurationOS>()
             .HasKey(co => new { co.ConfigurationId, co.OSId });
+        modelBuilder.Entity<UserPermission>()
+            .HasKey(x => new { x.UserId, x.PermissionId });  
     }
 }
