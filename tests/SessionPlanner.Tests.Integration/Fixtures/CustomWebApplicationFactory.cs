@@ -1,46 +1,70 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using SessionPlanner.Infrastructure.Data;
+using SessionPlanner.Tests.Integration;
+using Microsoft.AspNetCore.Authentication;
 
 namespace SessionPlanner.Tests.Integration.Fixtures;
 
-/// <summary>
-/// Custom WebApplicationFactory that replaces the SQLite database with an in-memory database for testing.
-/// This is to make sure that the tests are isolated and don't affect the real database.
-/// </summary>
 public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 {
-    private readonly string _databaseName = "TestDb_" + Guid.NewGuid().ToString();
+    private SqliteConnection? _connection;
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.ConfigureServices(services =>
         {
-            // Remove all the DbContext-related registrations to avoid provider conflicts
             services.RemoveAll<DbContextOptions<AppDbContext>>();
             services.RemoveAll<DbContextOptions>();
             services.RemoveAll<AppDbContext>();
-            
-            // Also remove any IDbContextOptionsConfiguration
-            var dbContextOptionsDescriptor = services
+
+            var dbContextDescriptors = services
                 .Where(d => d.ServiceType.FullName?.Contains("DbContext") == true)
                 .ToList();
-            
-            foreach (var descriptor in dbContextOptionsDescriptor)
+
+            foreach (var descriptor in dbContextDescriptors)
             {
                 services.Remove(descriptor);
             }
 
-            // Add an in-memory database for testing - use same name for this factory instance
+            _connection = new SqliteConnection("Data Source=:memory:");
+            _connection.Open();
+
             services.AddDbContext<AppDbContext>(options =>
             {
-                options.UseInMemoryDatabase(_databaseName);
+                options.UseSqlite(_connection);
             });
+
+            services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = TestAuthHandler.SchemeName;
+                options.DefaultChallengeScheme = TestAuthHandler.SchemeName;
+            })
+            .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(
+                TestAuthHandler.SchemeName,
+                _ => { });
+
+            var serviceProvider = services.BuildServiceProvider();
+
+            using var scope = serviceProvider.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            db.Database.EnsureCreated();
         });
 
         builder.UseEnvironment("Testing");
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            _connection?.Dispose();
+        }
+
+        base.Dispose(disposing);
     }
 }

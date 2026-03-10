@@ -56,7 +56,22 @@ builder.Services.AddControllers();
 
 var app = builder.Build();
 
-await InitializeData.InitializeAsync(app.Services);
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    var db = services.GetRequiredService<AppDbContext>();
+
+    if (app.Environment.IsEnvironment("Testing"))
+    {
+        await db.Database.EnsureCreatedAsync();
+    }
+    else
+    {
+        await db.Database.MigrateAsync();
+    }
+
+    await InitializeData.InitializeAsync(services);
+}
 
 if (app.Environment.IsDevelopment())
 {

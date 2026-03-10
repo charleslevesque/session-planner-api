@@ -12,7 +12,6 @@ namespace SessionPlanner.Api.Controllers;
 [ApiController]
 [Route("api/v{version:apiVersion}/[controller]")]
 [ApiVersion("1.0")]
-[Authorize]
 public class SessionsController : ControllerBase
 {
     private readonly AppDbContext _db;
@@ -34,7 +33,6 @@ public class SessionsController : ControllerBase
     }
 
     [HttpGet]
-    [HasPermission(Permissions.Sessions.Read)]
     public async Task<ActionResult<IEnumerable<Session>>> GetAll()
     {
         return await _db.Sessions.ToListAsync();

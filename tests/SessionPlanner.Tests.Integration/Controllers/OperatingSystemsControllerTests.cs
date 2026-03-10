@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using FluentAssertions;
 using SessionPlanner.Api.Dtos.OperatingSystems;
 using SessionPlanner.Tests.Integration.Fixtures;
+using System.Net.Http.Headers;
 
 namespace SessionPlanner.Tests.Integration.Controllers;
 
@@ -14,6 +15,8 @@ public class OperatingSystemsControllerTests : IClassFixture<CustomWebApplicatio
     public OperatingSystemsControllerTests(CustomWebApplicationFactory factory)
     {
         _client = factory.CreateClient();
+        _client.DefaultRequestHeaders.Authorization =
+        new AuthenticationHeaderValue("Test");
     }
 
     #region GET Tests

@@ -15,9 +15,7 @@ public static class InitializeData
 
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var passwordService = scope.ServiceProvider.GetRequiredService<IPasswordService>();
-
-        await db.Database.MigrateAsync();
-
+        
         await SeedPermissionsAsync(db);
         await SeedAdminUserAsync(db, passwordService);
     }
