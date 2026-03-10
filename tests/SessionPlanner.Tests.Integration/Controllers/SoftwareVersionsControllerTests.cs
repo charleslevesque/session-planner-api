@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using FluentAssertions;
 using SessionPlanner.Api.Dtos.Softwares;
 using SessionPlanner.Api.Dtos.SoftwareVersions;
+using SessionPlanner.Api.Dtos.OperatingSystems;
 using SessionPlanner.Tests.Integration.Fixtures;
 
 namespace SessionPlanner.Tests.Integration.Controllers;
@@ -25,6 +26,14 @@ public class SoftwareVersionsControllerTests : IClassFixture<CustomWebApplicatio
         return software!.Id;
     }
 
+    private async Task<int> CreateOperatingSystemAsync(string name = "Test OS")
+    {
+        var request = new CreateOSRequest(name);
+        var response = await _client.PostAsJsonAsync("/api/v1/OperatingSystems", request);
+        var os = await response.Content.ReadFromJsonAsync<OSResponse>();
+        return os!.Id;
+    }
+
     #region GET Tests
 
     [Fact]
@@ -41,7 +50,8 @@ public class SoftwareVersionsControllerTests : IClassFixture<CustomWebApplicatio
     public async Task GetAll_AfterCreate_ReturnsVersions()
     {
         var softwareId = await CreateSoftwareAsync("Software for GetAll");
-        var request = new CreateSoftwareVersionRequest(softwareId, 0, "1.0.0", null, null);
+        var osId = await CreateOperatingSystemAsync();
+        var request = new CreateSoftwareVersionRequest(softwareId, osId, "1.0.0", null, null);
         await _client.PostAsJsonAsync(BaseUrl, request);
 
         var response = await _client.GetAsync(BaseUrl);
@@ -56,7 +66,8 @@ public class SoftwareVersionsControllerTests : IClassFixture<CustomWebApplicatio
     public async Task GetBySoftwareId_ReturnsFilteredVersions()
     {
         var softwareId = await CreateSoftwareAsync("Software for Filter");
-        var request = new CreateSoftwareVersionRequest(softwareId, 0, "2.0.0", null, null);
+        var osId = await CreateOperatingSystemAsync();
+        var request = new CreateSoftwareVersionRequest(softwareId, osId, "2.0.0", null, null);
         await _client.PostAsJsonAsync(BaseUrl, request);
 
         var response = await _client.GetAsync($"/api/v1/softwares/{softwareId}/SoftwareVersions");
@@ -75,7 +86,8 @@ public class SoftwareVersionsControllerTests : IClassFixture<CustomWebApplicatio
     public async Task Create_WithValidData_ReturnsCreatedVersion()
     {
         var softwareId = await CreateSoftwareAsync("Software for Create");
-        var request = new CreateSoftwareVersionRequest(softwareId, 0, "3.0.0", "Install via MSI", "Initial release");
+        var osId = await CreateOperatingSystemAsync();
+        var request = new CreateSoftwareVersionRequest(softwareId, osId, "3.0.0", "Install via MSI", "Initial release");
 
         var response = await _client.PostAsJsonAsync(BaseUrl, request);
 
@@ -90,7 +102,8 @@ public class SoftwareVersionsControllerTests : IClassFixture<CustomWebApplicatio
     [Fact]
     public async Task Create_WithInvalidSoftwareId_ReturnsBadRequest()
     {
-        var request = new CreateSoftwareVersionRequest(99999, 0, "1.0.0", null, null);
+        var osId = await CreateOperatingSystemAsync();
+        var request = new CreateSoftwareVersionRequest(99999, osId, "1.0.0", null, null);
 
         var response = await _client.PostAsJsonAsync(BaseUrl, request);
 
@@ -105,7 +118,8 @@ public class SoftwareVersionsControllerTests : IClassFixture<CustomWebApplicatio
     public async Task Create_WithVariousVersionNumbers_Succeeds(string versionNumber)
     {
         var softwareId = await CreateSoftwareAsync($"Software for {versionNumber}");
-        var request = new CreateSoftwareVersionRequest(softwareId, 0, versionNumber, null, null);
+        var osId = await CreateOperatingSystemAsync();
+        var request = new CreateSoftwareVersionRequest(softwareId, osId, versionNumber, null, null);
 
         var response = await _client.PostAsJsonAsync(BaseUrl, request);
 
@@ -122,11 +136,12 @@ public class SoftwareVersionsControllerTests : IClassFixture<CustomWebApplicatio
     public async Task Update_WithValidData_ReturnsNoContent()
     {
         var softwareId = await CreateSoftwareAsync("Software for Update");
-        var createRequest = new CreateSoftwareVersionRequest(softwareId, 0, "1.0.0", "Old details", "Old notes");
+        var osId = await CreateOperatingSystemAsync();
+        var createRequest = new CreateSoftwareVersionRequest(softwareId, osId, "1.0.0", "Old details", "Old notes");
         var createResponse = await _client.PostAsJsonAsync(BaseUrl, createRequest);
         var created = await createResponse.Content.ReadFromJsonAsync<SoftwareVersionResponse>();
 
-        var updateRequest = new UpdateSoftwareVersionRequest(0, "2.0.0", "New installation", "Updated notes");
+        var updateRequest = new UpdateSoftwareVersionRequest(osId, "2.0.0", "New installation", "Updated notes");
 
         var response = await _client.PutAsJsonAsync($"{BaseUrl}/{created!.Id}", updateRequest);
 
@@ -140,7 +155,8 @@ public class SoftwareVersionsControllerTests : IClassFixture<CustomWebApplicatio
     [Fact]
     public async Task Update_WhenNotExists_ReturnsNotFound()
     {
-        var updateRequest = new UpdateSoftwareVersionRequest(0, "1.0.0", null, null);
+        var osId = await CreateOperatingSystemAsync();
+        var updateRequest = new UpdateSoftwareVersionRequest(osId, "1.0.0", null, null);
 
         var response = await _client.PutAsJsonAsync($"{BaseUrl}/99999", updateRequest);
 
@@ -156,7 +172,8 @@ public class SoftwareVersionsControllerTests : IClassFixture<CustomWebApplicatio
     {
         // Arrange - Create a version first
         var softwareId = await CreateSoftwareAsync("Software for Delete");
-        var createRequest = new CreateSoftwareVersionRequest(softwareId, 0, "1.0.0", null, null);
+        var osId = await CreateOperatingSystemAsync();
+        var createRequest = new CreateSoftwareVersionRequest(softwareId, osId, "1.0.0", null, null);
         var createResponse = await _client.PostAsJsonAsync(BaseUrl, createRequest);
         var created = await createResponse.Content.ReadFromJsonAsync<SoftwareVersionResponse>();
 

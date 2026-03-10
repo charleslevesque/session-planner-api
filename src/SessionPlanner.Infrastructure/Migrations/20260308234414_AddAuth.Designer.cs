@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SessionPlanner.Infrastructure.Data;
 
@@ -10,9 +11,11 @@ using SessionPlanner.Infrastructure.Data;
 namespace SessionPlanner.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260308234414_AddAuth")]
+    partial class AddAuth
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.3");
@@ -272,21 +275,6 @@ namespace SessionPlanner.Infrastructure.Migrations
                     b.ToTable("SoftwareOS");
                 });
 
-            modelBuilder.Entity("SessionPlanner.Core.Entities.Joins.UserPermission", b =>
-                {
-                    b.Property<int>("UserId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("PermissionId")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("UserId", "PermissionId");
-
-                    b.HasIndex("PermissionId");
-
-                    b.ToTable("UserPermissions");
-                });
-
             modelBuilder.Entity("SessionPlanner.Core.Entities.Joins.VirtualMachineConfiguration", b =>
                 {
                     b.Property<int>("VirtualMachineId")
@@ -370,25 +358,6 @@ namespace SessionPlanner.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("OperatingSystems");
-                });
-
-            modelBuilder.Entity("SessionPlanner.Core.Entities.Permission", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Name")
-                        .IsUnique();
-
-                    b.ToTable("Permissions");
                 });
 
             modelBuilder.Entity("SessionPlanner.Core.Entities.Personnel", b =>
@@ -539,32 +508,6 @@ namespace SessionPlanner.Infrastructure.Migrations
                     b.HasIndex("SoftwareId");
 
                     b.ToTable("SoftwareVersions");
-                });
-
-            modelBuilder.Entity("SessionPlanner.Core.Entities.User", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("PasswordHash")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Username")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Username")
-                        .IsUnique();
-
-                    b.ToTable("Users");
                 });
 
             modelBuilder.Entity("SessionPlanner.Core.Entities.VirtualMachine", b =>
@@ -879,25 +822,6 @@ namespace SessionPlanner.Infrastructure.Migrations
                     b.Navigation("Software");
                 });
 
-            modelBuilder.Entity("SessionPlanner.Core.Entities.Joins.UserPermission", b =>
-                {
-                    b.HasOne("SessionPlanner.Core.Entities.Permission", "Permission")
-                        .WithMany("UserPermissions")
-                        .HasForeignKey("PermissionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("SessionPlanner.Core.Entities.User", "User")
-                        .WithMany("UserPermissions")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Permission");
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("SessionPlanner.Core.Entities.Joins.VirtualMachineConfiguration", b =>
                 {
                     b.HasOne("SessionPlanner.Core.Entities.Configuration", "Configuration")
@@ -1082,11 +1006,6 @@ namespace SessionPlanner.Infrastructure.Migrations
                     b.Navigation("Workstations");
                 });
 
-            modelBuilder.Entity("SessionPlanner.Core.Entities.Permission", b =>
-                {
-                    b.Navigation("UserPermissions");
-                });
-
             modelBuilder.Entity("SessionPlanner.Core.Entities.Personnel", b =>
                 {
                     b.Navigation("CoursePersonnels");
@@ -1121,11 +1040,6 @@ namespace SessionPlanner.Infrastructure.Migrations
                     b.Navigation("VirtualMachineSoftwares");
 
                     b.Navigation("WorkstationSoftwares");
-                });
-
-            modelBuilder.Entity("SessionPlanner.Core.Entities.User", b =>
-                {
-                    b.Navigation("UserPermissions");
                 });
 
             modelBuilder.Entity("SessionPlanner.Core.Entities.VirtualMachine", b =>

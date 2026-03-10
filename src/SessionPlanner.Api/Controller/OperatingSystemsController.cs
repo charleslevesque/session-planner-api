@@ -2,15 +2,19 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SessionPlanner.Core.Entities;
 using SessionPlanner.Infrastructure.Data;
+using SessionPlanner.Core.Auth;
+using SessionPlanner.Api.Auth;
 using SessionPlanner.Api.Dtos.OperatingSystems;
 using SessionPlanner.Api.Mappings;
 using Asp.Versioning;
+using Microsoft.AspNetCore.Authorization;
 
 namespace SessionPlanner.Api.Controllers;
 
 [ApiController]
 [Route("api/v{version:apiVersion}/[controller]")]
 [ApiVersion("1.0")]
+[Authorize]
 public class OperatingSystemsController : ControllerBase
 {
     private readonly AppDbContext _db;
@@ -21,6 +25,7 @@ public class OperatingSystemsController : ControllerBase
     }
 
     [HttpGet]
+    [HasPermission(Permissions.OperatingSystems.Read)]
     public async Task<ActionResult<IEnumerable<OSResponse>>> GetAll()
     {
         var osList = await _db.OperatingSystems.Include(s => s.SoftwareVersions).ToListAsync();

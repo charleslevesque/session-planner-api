@@ -2,7 +2,10 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SessionPlanner.Core.Entities;
 using SessionPlanner.Infrastructure.Data;
+using SessionPlanner.Core.Auth;
+using SessionPlanner.Api.Auth;
 using Asp.Versioning;
+using Microsoft.AspNetCore.Authorization;
 
 namespace SessionPlanner.Api.Controllers;
 
