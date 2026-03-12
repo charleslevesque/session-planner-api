@@ -30,10 +30,19 @@ public class AppDbContext : DbContext
     public DbSet<UserPermission> UserPermissions => Set<UserPermission>();
     public DbSet<TeachingNeed> TeachingNeeds => Set<TeachingNeed>();
     public DbSet<TeachingNeedItem> TeachingNeedItems => Set<TeachingNeedItem>();
+    public DbSet<Role> Roles => Set<Role>();
+    public DbSet<UserRole> UserRoles => Set<UserRole>();
+    public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<User>()
+            .HasOne(u => u.Personnel)
+            .WithOne(p => p.User)
+            .HasForeignKey<User>(u => u.PersonnelId)
+            .OnDelete(DeleteBehavior.SetNull);
 
         modelBuilder.Entity<User>()
             .HasIndex(x => x.Username)
@@ -93,5 +102,30 @@ public class AppDbContext : DbContext
             .HasKey(co => new { co.ConfigurationId, co.OSId });
         modelBuilder.Entity<UserPermission>()
             .HasKey(x => new { x.UserId, x.PermissionId });  
+        
+        modelBuilder.Entity<UserRole>()
+            .HasKey(x => new { x.UserId, x.RoleId });
+
+        modelBuilder.Entity<UserRole>()
+            .HasOne(x => x.User)
+            .WithMany(x => x.UserRoles)
+            .HasForeignKey(x => x.UserId);
+
+        modelBuilder.Entity<UserRole>()
+            .HasOne(x => x.Role)
+            .WithMany(x => x.UserRoles)
+            .HasForeignKey(x => x.RoleId);
+
+        modelBuilder.Entity<RolePermission>()
+            .HasKey(x => new { x.RoleId, x.Permission });
+
+        modelBuilder.Entity<RolePermission>()
+            .HasOne(x => x.Role)
+            .WithMany(x => x.RolePermissions)
+            .HasForeignKey(x => x.RoleId);
+
+        modelBuilder.Entity<Role>()
+            .HasIndex(x => x.Name)
+            .IsUnique();  
     }
 }

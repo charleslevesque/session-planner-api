@@ -128,4 +128,13 @@ public static class Permissions
 
     }
 
+    public static class TeachingNeeds
+    {
+        public const string Read = "teachingneeds:read";
+        public const string Create = "teachingneeds:create";
+        public const string Update = "teachingneeds:update";
+        public const string Delete = "teachingneeds:delete";
+
+    }
+
 }

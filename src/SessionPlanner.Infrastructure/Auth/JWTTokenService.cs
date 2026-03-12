@@ -18,10 +18,10 @@ public class JWTTokenService : IJWTTokenService
         _configuration = configuration;
     }
 
-    public LoginTokenResponse CreateToken(User user, IEnumerable<string> permissions)
+    public LoginTokenResponse CreateToken(User user, IEnumerable<string> roles, IEnumerable<string> permissions)
     {
         var key = _configuration["Jwt:Key"]
-            ?? throw new InvalidOperationException("Jwt:Key is missing.");
+        ?? throw new InvalidOperationException("Jwt:Key is missing.");
 
         var issuer = _configuration["Jwt:Issuer"]
             ?? throw new InvalidOperationException("Jwt:Issuer is missing.");
@@ -35,6 +35,8 @@ public class JWTTokenService : IJWTTokenService
         if (!int.TryParse(expiryMinutesValue, out var expiryMinutes))
             throw new InvalidOperationException("Jwt:ExpiryMinutes must be a valid integer.");
 
+        var expiresAt = DateTime.UtcNow.AddMinutes(expiryMinutes);
+
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
@@ -42,6 +44,11 @@ public class JWTTokenService : IJWTTokenService
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new(ClaimTypes.Name, user.Username)
         };
+
+        foreach (var role in roles.Distinct())
+        {
+            claims.Add(new Claim(ClaimTypes.Role, role));
+        }
 
         foreach (var permission in permissions.Distinct())
         {
@@ -55,10 +62,13 @@ public class JWTTokenService : IJWTTokenService
             issuer: issuer,
             audience: audience,
             claims: claims,
-            expires: DateTime.UtcNow.AddMinutes(expiryMinutes),
+            expires: expiresAt,
             signingCredentials: credentials
         );
 
-        return new LoginTokenResponse(new JwtSecurityTokenHandler().WriteToken(token), DateTime.UtcNow.AddMinutes(expiryMinutes));
+        return new LoginTokenResponse(
+            new JwtSecurityTokenHandler().WriteToken(token),
+            expiresAt
+        );
     } 
 }
