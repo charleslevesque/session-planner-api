@@ -6,12 +6,16 @@ using SessionPlanner.Api.Dtos.Laboratories;
 using SessionPlanner.Api.Dtos.Workstations;
 using SessionPlanner.Api.Mappings;
 using Asp.Versioning;
+using Microsoft.AspNetCore.Authorization;
+using SessionPlanner.Core.Auth;
+using SessionPlanner.Api.Auth;
 
 namespace SessionPlanner.Api.Controllers;
 
 [ApiController]
 [Route("api/v{version:apiVersion}/[controller]")]
 [ApiVersion("1.0")]
+[Authorize]
 public class LaboratoriesController : ControllerBase
 {
     private readonly AppDbContext _db;
