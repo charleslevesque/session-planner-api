@@ -28,6 +28,8 @@ public class AppDbContext : DbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<Permission> Permissions => Set<Permission>();
     public DbSet<UserPermission> UserPermissions => Set<UserPermission>();
+    public DbSet<TeachingNeed> TeachingNeeds => Set<TeachingNeed>();
+    public DbSet<TeachingNeedItem> TeachingNeedItems => Set<TeachingNeedItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

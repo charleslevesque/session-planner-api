@@ -15,5 +15,6 @@ public class Course
     public ICollection<CoursePhysicalServer> CoursePhysicalServers { get; set; } = new List<CoursePhysicalServer>();
     public ICollection<CourseSaaSProduct> CourseSaaSProducts { get; set; } = new List<CourseSaaSProduct>();
     public ICollection<CourseEquipmentModel> CourseEquipmentModels { get; set; } = new List<CourseEquipmentModel>();
-    public ICollection<CoursePersonnel> CoursePersonnels { get; set; } = new List<CoursePersonnel>();    
+    public ICollection<CoursePersonnel> CoursePersonnels { get; set; } = new List<CoursePersonnel>();
+    public ICollection<TeachingNeed> TeachingNeeds { get; set; } = new List<TeachingNeed>();    
 }
