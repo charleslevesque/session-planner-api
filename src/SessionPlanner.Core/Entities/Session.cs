@@ -6,4 +6,5 @@ public class Session
     public string Title {get; set;} = string.Empty;
     public DateTime Date {get; set;}
 
+    public ICollection<TeachingNeed> TeachingNeeds { get; set; } = new List<TeachingNeed>();
 }

@@ -17,4 +17,5 @@ public class Personnel
     public string Email { get; set; } = null!;  // UNIQUE
 
     public ICollection<CoursePersonnel> CoursePersonnels { get; set; } = new List<CoursePersonnel>();
+    public ICollection<TeachingNeed> TeachingNeeds { get; set; } = new List<TeachingNeed>();
 }
