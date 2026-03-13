@@ -4,5 +4,6 @@ namespace SessionPlanner.Core.Auth;
 
 public interface IJWTTokenService
 {
-    LoginTokenResponse CreateToken(User user, IEnumerable<string> roles, IEnumerable<string> permissions);
+    (string AccessToken, DateTime ExpiresAtUtc) CreateToken(User user, IEnumerable<string> roles, IEnumerable<string> permissions);
+
 }

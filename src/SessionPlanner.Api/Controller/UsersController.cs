@@ -9,13 +9,14 @@ using SessionPlanner.Core.Auth;
 using SessionPlanner.Api.Auth;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace SessionPlanner.Api.Controllers;
 
 [ApiController]
 [Route("api/v{version:apiVersion}/[controller]")]
 [ApiVersion("1.0")]
-[Authorize(Roles = Roles.Admin)]
+[Authorize]
 public class UsersController : ControllerBase
 {
     private readonly AppDbContext _db;
@@ -43,6 +44,25 @@ public class UsersController : ControllerBase
         return Ok(users.Select(u => u.ToResponse()));
     }
 
+    [HttpGet("me")]
+    public async Task<ActionResult<UserResponse>> Me()
+    {
+        var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (!int.TryParse(userIdValue, out var userId))
+            return Unauthorized();
+
+        var user = await _db.Users
+            .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
+            .FirstOrDefaultAsync(u => u.Id == userId);
+
+        if (user is null)
+            return NotFound();
+
+        return Ok(user.ToResponse());
+    }
+
     [HttpGet("{id:int}")]
     [HasPermission(Permissions.Users.Read)]
     public async Task<ActionResult<UserResponse>> GetById(int id)
@@ -66,11 +86,19 @@ public class UsersController : ControllerBase
         if (existingUser)
             return BadRequest("Username already exists.");
 
-        var role = await _db.Roles
-            .FirstOrDefaultAsync(r => r.Name == request.RoleName);
 
-        if (role is null)
-            return BadRequest($"Role '{request.RoleName}' does not exist.");
+        Role role;
+
+        if (!string.IsNullOrWhiteSpace(request.RoleName))
+        {
+            role = await _db.Roles
+                .FirstAsync(r => r.Name == request.RoleName);
+        }
+        else
+        {
+            role = await _db.Roles
+                .FirstAsync(r => r.Name == Roles.Teacher);
+        }
 
         var user = new User
         {
