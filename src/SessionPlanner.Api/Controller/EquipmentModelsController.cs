@@ -5,12 +5,16 @@ using SessionPlanner.Infrastructure.Data;
 using SessionPlanner.Api.Dtos.EquipmentModels;
 using SessionPlanner.Api.Mappings;
 using Asp.Versioning;
+using Microsoft.AspNetCore.Authorization;
+using SessionPlanner.Core.Auth;
+using SessionPlanner.Api.Auth;
 
 namespace SessionPlanner.Api.Controllers;
 
 [ApiController]
 [Route("api/v{version:apiVersion}/[controller]")]
 [ApiVersion("1.0")]
+[Authorize]
 public class EquipmentModelsController : ControllerBase
 {
     private readonly AppDbContext _db;

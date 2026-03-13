@@ -6,6 +6,7 @@ using SessionPlanner.Infrastructure.Data;
 using SessionPlanner.Api.Dtos.Login;
 using Microsoft.AspNetCore.Authorization;
 using Asp.Versioning;
+using SessionPlanner.Api.Auth;
 
 namespace SessionPlanner.Api.Controllers;
 
@@ -30,9 +31,10 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Login(LoginRequest request)
     {
         var user = await _db.Users
-            .Include(x => x.UserPermissions)
-                .ThenInclude(x => x.Permission)
-            .SingleOrDefaultAsync(x => x.Username == request.Username);
+        .Include(u => u.UserRoles)
+            .ThenInclude(ur => ur.Role)
+                .ThenInclude(r => r.RolePermissions)
+        .FirstOrDefaultAsync(u => u.Username == request.Username);
 
         if (user is null)
             return Unauthorized();
@@ -46,9 +48,18 @@ public class AuthController : ControllerBase
         if (!validPassword)
             return Unauthorized();
 
-        var permissions = user.UserPermissions.Select(x => x.Permission.Name);
+        var roles = user.UserRoles
+            .Select(x => x.Role.Name)
+            .Distinct()
+            .ToList();
 
-        var loginResponse = _jwtTokenService.CreateToken(user, permissions);
+        var permissions = user.UserRoles
+            .SelectMany(ur => ur.Role.RolePermissions)
+            .Select(rp => rp.Permission)
+            .Distinct()
+            .ToList();
+
+        var loginResponse = _jwtTokenService.CreateToken(user, roles, permissions);
 
         return Ok(loginResponse);
     }

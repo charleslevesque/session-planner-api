@@ -5,12 +5,16 @@ using SessionPlanner.Api.Dtos.Personnel;
 using SessionPlanner.Api.Mappings;
 using Asp.Versioning;
 using PersonnelEntity = SessionPlanner.Core.Entities.Personnel;
+using Microsoft.AspNetCore.Authorization;
+using SessionPlanner.Core.Auth;
+using SessionPlanner.Api.Auth;
 
 namespace SessionPlanner.Api.Controllers;
 
 [ApiController]
 [Route("api/v{version:apiVersion}/[controller]")]
 [ApiVersion("1.0")]
+[Authorize]
 public class PersonnelController : ControllerBase
 {
     private readonly AppDbContext _db;

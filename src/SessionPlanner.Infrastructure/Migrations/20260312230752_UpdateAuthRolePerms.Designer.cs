@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SessionPlanner.Infrastructure.Data;
 
@@ -10,9 +11,11 @@ using SessionPlanner.Infrastructure.Data;
 namespace SessionPlanner.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260312230752_UpdateAuthRolePerms")]
+    partial class UpdateAuthRolePerms
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.3");
@@ -686,18 +689,12 @@ namespace SessionPlanner.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<int?>("PersonnelId")
-                        .HasColumnType("INTEGER");
-
                     b.Property<string>("Username")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("PersonnelId")
-                        .IsUnique();
 
                     b.HasIndex("Username")
                         .IsUnique();
@@ -1215,16 +1212,6 @@ namespace SessionPlanner.Infrastructure.Migrations
                     b.Navigation("TeachingNeed");
                 });
 
-            modelBuilder.Entity("SessionPlanner.Core.Entities.User", b =>
-                {
-                    b.HasOne("SessionPlanner.Core.Entities.Personnel", "Personnel")
-                        .WithOne("User")
-                        .HasForeignKey("SessionPlanner.Core.Entities.User", "PersonnelId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("Personnel");
-                });
-
             modelBuilder.Entity("SessionPlanner.Core.Entities.VirtualMachine", b =>
                 {
                     b.HasOne("SessionPlanner.Core.Entities.PhysicalServer", "HostServer")
@@ -1334,8 +1321,6 @@ namespace SessionPlanner.Infrastructure.Migrations
                     b.Navigation("CoursePersonnels");
 
                     b.Navigation("TeachingNeeds");
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("SessionPlanner.Core.Entities.PhysicalServer", b =>

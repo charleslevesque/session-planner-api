@@ -14,6 +14,9 @@ public class User
 
     public bool IsActive { get; set; } = true;
 
-    public ICollection<UserPermission> UserPermissions { get; set; } = new List<UserPermission>();
+    public int? PersonnelId { get; set; }
+    public Personnel? Personnel { get; set; }
+
+    public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
     public ICollection<TeachingNeed> ReviewedTeachingNeeds { get; set; } = new List<TeachingNeed>();
 }
