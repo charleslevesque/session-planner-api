@@ -18,10 +18,13 @@ public class JWTTokenService : IJWTTokenService
         _configuration = configuration;
     }
 
-    public LoginTokenResponse CreateToken(User user, IEnumerable<string> roles, IEnumerable<string> permissions)
+    public (string AccessToken, DateTime ExpiresAtUtc) CreateToken(
+    User user,
+    IEnumerable<string> roles,
+    IEnumerable<string> permissions)
     {
         var key = _configuration["Jwt:Key"]
-        ?? throw new InvalidOperationException("Jwt:Key is missing.");
+            ?? throw new InvalidOperationException("Jwt:Key is missing.");
 
         var issuer = _configuration["Jwt:Issuer"]
             ?? throw new InvalidOperationException("Jwt:Issuer is missing.");
@@ -66,9 +69,6 @@ public class JWTTokenService : IJWTTokenService
             signingCredentials: credentials
         );
 
-        return new LoginTokenResponse(
-            new JwtSecurityTokenHandler().WriteToken(token),
-            expiresAt
-        );
-    } 
+        return (new JwtSecurityTokenHandler().WriteToken(token), expiresAt);
+}
 }
