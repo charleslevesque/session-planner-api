@@ -6,7 +6,7 @@ public interface ISessionService
 {
     Task<List<Session>> GetAllAsync(bool? activeOnly);
     Task<Session?> GetByIdAsync(int id);
-    Task<Session> CreateAsync(string title, DateTime startDate, DateTime endDate);
+    Task<Session> CreateAsync(string title, DateTime startDate, DateTime endDate, int? createdByUserId = null);
     Task<Session?> UpdateAsync(int id, string title, DateTime startDate, DateTime endDate);
     Task<bool> DeleteAsync(int id);
     Task<Session?> OpenAsync(int id);

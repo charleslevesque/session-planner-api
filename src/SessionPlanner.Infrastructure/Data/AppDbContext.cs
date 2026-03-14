@@ -45,6 +45,12 @@ public class AppDbContext : DbContext
             .HasForeignKey<User>(u => u.PersonnelId)
             .OnDelete(DeleteBehavior.SetNull);
 
+        modelBuilder.Entity<Session>()
+            .HasOne(s => s.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(s => s.CreatedByUserId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         modelBuilder.Entity<User>()
             .HasIndex(x => x.Username)
             .IsUnique();

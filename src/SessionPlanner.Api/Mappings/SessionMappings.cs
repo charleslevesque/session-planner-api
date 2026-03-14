@@ -13,7 +13,11 @@ public static class SessionMappings
             session.Status,
             session.StartDate,
             session.EndDate,
-            session.CreatedAt
+            session.CreatedAt,
+            session.OpenedAt,
+            session.ClosedAt,
+            session.ArchivedAt,
+            session.CreatedByUserId
         );
     }
 }

@@ -8,5 +8,9 @@ public record SessionResponse(
     SessionStatus Status,
     DateTime StartDate,
     DateTime EndDate,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    DateTime? OpenedAt,
+    DateTime? ClosedAt,
+    DateTime? ArchivedAt,
+    int? CreatedByUserId
 );

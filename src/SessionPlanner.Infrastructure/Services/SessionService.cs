@@ -30,15 +30,14 @@ public class SessionService : ISessionService
         return await _db.Sessions.FindAsync(id);
     }
 
-    public async Task<Session> CreateAsync(string title, DateTime startDate, DateTime endDate)
+    public async Task<Session> CreateAsync(string title, DateTime startDate, DateTime endDate, int? createdByUserId = null)
     {
         var session = new Session
         {
             Title = title,
-            Status = SessionStatus.Draft,
             StartDate = startDate,
             EndDate = endDate,
-            CreatedAt = DateTime.UtcNow
+            CreatedByUserId = createdByUserId
         };
 
         _db.Sessions.Add(session);
@@ -75,31 +74,25 @@ public class SessionService : ISessionService
 
     public async Task<Session?> OpenAsync(int id)
     {
-        return await TransitionAsync(id, SessionStatus.Draft, SessionStatus.Open,
-            "Only draft sessions can be opened.");
+        return await TransitionAsync(id, SessionStatus.Open);
     }
 
     public async Task<Session?> CloseAsync(int id)
     {
-        return await TransitionAsync(id, SessionStatus.Open, SessionStatus.Closed,
-            "Only open sessions can be closed.");
+        return await TransitionAsync(id, SessionStatus.Closed);
     }
 
     public async Task<Session?> ArchiveAsync(int id)
     {
-        return await TransitionAsync(id, SessionStatus.Closed, SessionStatus.Archived,
-            "Only closed sessions can be archived.");
+        return await TransitionAsync(id, SessionStatus.Archived);
     }
 
-    private async Task<Session?> TransitionAsync(int id, SessionStatus from, SessionStatus to, string errorMessage)
+    private async Task<Session?> TransitionAsync(int id, SessionStatus target)
     {
         var session = await _db.Sessions.FindAsync(id);
         if (session is null) return null;
 
-        if (session.Status != from)
-            throw new InvalidOperationException(errorMessage);
-
-        session.Status = to;
+        session.TransitionTo(target);
         await _db.SaveChangesAsync();
         return session;
     }

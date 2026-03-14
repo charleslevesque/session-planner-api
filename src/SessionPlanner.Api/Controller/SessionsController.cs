@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Asp.Versioning;
+using System.Security.Claims;
 using SessionPlanner.Core.Interfaces;
 using SessionPlanner.Core.Auth;
 using SessionPlanner.Api.Auth;
@@ -46,7 +47,8 @@ public class SessionsController : ControllerBase
         if (request.EndDate <= request.StartDate)
             return BadRequest(new { error = "EndDate must be after StartDate." });
 
-        var session = await _sessionService.CreateAsync(request.Title, request.StartDate, request.EndDate);
+        int? userId = int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var uid) ? uid : null;
+        var session = await _sessionService.CreateAsync(request.Title, request.StartDate, request.EndDate, userId);
         return CreatedAtAction(nameof(GetById), new { id = session.Id }, session.ToResponse());
     }
 
