@@ -119,7 +119,7 @@ public class SessionsControllerTests : IClassFixture<CustomWebApplicationFactory
     #region Transition Tests
 
     [Fact]
-    public async Task Open_DraftSession_ReturnsOpenSession()
+    public async Task Open_DraftSession_ReturnsOpenSessionWithTimestamp()
     {
         var create = new CreateSessionRequest("ToOpen", DateTime.UtcNow, DateTime.UtcNow.AddMonths(4));
         var createResponse = await _client.PostAsJsonAsync(BaseUrl, create);
@@ -130,6 +130,7 @@ public class SessionsControllerTests : IClassFixture<CustomWebApplicationFactory
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var session = await response.Content.ReadFromJsonAsync<SessionResponse>();
         session!.Status.Should().Be(Core.Enums.SessionStatus.Open);
+        session.OpenedAt.Should().NotBeNull();
     }
 
     [Fact]
@@ -145,6 +146,7 @@ public class SessionsControllerTests : IClassFixture<CustomWebApplicationFactory
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var session = await response.Content.ReadFromJsonAsync<SessionResponse>();
         session!.Status.Should().Be(Core.Enums.SessionStatus.Closed);
+        session.ClosedAt.Should().NotBeNull();
     }
 
     [Fact]
@@ -161,6 +163,7 @@ public class SessionsControllerTests : IClassFixture<CustomWebApplicationFactory
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var session = await response.Content.ReadFromJsonAsync<SessionResponse>();
         session!.Status.Should().Be(Core.Enums.SessionStatus.Archived);
+        session.ArchivedAt.Should().NotBeNull();
     }
 
     [Fact]
@@ -172,6 +175,43 @@ public class SessionsControllerTests : IClassFixture<CustomWebApplicationFactory
 
         await _client.PostAsync($"{BaseUrl}/{created!.Id}/open", null);
         var response = await _client.PostAsync($"{BaseUrl}/{created.Id}/open", null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Close_DraftSession_ReturnsBadRequest()
+    {
+        var create = new CreateSessionRequest("DraftClose", DateTime.UtcNow, DateTime.UtcNow.AddMonths(4));
+        var createResponse = await _client.PostAsJsonAsync(BaseUrl, create);
+        var created = await createResponse.Content.ReadFromJsonAsync<SessionResponse>();
+
+        var response = await _client.PostAsync($"{BaseUrl}/{created!.Id}/close", null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Archive_DraftSession_ReturnsBadRequest()
+    {
+        var create = new CreateSessionRequest("DraftArchive", DateTime.UtcNow, DateTime.UtcNow.AddMonths(4));
+        var createResponse = await _client.PostAsJsonAsync(BaseUrl, create);
+        var created = await createResponse.Content.ReadFromJsonAsync<SessionResponse>();
+
+        var response = await _client.PostAsync($"{BaseUrl}/{created!.Id}/archive", null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Archive_OpenSession_ReturnsBadRequest()
+    {
+        var create = new CreateSessionRequest("OpenArchive", DateTime.UtcNow, DateTime.UtcNow.AddMonths(4));
+        var createResponse = await _client.PostAsJsonAsync(BaseUrl, create);
+        var created = await createResponse.Content.ReadFromJsonAsync<SessionResponse>();
+
+        await _client.PostAsync($"{BaseUrl}/{created!.Id}/open", null);
+        var response = await _client.PostAsync($"{BaseUrl}/{created.Id}/archive", null);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
