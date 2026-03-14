@@ -12,10 +12,14 @@ public static class RolePermissionDefinitions
 
             [Roles.Planner] = new List<string>
             {
+                Permissions.Sessions.Read,
+                Permissions.Sessions.Create,
+                Permissions.Sessions.Update,
+                Permissions.Sessions.Delete,
                 Permissions.Courses.Read,
                 Permissions.Courses.Create,
                 Permissions.Courses.Update,
-                Permissions.Courses.Delete,  
+                Permissions.Courses.Delete,
             },
 
             [Roles.Technician] = new List<string>

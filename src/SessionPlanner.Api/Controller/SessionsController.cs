@@ -80,22 +80,40 @@ public class SessionsController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Transitions a Draft session to Open (starts the collection period).
+    /// </summary>
     [HttpPost("{id:int}/open")]
     [HasPermission(Permissions.Sessions.Update)]
+    [ProducesResponseType(typeof(SessionResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<SessionResponse>> Open(int id)
     {
         return await HandleTransition(() => _sessionService.OpenAsync(id));
     }
 
+    /// <summary>
+    /// Transitions an Open session to Closed (stops collection, ready for planning).
+    /// </summary>
     [HttpPost("{id:int}/close")]
     [HasPermission(Permissions.Sessions.Update)]
+    [ProducesResponseType(typeof(SessionResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<SessionResponse>> Close(int id)
     {
         return await HandleTransition(() => _sessionService.CloseAsync(id));
     }
 
+    /// <summary>
+    /// Transitions a Closed session to Archived (end of session lifecycle).
+    /// </summary>
     [HttpPost("{id:int}/archive")]
     [HasPermission(Permissions.Sessions.Update)]
+    [ProducesResponseType(typeof(SessionResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<SessionResponse>> Archive(int id)
     {
         return await HandleTransition(() => _sessionService.ArchiveAsync(id));
@@ -111,7 +129,7 @@ public class SessionsController : ControllerBase
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(new { error = ex.Message });
+            return Conflict(new { error = ex.Message });
         }
     }
 }
