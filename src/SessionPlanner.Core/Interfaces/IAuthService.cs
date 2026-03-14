@@ -1,0 +1,13 @@
+using SessionPlanner.Core.Auth;
+using SessionPlanner.Core.Entities;
+
+namespace SessionPlanner.Core.Interfaces;
+
+public interface IAuthService
+{
+    Task<LoginTokenResponse> RegisterAsync(string email, string password, string firstName, string lastName);
+    Task<LoginTokenResponse?> LoginAsync(string username, string password);
+    Task<User?> GetCurrentUserAsync(int userId);
+    Task<LoginTokenResponse?> RefreshTokenAsync(string refreshToken);
+    Task LogoutAsync(string refreshToken);
+}
