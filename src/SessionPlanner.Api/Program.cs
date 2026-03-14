@@ -4,8 +4,10 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using SessionPlanner.Core.Auth;
+using SessionPlanner.Core.Interfaces;
 using SessionPlanner.Infrastructure.Auth;
 using SessionPlanner.Infrastructure.Data;
+using SessionPlanner.Infrastructure.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,6 +26,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 builder.Services.AddScoped<IPasswordService, PasswordService>();
 builder.Services.AddScoped<IJWTTokenService, JWTTokenService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
