@@ -167,7 +167,7 @@ public class SessionsControllerTests : IClassFixture<CustomWebApplicationFactory
     }
 
     [Fact]
-    public async Task Open_AlreadyOpenSession_ReturnsBadRequest()
+    public async Task Open_AlreadyOpenSession_ReturnsConflict()
     {
         var create = new CreateSessionRequest("AlreadyOpen", DateTime.UtcNow, DateTime.UtcNow.AddMonths(4));
         var createResponse = await _client.PostAsJsonAsync(BaseUrl, create);
@@ -176,11 +176,11 @@ public class SessionsControllerTests : IClassFixture<CustomWebApplicationFactory
         await _client.PostAsync($"{BaseUrl}/{created!.Id}/open", null);
         var response = await _client.PostAsync($"{BaseUrl}/{created.Id}/open", null);
 
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
 
     [Fact]
-    public async Task Close_DraftSession_ReturnsBadRequest()
+    public async Task Close_DraftSession_ReturnsConflict()
     {
         var create = new CreateSessionRequest("DraftClose", DateTime.UtcNow, DateTime.UtcNow.AddMonths(4));
         var createResponse = await _client.PostAsJsonAsync(BaseUrl, create);
@@ -188,11 +188,11 @@ public class SessionsControllerTests : IClassFixture<CustomWebApplicationFactory
 
         var response = await _client.PostAsync($"{BaseUrl}/{created!.Id}/close", null);
 
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
 
     [Fact]
-    public async Task Archive_DraftSession_ReturnsBadRequest()
+    public async Task Archive_DraftSession_ReturnsConflict()
     {
         var create = new CreateSessionRequest("DraftArchive", DateTime.UtcNow, DateTime.UtcNow.AddMonths(4));
         var createResponse = await _client.PostAsJsonAsync(BaseUrl, create);
@@ -200,11 +200,11 @@ public class SessionsControllerTests : IClassFixture<CustomWebApplicationFactory
 
         var response = await _client.PostAsync($"{BaseUrl}/{created!.Id}/archive", null);
 
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
 
     [Fact]
-    public async Task Archive_OpenSession_ReturnsBadRequest()
+    public async Task Archive_OpenSession_ReturnsConflict()
     {
         var create = new CreateSessionRequest("OpenArchive", DateTime.UtcNow, DateTime.UtcNow.AddMonths(4));
         var createResponse = await _client.PostAsJsonAsync(BaseUrl, create);
@@ -213,7 +213,31 @@ public class SessionsControllerTests : IClassFixture<CustomWebApplicationFactory
         await _client.PostAsync($"{BaseUrl}/{created!.Id}/open", null);
         var response = await _client.PostAsync($"{BaseUrl}/{created.Id}/archive", null);
 
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task Open_NonExistentSession_ReturnsNotFound()
+    {
+        var response = await _client.PostAsync($"{BaseUrl}/99999/open", null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task Close_NonExistentSession_ReturnsNotFound()
+    {
+        var response = await _client.PostAsync($"{BaseUrl}/99999/close", null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task Archive_NonExistentSession_ReturnsNotFound()
+    {
+        var response = await _client.PostAsync($"{BaseUrl}/99999/archive", null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     #endregion
