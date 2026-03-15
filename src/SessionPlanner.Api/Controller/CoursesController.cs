@@ -1,13 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using SessionPlanner.Core.Entities;
-using SessionPlanner.Infrastructure.Data;
 using SessionPlanner.Api.Dtos.Courses;
 using SessionPlanner.Api.Mappings;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using SessionPlanner.Core.Auth;
 using SessionPlanner.Api.Auth;
+using SessionPlanner.Core.Interfaces;
 
 namespace SessionPlanner.Api.Controllers;
 
@@ -17,24 +15,17 @@ namespace SessionPlanner.Api.Controllers;
 [Authorize]
 public class CoursesController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly ICourseService _courseService;
 
-    public CoursesController(AppDbContext db)
+    public CoursesController(ICourseService courseService)
     {
-        _db = db;
+        _courseService = courseService;
     }
 
     [HttpPost]
     public async Task<ActionResult<CourseResponse>> Create(CreateCourseRequest request)
     {
-        var course = new Course
-        {
-            Code = request.Code,
-            Name = request.Name
-        };
-
-        _db.Courses.Add(course);
-        await _db.SaveChangesAsync();
+        var course = await _courseService.CreateAsync(request.Code, request.Name);
 
         return CreatedAtAction(
             nameof(GetById),
@@ -45,14 +36,14 @@ public class CoursesController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<CourseResponse>>> GetAll()
     {
-        var courses = await _db.Courses.ToListAsync();
+        var courses = await _courseService.GetAllAsync();
         return Ok(courses.Select(c => c.ToResponse()));
     }
 
     [HttpGet("{id}")]
     public async Task<ActionResult<CourseResponse>> GetById(int id)
     {
-        var course = await _db.Courses.FindAsync(id);
+        var course = await _courseService.GetByIdAsync(id);
         if (course is null)
             return NotFound();
         return Ok(course.ToResponse());
@@ -61,15 +52,10 @@ public class CoursesController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, UpdateCourseRequest request)
     {
-        var course = await _db.Courses.FindAsync(id);
+        var updated = await _courseService.UpdateAsync(id, request.Code, request.Name);
 
-        if (course is null)
+        if (!updated)
             return NotFound();
-
-        course.Code = request.Code;
-        course.Name = request.Name;
-
-        await _db.SaveChangesAsync();
 
         return NoContent();
     }
@@ -77,13 +63,10 @@ public class CoursesController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
-        var course = await _db.Courses.FindAsync(id);
+        var deleted = await _courseService.DeleteAsync(id);
 
-        if (course is null)
+        if (!deleted)
             return NotFound();
-
-        _db.Courses.Remove(course);
-        await _db.SaveChangesAsync();
 
         return NoContent();
     }

@@ -1,13 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using SessionPlanner.Core.Entities;
-using SessionPlanner.Infrastructure.Data;
 using SessionPlanner.Api.Dtos.PhysicalServers;
 using SessionPlanner.Api.Mappings;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using SessionPlanner.Core.Auth;
 using SessionPlanner.Api.Auth;
+using SessionPlanner.Core.Interfaces;
 
 namespace SessionPlanner.Api.Controllers;
 
@@ -17,40 +15,32 @@ namespace SessionPlanner.Api.Controllers;
 [Authorize]
 public class PhysicalServersController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly IPhysicalServerService _physicalServerService;
 
-    public PhysicalServersController(AppDbContext db)
+    public PhysicalServersController(IPhysicalServerService physicalServerService)
     {
-        _db = db;
+        _physicalServerService = physicalServerService;
     }
 
     [HttpPost]
     public async Task<ActionResult<PhysicalServerResponse>> Create(CreatePhysicalServerRequest request)
     {
-        var os = await _db.OperatingSystems.FindAsync(request.OSId);
-        if (os is null)
+        var result = await _physicalServerService.CreateAsync(
+            request.Hostname,
+            request.CpuCores,
+            request.RamGb,
+            request.StorageGb,
+            request.AccessType,
+            request.Notes,
+            request.OSId);
+
+        if (result.Status == PhysicalServerOperationStatus.OperatingSystemNotFound)
             return BadRequest("Operating system not found");
 
-        var existingServer = await _db.PhysicalServers
-            .FirstOrDefaultAsync(s => s.Hostname == request.Hostname);
-        if (existingServer is not null)
+        if (result.Status == PhysicalServerOperationStatus.DuplicateHostname)
             return BadRequest("A server with this hostname already exists");
 
-        var server = new PhysicalServer
-        {
-            Hostname = request.Hostname,
-            CpuCores = request.CpuCores,
-            RamGb = request.RamGb,
-            StorageGb = request.StorageGb,
-            AccessType = request.AccessType,
-            Notes = request.Notes,
-            OSId = request.OSId
-        };
-
-        _db.PhysicalServers.Add(server);
-        await _db.SaveChangesAsync();
-
-        await _db.Entry(server).Reference(s => s.OS).LoadAsync();
+        var server = result.Server!;
 
         return CreatedAtAction(
             nameof(GetById),
@@ -61,18 +51,14 @@ public class PhysicalServersController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<PhysicalServerResponse>>> GetAll()
     {
-        var servers = await _db.PhysicalServers
-            .Include(s => s.OS)
-            .ToListAsync();
+        var servers = await _physicalServerService.GetAllAsync();
         return Ok(servers.Select(s => s.ToResponse()));
     }
 
     [HttpGet("{id}")]
     public async Task<ActionResult<PhysicalServerResponse>> GetById(int id)
     {
-        var server = await _db.PhysicalServers
-            .Include(s => s.OS)
-            .FirstOrDefaultAsync(s => s.Id == id);
+        var server = await _physicalServerService.GetByIdAsync(id);
         if (server is null)
             return NotFound();
         return Ok(server.ToResponse());
@@ -81,29 +67,24 @@ public class PhysicalServersController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, UpdatePhysicalServerRequest request)
     {
-        var server = await _db.PhysicalServers.FindAsync(id);
+        var status = await _physicalServerService.UpdateAsync(
+            id,
+            request.Hostname,
+            request.CpuCores,
+            request.RamGb,
+            request.StorageGb,
+            request.AccessType,
+            request.Notes,
+            request.OSId);
 
-        if (server is null)
+        if (status == PhysicalServerOperationStatus.NotFound)
             return NotFound();
 
-        var os = await _db.OperatingSystems.FindAsync(request.OSId);
-        if (os is null)
+        if (status == PhysicalServerOperationStatus.OperatingSystemNotFound)
             return BadRequest("Operating system not found");
 
-        var existingServer = await _db.PhysicalServers
-            .FirstOrDefaultAsync(s => s.Hostname == request.Hostname && s.Id != id);
-        if (existingServer is not null)
+        if (status == PhysicalServerOperationStatus.DuplicateHostname)
             return BadRequest("A server with this hostname already exists");
-
-        server.Hostname = request.Hostname;
-        server.CpuCores = request.CpuCores;
-        server.RamGb = request.RamGb;
-        server.StorageGb = request.StorageGb;
-        server.AccessType = request.AccessType;
-        server.Notes = request.Notes;
-        server.OSId = request.OSId;
-
-        await _db.SaveChangesAsync();
 
         return NoContent();
     }
@@ -111,13 +92,10 @@ public class PhysicalServersController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
-        var server = await _db.PhysicalServers.FindAsync(id);
+        var deleted = await _physicalServerService.DeleteAsync(id);
 
-        if (server is null)
+        if (!deleted)
             return NotFound();
-
-        _db.PhysicalServers.Remove(server);
-        await _db.SaveChangesAsync();
 
         return NoContent();
     }

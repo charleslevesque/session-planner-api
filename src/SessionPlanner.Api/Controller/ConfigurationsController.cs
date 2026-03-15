@@ -1,13 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using SessionPlanner.Core.Entities;
-using SessionPlanner.Infrastructure.Data;
 using SessionPlanner.Api.Dtos.Configurations;
 using SessionPlanner.Api.Mappings;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using SessionPlanner.Core.Auth;
 using SessionPlanner.Api.Auth;
+using SessionPlanner.Core.Interfaces;
 
 namespace SessionPlanner.Api.Controllers;
 
@@ -17,24 +15,17 @@ namespace SessionPlanner.Api.Controllers;
 [Authorize]
 public class ConfigurationsController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly IConfigurationService _configurationService;
 
-    public ConfigurationsController(AppDbContext db)
+    public ConfigurationsController(IConfigurationService configurationService)
     {
-        _db = db;
+        _configurationService = configurationService;
     }
 
     [HttpPost]
     public async Task<ActionResult<ConfigurationResponse>> Create(CreateConfigurationRequest request)
     {
-        var configuration = new Configuration
-        {
-            Title = request.Title,
-            Notes = request.Notes
-        };
-
-        _db.Configurations.Add(configuration);
-        await _db.SaveChangesAsync();
+        var configuration = await _configurationService.CreateAsync(request.Title, request.Notes);
 
         return CreatedAtAction(
             nameof(GetById),
@@ -45,14 +36,14 @@ public class ConfigurationsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<ConfigurationResponse>>> GetAll()
     {
-        var configurations = await _db.Configurations.ToListAsync();
+        var configurations = await _configurationService.GetAllAsync();
         return Ok(configurations.Select(c => c.ToResponse()));
     }
 
     [HttpGet("{id}")]
     public async Task<ActionResult<ConfigurationResponse>> GetById(int id)
     {
-        var configuration = await _db.Configurations.FindAsync(id);
+        var configuration = await _configurationService.GetByIdAsync(id);
         if (configuration is null)
             return NotFound();
         return Ok(configuration.ToResponse());
@@ -61,15 +52,10 @@ public class ConfigurationsController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, UpdateConfigurationRequest request)
     {
-        var configuration = await _db.Configurations.FindAsync(id);
+        var updated = await _configurationService.UpdateAsync(id, request.Title, request.Notes);
 
-        if (configuration is null)
+        if (!updated)
             return NotFound();
-
-        configuration.Title = request.Title;
-        configuration.Notes = request.Notes;
-
-        await _db.SaveChangesAsync();
 
         return NoContent();
     }
@@ -77,13 +63,10 @@ public class ConfigurationsController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
-        var configuration = await _db.Configurations.FindAsync(id);
+        var deleted = await _configurationService.DeleteAsync(id);
 
-        if (configuration is null)
+        if (!deleted)
             return NotFound();
-
-        _db.Configurations.Remove(configuration);
-        await _db.SaveChangesAsync();
 
         return NoContent();
     }

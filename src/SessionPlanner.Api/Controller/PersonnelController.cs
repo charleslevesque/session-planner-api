@@ -1,13 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using SessionPlanner.Infrastructure.Data;
 using SessionPlanner.Api.Dtos.Personnel;
 using SessionPlanner.Api.Mappings;
 using Asp.Versioning;
-using PersonnelEntity = SessionPlanner.Core.Entities.Personnel;
 using Microsoft.AspNetCore.Authorization;
 using SessionPlanner.Core.Auth;
 using SessionPlanner.Api.Auth;
+using SessionPlanner.Core.Interfaces;
 
 namespace SessionPlanner.Api.Controllers;
 
@@ -17,31 +15,26 @@ namespace SessionPlanner.Api.Controllers;
 [Authorize]
 public class PersonnelController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly IPersonnelService _personnelService;
 
-    public PersonnelController(AppDbContext db)
+    public PersonnelController(IPersonnelService personnelService)
     {
-        _db = db;
+        _personnelService = personnelService;
     }
 
     [HttpPost]
     public async Task<ActionResult<PersonnelResponse>> Create(CreatePersonnelRequest request)
     {
-        var existingPersonnel = await _db.Personnel
-            .FirstOrDefaultAsync(p => p.Email == request.Email);
-        if (existingPersonnel is not null)
+        var result = await _personnelService.CreateAsync(
+            request.FirstName,
+            request.LastName,
+            request.Function,
+            request.Email);
+
+        if (result.Status == PersonnelOperationStatus.DuplicateEmail)
             return BadRequest("A personnel with this email already exists");
 
-        var personnel = new PersonnelEntity
-        {
-            FirstName = request.FirstName,
-            LastName = request.LastName,
-            Function = request.Function,
-            Email = request.Email
-        };
-
-        _db.Personnel.Add(personnel);
-        await _db.SaveChangesAsync();
+        var personnel = result.Personnel!;
 
         return CreatedAtAction(
             nameof(GetById),
@@ -52,14 +45,14 @@ public class PersonnelController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<PersonnelResponse>>> GetAll()
     {
-        var personnels = await _db.Personnel.ToListAsync();
+        var personnels = await _personnelService.GetAllAsync();
         return Ok(personnels.Select(p => p.ToResponse()));
     }
 
     [HttpGet("{id}")]
     public async Task<ActionResult<PersonnelResponse>> GetById(int id)
     {
-        var personnel = await _db.Personnel.FindAsync(id);
+        var personnel = await _personnelService.GetByIdAsync(id);
         if (personnel is null)
             return NotFound();
         return Ok(personnel.ToResponse());
@@ -68,22 +61,18 @@ public class PersonnelController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, UpdatePersonnelRequest request)
     {
-        var personnel = await _db.Personnel.FindAsync(id);
+        var status = await _personnelService.UpdateAsync(
+            id,
+            request.FirstName,
+            request.LastName,
+            request.Function,
+            request.Email);
 
-        if (personnel is null)
+        if (status == PersonnelOperationStatus.NotFound)
             return NotFound();
 
-        var existingPersonnel = await _db.Personnel
-            .FirstOrDefaultAsync(p => p.Email == request.Email && p.Id != id);
-        if (existingPersonnel is not null)
+        if (status == PersonnelOperationStatus.DuplicateEmail)
             return BadRequest("A personnel with this email already exists");
-
-        personnel.FirstName = request.FirstName;
-        personnel.LastName = request.LastName;
-        personnel.Function = request.Function;
-        personnel.Email = request.Email;
-
-        await _db.SaveChangesAsync();
 
         return NoContent();
     }
@@ -91,13 +80,10 @@ public class PersonnelController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
-        var personnel = await _db.Personnel.FindAsync(id);
+        var deleted = await _personnelService.DeleteAsync(id);
 
-        if (personnel is null)
+        if (!deleted)
             return NotFound();
-
-        _db.Personnel.Remove(personnel);
-        await _db.SaveChangesAsync();
 
         return NoContent();
     }

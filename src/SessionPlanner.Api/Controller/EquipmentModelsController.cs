@@ -1,13 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using SessionPlanner.Core.Entities;
-using SessionPlanner.Infrastructure.Data;
 using SessionPlanner.Api.Dtos.EquipmentModels;
 using SessionPlanner.Api.Mappings;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using SessionPlanner.Core.Auth;
 using SessionPlanner.Api.Auth;
+using SessionPlanner.Core.Interfaces;
 
 namespace SessionPlanner.Api.Controllers;
 
@@ -17,26 +15,21 @@ namespace SessionPlanner.Api.Controllers;
 [Authorize]
 public class EquipmentModelsController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly IEquipmentModelService _equipmentModelService;
 
-    public EquipmentModelsController(AppDbContext db)
+    public EquipmentModelsController(IEquipmentModelService equipmentModelService)
     {
-        _db = db;
+        _equipmentModelService = equipmentModelService;
     }
 
     [HttpPost]
     public async Task<ActionResult<EquipmentModelResponse>> Create(CreateEquipmentModelRequest request)
     {
-        var equipment = new EquipmentModel
-        {
-            Name = request.Name,
-            Quantity = request.Quantity,
-            DefaultAccessories = request.DefaultAccessories,
-            Notes = request.Notes
-        };
-
-        _db.EquipmentModels.Add(equipment);
-        await _db.SaveChangesAsync();
+        var equipment = await _equipmentModelService.CreateAsync(
+            request.Name,
+            request.Quantity,
+            request.DefaultAccessories,
+            request.Notes);
 
         return CreatedAtAction(
             nameof(GetById),
@@ -47,14 +40,14 @@ public class EquipmentModelsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<EquipmentModelResponse>>> GetAll()
     {
-        var equipments = await _db.EquipmentModels.ToListAsync();
+        var equipments = await _equipmentModelService.GetAllAsync();
         return Ok(equipments.Select(e => e.ToResponse()));
     }
 
     [HttpGet("{id}")]
     public async Task<ActionResult<EquipmentModelResponse>> GetById(int id)
     {
-        var equipment = await _db.EquipmentModels.FindAsync(id);
+        var equipment = await _equipmentModelService.GetByIdAsync(id);
         if (equipment is null)
             return NotFound();
         return Ok(equipment.ToResponse());
@@ -63,17 +56,15 @@ public class EquipmentModelsController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, UpdateEquipmentModelRequest request)
     {
-        var equipment = await _db.EquipmentModels.FindAsync(id);
+        var updated = await _equipmentModelService.UpdateAsync(
+            id,
+            request.Name,
+            request.Quantity,
+            request.DefaultAccessories,
+            request.Notes);
 
-        if (equipment is null)
+        if (!updated)
             return NotFound();
-
-        equipment.Name = request.Name;
-        equipment.Quantity = request.Quantity;
-        equipment.DefaultAccessories = request.DefaultAccessories;
-        equipment.Notes = request.Notes;
-
-        await _db.SaveChangesAsync();
 
         return NoContent();
     }
@@ -81,13 +72,10 @@ public class EquipmentModelsController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
-        var equipment = await _db.EquipmentModels.FindAsync(id);
+        var deleted = await _equipmentModelService.DeleteAsync(id);
 
-        if (equipment is null)
+        if (!deleted)
             return NotFound();
-
-        _db.EquipmentModels.Remove(equipment);
-        await _db.SaveChangesAsync();
 
         return NoContent();
     }

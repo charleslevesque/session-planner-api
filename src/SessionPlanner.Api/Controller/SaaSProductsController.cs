@@ -1,13 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using SessionPlanner.Core.Entities;
-using SessionPlanner.Infrastructure.Data;
 using SessionPlanner.Api.Dtos.SaaSProducts;
 using SessionPlanner.Api.Mappings;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using SessionPlanner.Core.Auth;
 using SessionPlanner.Api.Auth;
+using SessionPlanner.Core.Interfaces;
 
 namespace SessionPlanner.Api.Controllers;
 
@@ -17,25 +15,17 @@ namespace SessionPlanner.Api.Controllers;
 [Authorize]
 public class SaaSProductsController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly ISaaSProductService _saaSProductService;
 
-    public SaaSProductsController(AppDbContext db)
+    public SaaSProductsController(ISaaSProductService saaSProductService)
     {
-        _db = db;
+        _saaSProductService = saaSProductService;
     }
 
     [HttpPost]
     public async Task<ActionResult<SaaSProductResponse>> Create(CreateSaaSProductRequest request)
     {
-        var product = new SaaSProduct
-        {
-            Name = request.Name,
-            NumberOfAccounts = request.NumberOfAccounts,
-            Notes = request.Notes
-        };
-
-        _db.SaaSProducts.Add(product);
-        await _db.SaveChangesAsync();
+        var product = await _saaSProductService.CreateAsync(request.Name, request.NumberOfAccounts, request.Notes);
 
         return CreatedAtAction(
             nameof(GetById),
@@ -46,14 +36,14 @@ public class SaaSProductsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<SaaSProductResponse>>> GetAll()
     {
-        var products = await _db.SaaSProducts.ToListAsync();
+        var products = await _saaSProductService.GetAllAsync();
         return Ok(products.Select(p => p.ToResponse()));
     }
 
     [HttpGet("{id}")]
     public async Task<ActionResult<SaaSProductResponse>> GetById(int id)
     {
-        var product = await _db.SaaSProducts.FindAsync(id);
+        var product = await _saaSProductService.GetByIdAsync(id);
         if (product is null)
             return NotFound();
         return Ok(product.ToResponse());
@@ -62,16 +52,10 @@ public class SaaSProductsController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, UpdateSaaSProductRequest request)
     {
-        var product = await _db.SaaSProducts.FindAsync(id);
+        var updated = await _saaSProductService.UpdateAsync(id, request.Name, request.NumberOfAccounts, request.Notes);
 
-        if (product is null)
+        if (!updated)
             return NotFound();
-
-        product.Name = request.Name;
-        product.NumberOfAccounts = request.NumberOfAccounts;
-        product.Notes = request.Notes;
-
-        await _db.SaveChangesAsync();
 
         return NoContent();
     }
@@ -79,13 +63,10 @@ public class SaaSProductsController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
-        var product = await _db.SaaSProducts.FindAsync(id);
+        var deleted = await _saaSProductService.DeleteAsync(id);
 
-        if (product is null)
+        if (!deleted)
             return NotFound();
-
-        _db.SaaSProducts.Remove(product);
-        await _db.SaveChangesAsync();
 
         return NoContent();
     }
