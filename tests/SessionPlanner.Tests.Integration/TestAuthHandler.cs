@@ -108,6 +108,12 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
             new Claim("perm", Permissions.Users.Create),
             new Claim("perm", Permissions.Users.Update),
             new Claim("perm", Permissions.Users.Delete),
+
+            // Teaching Needs
+            new Claim("perm", Permissions.TeachingNeeds.Read),
+            new Claim("perm", Permissions.TeachingNeeds.Create),
+            new Claim("perm", Permissions.TeachingNeeds.Update),
+            new Claim("perm", Permissions.TeachingNeeds.Delete),
         };
 
         var identity = new ClaimsIdentity(claims, SchemeName);

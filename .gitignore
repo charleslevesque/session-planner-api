@@ -34,3 +34,14 @@ coveragereport/
 
 *.mdf
 *.ldf
+
+# NuGet
+*.nupkg
+.nuget/
+packages/
+
+# Environment / secrets
+.env
+.env.*
+appsettings.Local.json
+appsettings.*.Local.json

@@ -40,6 +40,7 @@ builder.Services.AddScoped<IPhysicalServerService, PhysicalServerService>();
 builder.Services.AddScoped<IVirtualMachineService, VirtualMachineService>();
 builder.Services.AddScoped<ISaaSProductService, SaaSProductService>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<ITeachingNeedService, TeachingNeedService>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
