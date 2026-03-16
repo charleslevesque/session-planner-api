@@ -24,6 +24,21 @@ public interface ITeachingNeedService
     /// <summary>Removes an item from a need. Returns false if need or item not found. Throws InvalidOperationException if status is not Draft.</summary>
     Task<bool> RemoveItemAsync(int sessionId, int needId, int itemId);
 
+    /// <summary>Transitions Draft -> Submitted. Returns null if not found.</summary>
+    Task<TeachingNeed?> SubmitAsync(int sessionId, int id);
+
+    /// <summary>Transitions Submitted -> UnderReview. Returns null if not found.</summary>
+    Task<TeachingNeed?> ReviewAsync(int sessionId, int id);
+
+    /// <summary>Transitions UnderReview -> Approved. Returns null if not found.</summary>
+    Task<TeachingNeed?> ApproveAsync(int sessionId, int id, int? reviewedByUserId);
+
+    /// <summary>Transitions UnderReview -> Rejected with a reason. Returns null if not found.</summary>
+    Task<TeachingNeed?> RejectAsync(int sessionId, int id, string reason, int? reviewedByUserId);
+
+    /// <summary>Transitions Rejected -> Draft. Returns null if not found.</summary>
+    Task<TeachingNeed?> ReviseAsync(int sessionId, int id);
+
     /// <summary>Returns the PersonnelId linked to the given userId, or null if none.</summary>
     Task<int?> GetPersonnelIdForUserAsync(int userId);
 }

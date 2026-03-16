@@ -156,4 +156,94 @@ public class TeachingNeedService : ITeachingNeedService
         await _db.SaveChangesAsync();
         return true;
     }
+
+    public async Task<TeachingNeed?> SubmitAsync(int sessionId, int id)
+    {
+        var need = await _db.TeachingNeeds
+            .FirstOrDefaultAsync(n => n.SessionId == sessionId && n.Id == id);
+
+        if (need is null) return null;
+
+        EnsureStatus(need, NeedStatus.Draft, "Need can only be submitted from Draft status.");
+
+        need.Status = NeedStatus.Submitted;
+        need.SubmittedAt = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync();
+        return await GetByIdAsync(sessionId, id);
+    }
+
+    public async Task<TeachingNeed?> ReviewAsync(int sessionId, int id)
+    {
+        var need = await _db.TeachingNeeds
+            .FirstOrDefaultAsync(n => n.SessionId == sessionId && n.Id == id);
+
+        if (need is null) return null;
+
+        EnsureStatus(need, NeedStatus.Submitted, "Need can only be moved to UnderReview from Submitted status.");
+
+        need.Status = NeedStatus.UnderReview;
+
+        await _db.SaveChangesAsync();
+        return await GetByIdAsync(sessionId, id);
+    }
+
+    public async Task<TeachingNeed?> ApproveAsync(int sessionId, int id, int? reviewedByUserId)
+    {
+        var need = await _db.TeachingNeeds
+            .FirstOrDefaultAsync(n => n.SessionId == sessionId && n.Id == id);
+
+        if (need is null) return null;
+
+        EnsureStatus(need, NeedStatus.UnderReview, "Need can only be approved from UnderReview status.");
+
+        need.Status = NeedStatus.Approved;
+        need.ReviewedAt = DateTime.UtcNow;
+        need.ReviewedByUserId = reviewedByUserId;
+
+        await _db.SaveChangesAsync();
+        return await GetByIdAsync(sessionId, id);
+    }
+
+    public async Task<TeachingNeed?> RejectAsync(int sessionId, int id, string reason, int? reviewedByUserId)
+    {
+        var need = await _db.TeachingNeeds
+            .FirstOrDefaultAsync(n => n.SessionId == sessionId && n.Id == id);
+
+        if (need is null) return null;
+
+        EnsureStatus(need, NeedStatus.UnderReview, "Need can only be rejected from UnderReview status.");
+
+        need.Status = NeedStatus.Rejected;
+        need.RejectionReason = reason;
+        need.ReviewedAt = DateTime.UtcNow;
+        need.ReviewedByUserId = reviewedByUserId;
+
+        await _db.SaveChangesAsync();
+        return await GetByIdAsync(sessionId, id);
+    }
+
+    public async Task<TeachingNeed?> ReviseAsync(int sessionId, int id)
+    {
+        var need = await _db.TeachingNeeds
+            .FirstOrDefaultAsync(n => n.SessionId == sessionId && n.Id == id);
+
+        if (need is null) return null;
+
+        EnsureStatus(need, NeedStatus.Rejected, "Need can only be revised from Rejected status.");
+
+        need.Status = NeedStatus.Draft;
+        need.RejectionReason = null;
+        need.ReviewedAt = null;
+        need.ReviewedByUserId = null;
+
+        await _db.SaveChangesAsync();
+        return await GetByIdAsync(sessionId, id);
+    }
+
+    private static void EnsureStatus(TeachingNeed need, NeedStatus expectedStatus, string message)
+    {
+        if (need.Status != expectedStatus)
+            throw new InvalidOperationException(message);
+    }
 }

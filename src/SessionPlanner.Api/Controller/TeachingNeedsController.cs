@@ -190,6 +190,121 @@ public class TeachingNeedsController : ControllerBase
         }
     }
 
+    // POST /api/v1/sessions/{sessionId}/needs/{id}/submit
+    // Enseignant : Draft -> Submitted
+    [HttpPost("{id:int}/submit")]
+    [HasPermission(Permissions.TeachingNeeds.Update)]
+    public async Task<ActionResult<TeachingNeedResponse>> Submit(int sessionId, int id)
+    {
+        if (!User.IsInRole(Roles.Teacher)) return Forbid();
+
+        var need = await _needService.GetByIdAsync(sessionId, id);
+        if (need is null) return NotFound();
+        if (!await IsOwner(need.PersonnelId)) return Forbid();
+
+        try
+        {
+            var submitted = await _needService.SubmitAsync(sessionId, id);
+            if (submitted is null) return NotFound();
+            return Ok(submitted.ToResponse());
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { error = ex.Message });
+        }
+    }
+
+    // POST /api/v1/sessions/{sessionId}/needs/{id}/review
+    // RespTech/Admin : Submitted -> UnderReview
+    [HttpPost("{id:int}/review")]
+    [HasPermission(Permissions.TeachingNeeds.Update)]
+    public async Task<ActionResult<TeachingNeedResponse>> Review(int sessionId, int id)
+    {
+        if (!IsAdminOrTechnician()) return Forbid();
+
+        try
+        {
+            var reviewed = await _needService.ReviewAsync(sessionId, id);
+            if (reviewed is null) return NotFound();
+            return Ok(reviewed.ToResponse());
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { error = ex.Message });
+        }
+    }
+
+    // POST /api/v1/sessions/{sessionId}/needs/{id}/approve
+    // RespTech/Admin : UnderReview -> Approved
+    [HttpPost("{id:int}/approve")]
+    [HasPermission(Permissions.TeachingNeeds.Update)]
+    public async Task<ActionResult<TeachingNeedResponse>> Approve(int sessionId, int id)
+    {
+        if (!IsAdminOrTechnician()) return Forbid();
+
+        var currentUserId = GetCurrentUserId();
+
+        try
+        {
+            var approved = await _needService.ApproveAsync(sessionId, id, currentUserId);
+            if (approved is null) return NotFound();
+            return Ok(approved.ToResponse());
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { error = ex.Message });
+        }
+    }
+
+    // POST /api/v1/sessions/{sessionId}/needs/{id}/reject
+    // RespTech/Admin : UnderReview -> Rejected
+    [HttpPost("{id:int}/reject")]
+    [HasPermission(Permissions.TeachingNeeds.Update)]
+    public async Task<ActionResult<TeachingNeedResponse>> Reject(int sessionId, int id, RejectTeachingNeedRequest request)
+    {
+        if (!IsAdminOrTechnician()) return Forbid();
+
+        if (string.IsNullOrWhiteSpace(request.Reason))
+            return BadRequest(new { error = "reason is required." });
+
+        var currentUserId = GetCurrentUserId();
+
+        try
+        {
+            var rejected = await _needService.RejectAsync(sessionId, id, request.Reason.Trim(), currentUserId);
+            if (rejected is null) return NotFound();
+            return Ok(rejected.ToResponse());
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { error = ex.Message });
+        }
+    }
+
+    // POST /api/v1/sessions/{sessionId}/needs/{id}/revise
+    // Enseignant : Rejected -> Draft
+    [HttpPost("{id:int}/revise")]
+    [HasPermission(Permissions.TeachingNeeds.Update)]
+    public async Task<ActionResult<TeachingNeedResponse>> Revise(int sessionId, int id)
+    {
+        if (!User.IsInRole(Roles.Teacher)) return Forbid();
+
+        var need = await _needService.GetByIdAsync(sessionId, id);
+        if (need is null) return NotFound();
+        if (!await IsOwner(need.PersonnelId)) return Forbid();
+
+        try
+        {
+            var revised = await _needService.ReviseAsync(sessionId, id);
+            if (revised is null) return NotFound();
+            return Ok(revised.ToResponse());
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { error = ex.Message });
+        }
+    }
+
     // --- Helpers ---
 
     private int? GetCurrentUserId() =>
@@ -202,4 +317,7 @@ public class TeachingNeedsController : ControllerBase
         var personnelId = await _needService.GetPersonnelIdForUserAsync(userId.Value);
         return personnelId == needPersonnelId;
     }
+
+    private bool IsAdminOrTechnician() =>
+        User.IsInRole(Roles.Admin) || User.IsInRole(Roles.Technician);
 }
