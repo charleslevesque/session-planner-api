@@ -1,13 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using SessionPlanner.Core.Entities;
-using SessionPlanner.Infrastructure.Data;
 using SessionPlanner.Core.Auth;
 using SessionPlanner.Api.Auth;
 using SessionPlanner.Api.Dtos.OperatingSystems;
 using SessionPlanner.Api.Mappings;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
+using SessionPlanner.Core.Interfaces;
 
 namespace SessionPlanner.Api.Controllers;
 
@@ -17,25 +15,25 @@ namespace SessionPlanner.Api.Controllers;
 [Authorize]
 public class OperatingSystemsController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly IOperatingSystemService _operatingSystemService;
 
-    public OperatingSystemsController(AppDbContext db)
+    public OperatingSystemsController(IOperatingSystemService operatingSystemService)
     {
-        _db = db;
+        _operatingSystemService = operatingSystemService;
     }
 
     [HttpGet]
     [HasPermission(Permissions.OperatingSystems.Read)]
     public async Task<ActionResult<IEnumerable<OSResponse>>> GetAll()
     {
-        var osList = await _db.OperatingSystems.Include(s => s.SoftwareVersions).ToListAsync();
+        var osList = await _operatingSystemService.GetAllAsync();
         return Ok(osList.Select(os => os.ToResponse()));
     }
 
     [HttpGet("{id}")]
     public async Task<ActionResult<OSResponse>> GetById(int id)
     {
-        var os = await _db.OperatingSystems.FindAsync(id);
+        var os = await _operatingSystemService.GetByIdAsync(id);
         if (os is null)
             return NotFound();
         return Ok(os.ToResponse());
@@ -44,31 +42,25 @@ public class OperatingSystemsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<OSResponse>> Create(CreateOSRequest request)
     {
-        var os = request.toEntity();
-        _db.OperatingSystems.Add(os);
-        await _db.SaveChangesAsync();
+        var os = await _operatingSystemService.CreateAsync(request.Name);
         return CreatedAtAction(nameof(GetById), new { id = os.Id }, os.ToResponse());
     }
 
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, UpdateOSRequest request)
     {
-        var os = await _db.OperatingSystems.FindAsync(id);
-        if (os is null)
+        var updated = await _operatingSystemService.UpdateAsync(id, request.Name);
+        if (!updated)
             return NotFound();
-        request.Apply(os);
-        await _db.SaveChangesAsync();
         return NoContent();
     }
 
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
-        var os = await _db.OperatingSystems.FindAsync(id);
-        if (os is null)
+        var deleted = await _operatingSystemService.DeleteAsync(id);
+        if (!deleted)
             return NotFound();
-        _db.OperatingSystems.Remove(os);
-        await _db.SaveChangesAsync();
         return NoContent();
     }
 }

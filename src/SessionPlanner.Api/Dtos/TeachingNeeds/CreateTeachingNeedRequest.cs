@@ -1,0 +1,11 @@
+using System.ComponentModel.DataAnnotations;
+
+namespace SessionPlanner.Api.Dtos.TeachingNeeds;
+
+public record CreateTeachingNeedRequest(
+    [Required] int CourseId,
+    /// <summary>
+    /// Required when the caller is Admin or Technician. Ignored for Teacher role (uses own personnel).
+    /// </summary>
+    int? PersonnelId,
+    string? Notes);

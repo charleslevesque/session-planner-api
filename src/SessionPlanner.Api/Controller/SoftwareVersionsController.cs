@@ -1,13 +1,11 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using SessionPlanner.Core.Entities;
-using SessionPlanner.Infrastructure.Data;
 using SessionPlanner.Api.Dtos.SoftwareVersions;
 using SessionPlanner.Api.Mappings;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using SessionPlanner.Core.Auth;
 using SessionPlanner.Api.Auth;
+using SessionPlanner.Core.Interfaces;
 
 namespace SessionPlanner.Api.Controllers;
 
@@ -18,37 +16,25 @@ namespace SessionPlanner.Api.Controllers;
 public class SoftwareVersionsController : ControllerBase
 {
 
-    private readonly AppDbContext _db;
+    private readonly ISoftwareVersionService _softwareVersionService;
 
-    public SoftwareVersionsController(AppDbContext db)
+    public SoftwareVersionsController(ISoftwareVersionService softwareVersionService)
     {
-        _db = db;
+        _softwareVersionService = softwareVersionService;
     }
 
     [HttpPost]
     public async Task<ActionResult<SoftwareVersionResponse>> Create(CreateSoftwareVersionRequest request)
     {
+        var softwareVersion = await _softwareVersionService.CreateAsync(
+            request.SoftwareId,
+            request.OsId,
+            request.VersionNumber,
+            request.InstallationDetails,
+            request.Notes);
 
-        var softwareExists = await _db.Softwares
-        .AnyAsync(s => s.Id == request.SoftwareId);
-
-
-        if (!softwareExists)
+        if (softwareVersion is null)
             return BadRequest($"Software {request.SoftwareId} does not exist.");
-
-        var softwareVersion = new SoftwareVersion
-        {
-
-            SoftwareId = request.SoftwareId,
-            VersionNumber = request.VersionNumber,
-            OsId = request.OsId,
-            InstallationDetails = request.InstallationDetails,
-            Notes = request.Notes,
-
-        };
-
-        _db.SoftwareVersions.Add(softwareVersion);
-        await _db.SaveChangesAsync();
 
         return CreatedAtAction(
             nameof(GetAll),
@@ -60,15 +46,14 @@ public class SoftwareVersionsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<SoftwareVersionResponse>>> GetAll()
     {
-        var softwareVersions = await _db.SoftwareVersions
-        .ToListAsync();
+        var softwareVersions = await _softwareVersionService.GetAllAsync();
         return Ok(softwareVersions.Select(s => s.ToResponse()));
     }
 
     [HttpGet("{id}")]
     public async Task<ActionResult<SoftwareVersionResponse>> GetById(int id)
     {
-        var softwareVersion = await _db.SoftwareVersions.FindAsync(id);
+        var softwareVersion = await _softwareVersionService.GetByIdAsync(id);
         if (softwareVersion is null)
             return NotFound();
         return Ok(softwareVersion.ToResponse());
@@ -77,13 +62,9 @@ public class SoftwareVersionsController : ControllerBase
     [HttpGet("/api/v{version:apiVersion}/softwares/{softwareId:int}/[controller]")]
     public async Task<ActionResult<IEnumerable<SoftwareVersionResponse>>> GetAll(int? softwareId)
     {
-        var query = _db.SoftwareVersions
-            .AsQueryable();
-
-        if (softwareId.HasValue)
-            query = query.Where(x => x.SoftwareId == softwareId);
-
-        var softwareVersions = await query.ToListAsync();
+        var softwareVersions = softwareId.HasValue
+            ? await _softwareVersionService.GetAllBySoftwareIdAsync(softwareId.Value)
+            : await _softwareVersionService.GetAllAsync();
 
         var response = softwareVersions.Select(i => i.ToResponse());
 
@@ -93,17 +74,15 @@ public class SoftwareVersionsController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, UpdateSoftwareVersionRequest request)
     {
-        var softwareVersion = await _db.SoftwareVersions.FindAsync(id);
+        var updated = await _softwareVersionService.UpdateAsync(
+            id,
+            request.OsId,
+            request.VersionNumber,
+            request.InstallationDetails,
+            request.Notes);
 
-        if (softwareVersion is null)
+        if (!updated)
             return NotFound();
-
-        softwareVersion.OsId = request.OsId;
-        softwareVersion.VersionNumber = request.VersionNumber;
-        softwareVersion.InstallationDetails = request.InstallationDetails;
-        softwareVersion.Notes = request.Notes;
-
-        await _db.SaveChangesAsync();
 
         return NoContent();
     }
@@ -111,13 +90,9 @@ public class SoftwareVersionsController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
-        var softwareVersion = await _db.SoftwareVersions.FindAsync(id);
-
-        if (softwareVersion is null)
+        var deleted = await _softwareVersionService.DeleteAsync(id);
+        if (!deleted)
             return NotFound();
-
-        _db.SoftwareVersions.Remove(softwareVersion);
-        await _db.SaveChangesAsync();
 
         return NoContent();
     }

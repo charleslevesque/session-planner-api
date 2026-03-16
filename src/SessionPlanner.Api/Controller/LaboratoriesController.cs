@@ -1,7 +1,4 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using SessionPlanner.Core.Entities;
-using SessionPlanner.Infrastructure.Data;
 using SessionPlanner.Api.Dtos.Laboratories;
 using SessionPlanner.Api.Dtos.Workstations;
 using SessionPlanner.Api.Mappings;
@@ -9,6 +6,7 @@ using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using SessionPlanner.Core.Auth;
 using SessionPlanner.Api.Auth;
+using SessionPlanner.Core.Interfaces;
 
 namespace SessionPlanner.Api.Controllers;
 
@@ -18,11 +16,11 @@ namespace SessionPlanner.Api.Controllers;
 [Authorize]
 public class LaboratoriesController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly ILaboratoryService _laboratoryService;
 
-    public LaboratoriesController(AppDbContext db)
+    public LaboratoriesController(ILaboratoryService laboratoryService)
     {
-        _db = db;
+        _laboratoryService = laboratoryService;
     }
 
     // GET avec filtres (building, capacity)
@@ -32,27 +30,7 @@ public class LaboratoriesController : ControllerBase
         [FromQuery] int? minCapacity = null,
         [FromQuery] int? maxCapacity = null)
     {
-        var query = _db.Laboratories
-            .Include(l => l.Workstations)
-                .ThenInclude(w => w.OS)
-            .AsQueryable();
-
-        if (!string.IsNullOrEmpty(building))
-        {
-            query = query.Where(l => l.Building == building);
-        }
-
-        if (minCapacity.HasValue)
-        {
-            query = query.Where(l => l.SeatingCapacity >= minCapacity.Value);
-        }
-
-        if (maxCapacity.HasValue)
-        {
-            query = query.Where(l => l.SeatingCapacity <= maxCapacity.Value);
-        }
-
-        var labs = await query.ToListAsync();
+        var labs = await _laboratoryService.GetAllAsync(building, minCapacity, maxCapacity);
         return Ok(labs.Select(l => l.ToResponse()));
     }
 
@@ -60,10 +38,7 @@ public class LaboratoriesController : ControllerBase
     [HttpGet("{id}")]
     public async Task<ActionResult<LaboratoryResponse>> GetById(int id)
     {
-        var lab = await _db.Laboratories
-            .Include(l => l.Workstations)
-                .ThenInclude(w => w.OS)
-            .FirstOrDefaultAsync(l => l.Id == id);
+        var lab = await _laboratoryService.GetByIdAsync(id);
 
         if (lab is null)
             return NotFound();
@@ -75,12 +50,11 @@ public class LaboratoriesController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<LaboratoryResponse>> Create(CreateLaboratoryRequest request)
     {
-        var lab = request.ToEntity();
-
-        _db.Laboratories.Add(lab);
-        await _db.SaveChangesAsync();
-
-        await _db.Entry(lab).Collection(l => l.Workstations).LoadAsync();
+        var lab = await _laboratoryService.CreateAsync(
+            request.Name,
+            request.Building,
+            request.NumberOfPCs,
+            request.SeatingCapacity);
 
         return CreatedAtAction(nameof(GetById), new { id = lab.Id }, lab.ToResponse());
     }
@@ -89,13 +63,15 @@ public class LaboratoriesController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, UpdateLaboratoryRequest request)
     {
-        var lab = await _db.Laboratories.FindAsync(id);
+        var updated = await _laboratoryService.UpdateAsync(
+            id,
+            request.Name,
+            request.Building,
+            request.NumberOfPCs,
+            request.SeatingCapacity);
 
-        if (lab is null)
+        if (!updated)
             return NotFound();
-
-        request.Apply(lab);
-        await _db.SaveChangesAsync();
 
         return NoContent();
     }
@@ -104,13 +80,9 @@ public class LaboratoriesController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
-        var lab = await _db.Laboratories.FindAsync(id);
-
-        if (lab is null)
+        var deleted = await _laboratoryService.DeleteAsync(id);
+        if (!deleted)
             return NotFound();
-
-        _db.Laboratories.Remove(lab);
-        await _db.SaveChangesAsync();
 
         return NoContent();
     }
@@ -119,45 +91,24 @@ public class LaboratoriesController : ControllerBase
     [HttpPost("{id}/workstations")]
     public async Task<ActionResult<WorkstationResponse>> AddWorkstation(int id, [FromBody] AddWorkstationRequest request)
     {
-        var lab = await _db.Laboratories.FindAsync(id);
-        if (lab is null)
+        var result = await _laboratoryService.AddWorkstationAsync(id, request.Name, request.OSId);
+
+        if (result.Status == AddWorkstationStatus.LaboratoryNotFound)
             return NotFound();
 
-        var os = await _db.OperatingSystems.FindAsync(request.OSId);
-        if (os is null)
+        if (result.Status == AddWorkstationStatus.OperatingSystemNotFound)
             return BadRequest("Operating system not found");
 
-        var workstation = new Workstation
-        {
-            Name = request.Name,
-            LaboratoryId = id,
-            OSId = request.OSId
-        };
-
-        _db.Workstations.Add(workstation);
-        await _db.SaveChangesAsync();
-
-        await _db.Entry(workstation).Reference(w => w.OS).LoadAsync();
-
-        return CreatedAtAction(nameof(GetById), new { id = lab.Id }, workstation.ToResponse());
+        return CreatedAtAction(nameof(GetById), new { id }, result.Workstation!.ToResponse());
     }
 
     // DELETE /api/v1/Laboratories/{id}/workstations/{osId} - Retirer OS
     [HttpDelete("{id}/workstations/{workstationId}")]
     public async Task<IActionResult> RemoveWorkstation(int id, int workstationId)
     {
-        var lab = await _db.Laboratories.FindAsync(id);
-        if (lab is null)
+        var removed = await _laboratoryService.RemoveWorkstationAsync(id, workstationId);
+        if (!removed)
             return NotFound();
-
-        var workstation = await _db.Workstations
-            .FirstOrDefaultAsync(w => w.LaboratoryId == id && w.Id == workstationId);
-
-        if (workstation is null)
-            return NotFound();
-
-        _db.Workstations.Remove(workstation);
-        await _db.SaveChangesAsync();
 
         return NoContent();
     }

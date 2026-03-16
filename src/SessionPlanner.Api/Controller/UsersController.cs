@@ -1,8 +1,4 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using SessionPlanner.Core.Entities;
-using SessionPlanner.Core.Entities.Joins;
-using SessionPlanner.Infrastructure.Data;
 using SessionPlanner.Api.Dtos.Users;
 using SessionPlanner.Api.Mappings;
 using SessionPlanner.Core.Auth;
@@ -10,6 +6,7 @@ using SessionPlanner.Api.Auth;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
+using SessionPlanner.Core.Interfaces;
 
 namespace SessionPlanner.Api.Controllers;
 
@@ -19,28 +16,18 @@ namespace SessionPlanner.Api.Controllers;
 [Authorize]
 public class UsersController : ControllerBase
 {
-    private readonly AppDbContext _db;
-    private readonly IPasswordService _passwordService;
+    private readonly IUserService _userService;
 
-    public UsersController(AppDbContext db, IPasswordService passwordService)
+    public UsersController(IUserService userService)
     {
-        _db = db;
-        _passwordService = passwordService;
-    }
-
-    private IQueryable<User> UsersWithRoles()
-    {
-        return _db.Users
-            .Include(u => u.UserRoles)
-                .ThenInclude(ur => ur.Role).
-                    Where(s => s.IsActive);
+        _userService = userService;
     }
 
     [HttpGet]
     [HasPermission(Permissions.Users.Read)]
     public async Task<ActionResult<IEnumerable<UserResponse>>> GetAll()
     {
-        var users = await UsersWithRoles().ToListAsync();
+        var users = await _userService.GetAllActiveWithRolesAsync();
         return Ok(users.Select(u => u.ToResponse()));
     }
 
@@ -52,10 +39,7 @@ public class UsersController : ControllerBase
         if (!int.TryParse(userIdValue, out var userId))
             return Unauthorized();
 
-        var user = await _db.Users
-            .Include(u => u.UserRoles)
-                .ThenInclude(ur => ur.Role)
-            .FirstOrDefaultAsync(u => u.Id == userId);
+        var user = await _userService.GetByIdWithRolesAsync(userId);
 
         if (user is null)
             return NotFound();
@@ -67,8 +51,7 @@ public class UsersController : ControllerBase
     [HasPermission(Permissions.Users.Read)]
     public async Task<ActionResult<UserResponse>> GetById(int id)
     {
-        var user = await UsersWithRoles()
-            .FirstOrDefaultAsync(u => u.Id == id);
+        var user = await _userService.GetByIdActiveWithRolesAsync(id);
 
         if (user is null)
             return NotFound();
@@ -80,47 +63,12 @@ public class UsersController : ControllerBase
     [HasPermission(Permissions.Users.Create)]
     public async Task<ActionResult<UserResponse>> Create(CreateUserRequest request)
     {
-        var existingUser = await _db.Users
-            .AnyAsync(u => u.Username == request.Username);
+        var result = await _userService.CreateAsync(request.Username, request.Password, request.RoleName);
 
-        if (existingUser)
+        if (result.Status == CreateUserStatus.UsernameAlreadyExists)
             return BadRequest("Username already exists.");
 
-
-        Role role;
-
-        if (!string.IsNullOrWhiteSpace(request.RoleName))
-        {
-            role = await _db.Roles
-                .FirstAsync(r => r.Name == request.RoleName);
-        }
-        else
-        {
-            role = await _db.Roles
-                .FirstAsync(r => r.Name == Roles.Teacher);
-        }
-
-        var user = new User
-        {
-            Username = request.Username,
-            IsActive = true,
-        };
-
-        user.PasswordHash = _passwordService.HashPassword(user, request.Password);
-
-        _db.Users.Add(user);
-        await _db.SaveChangesAsync();
-
-        _db.UserRoles.Add(new UserRole
-        {
-            UserId = user.Id,
-            RoleId = role.Id
-        });
-
-        await _db.SaveChangesAsync();
-
-        var createdUser = await UsersWithRoles()
-            .FirstAsync(u => u.Id == user.Id);
+        var createdUser = result.User!;
 
         return CreatedAtAction(
             nameof(GetById),
@@ -133,28 +81,13 @@ public class UsersController : ControllerBase
     [HasPermission(Permissions.Users.Update)]
     public async Task<IActionResult> UpdateRole(int id, UpdateUserRequest request)
     {
-        var user = await _db.Users
-            .Include(u => u.UserRoles)
-            .FirstOrDefaultAsync(u => u.Id == id);
+        var status = await _userService.UpdateRoleAsync(id, request.RoleName);
 
-        if (user is null)
+        if (status == UpdateUserRoleStatus.UserNotFound)
             return NotFound();
 
-        var role = await _db.Roles
-            .FirstOrDefaultAsync(r => r.Name == request.RoleName);
-
-        if (role is null)
+        if (status == UpdateUserRoleStatus.RoleNotFound)
             return BadRequest($"Role '{request.RoleName}' does not exist.");
-
-        _db.UserRoles.RemoveRange(user.UserRoles);
-
-        _db.UserRoles.Add(new UserRole
-        {
-            UserId = user.Id,
-            RoleId = role.Id
-        });
-
-        await _db.SaveChangesAsync();
 
         return NoContent();
     }
@@ -163,13 +96,10 @@ public class UsersController : ControllerBase
     [HasPermission(Permissions.Users.Delete)]
     public async Task<IActionResult> Delete(int id)
     {
-        var user = await _db.Users.FindAsync(id);
+        var deleted = await _userService.DeactivateAsync(id);
 
-        if (user is null)
+        if (!deleted)
             return NotFound();
-
-        user.IsActive = false;
-        await _db.SaveChangesAsync();
 
         return NoContent();
     }

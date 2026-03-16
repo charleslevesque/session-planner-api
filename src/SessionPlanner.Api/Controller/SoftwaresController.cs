@@ -1,13 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using SessionPlanner.Core.Entities;
-using SessionPlanner.Infrastructure.Data;
 using SessionPlanner.Api.Dtos.Softwares;
 using SessionPlanner.Api.Mappings;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using SessionPlanner.Core.Auth;
 using SessionPlanner.Api.Auth;
+using SessionPlanner.Core.Interfaces;
 
 namespace SessionPlanner.Api.Controllers;
 
@@ -17,26 +15,17 @@ namespace SessionPlanner.Api.Controllers;
 [Authorize]
 public class SoftwaresController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly ISoftwareService _softwareService;
 
-    public SoftwaresController(AppDbContext db)
+    public SoftwaresController(ISoftwareService softwareService)
     {
-        _db = db;
+        _softwareService = softwareService;
     }
 
     [HttpPost]
     public async Task<ActionResult<SoftwareResponse>> Create(CreateSoftwareRequest request)
     {
-
-        var software = new Software
-        {
-
-            Name = request.Name
-
-        };
-
-        _db.Softwares.Add(software);
-        await _db.SaveChangesAsync();
+        var software = await _softwareService.CreateAsync(request.Name);
 
         return CreatedAtAction(
             nameof(GetAll),
@@ -47,16 +36,14 @@ public class SoftwaresController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<SoftwareResponse>>> GetAll()
     {
-        var softwares = await _db.Softwares.Include(s => s.SoftwareVersions).ToListAsync();
+        var softwares = await _softwareService.GetAllAsync();
         return Ok(softwares.Select(s => s.ToResponse()));
     }
 
     [HttpGet("{id}")]
     public async Task<ActionResult<SoftwareResponse>> GetById(int id)
     {
-        var software = await _db.Softwares
-            .Include(s => s.SoftwareVersions)
-            .FirstOrDefaultAsync(s => s.Id == id);
+        var software = await _softwareService.GetByIdAsync(id);
         if (software is null)
             return NotFound();
         return Ok(software.ToResponse());
@@ -65,14 +52,9 @@ public class SoftwaresController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, UpdateSoftwareRequest request)
     {
-        var software = await _db.Softwares.FindAsync(id);
-
-        if (software is null)
+        var updated = await _softwareService.UpdateAsync(id, request.Name);
+        if (!updated)
             return NotFound();
-
-        software.Name = request.Name;
-
-        await _db.SaveChangesAsync();
 
         return NoContent();
     }
@@ -80,13 +62,9 @@ public class SoftwaresController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
-        var software = await _db.Softwares.FindAsync(id);
-
-        if (software is null)
+        var deleted = await _softwareService.DeleteAsync(id);
+        if (!deleted)
             return NotFound();
-
-        _db.Softwares.Remove(software);
-        await _db.SaveChangesAsync();
 
         return NoContent();
     }

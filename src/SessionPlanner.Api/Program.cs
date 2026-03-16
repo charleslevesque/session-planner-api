@@ -28,6 +28,19 @@ builder.Services.AddScoped<IPasswordService, PasswordService>();
 builder.Services.AddScoped<IJWTTokenService, JWTTokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ISessionService, SessionService>();
+builder.Services.AddScoped<ISoftwareService, SoftwareService>();
+builder.Services.AddScoped<ISoftwareVersionService, SoftwareVersionService>();
+builder.Services.AddScoped<IOperatingSystemService, OperatingSystemService>();
+builder.Services.AddScoped<ILaboratoryService, LaboratoryService>();
+builder.Services.AddScoped<ICourseService, CourseService>();
+builder.Services.AddScoped<IPersonnelService, PersonnelService>();
+builder.Services.AddScoped<IConfigurationService, ConfigurationService>();
+builder.Services.AddScoped<IEquipmentModelService, EquipmentModelService>();
+builder.Services.AddScoped<IPhysicalServerService, PhysicalServerService>();
+builder.Services.AddScoped<IVirtualMachineService, VirtualMachineService>();
+builder.Services.AddScoped<ISaaSProductService, SaaSProductService>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<ITeachingNeedService, TeachingNeedService>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>

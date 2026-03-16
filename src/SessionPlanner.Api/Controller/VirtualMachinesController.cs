@@ -1,13 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using SessionPlanner.Core.Entities;
-using SessionPlanner.Infrastructure.Data;
 using SessionPlanner.Api.Dtos.VirtualMachines;
 using SessionPlanner.Api.Mappings;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using SessionPlanner.Core.Auth;
 using SessionPlanner.Api.Auth;
+using SessionPlanner.Core.Interfaces;
 
 namespace SessionPlanner.Api.Controllers;
 
@@ -17,45 +15,33 @@ namespace SessionPlanner.Api.Controllers;
 [Authorize]
 public class VirtualMachinesController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly IVirtualMachineService _virtualMachineService;
 
-    public VirtualMachinesController(AppDbContext db)
+    public VirtualMachinesController(IVirtualMachineService virtualMachineService)
     {
-        _db = db;
+        _virtualMachineService = virtualMachineService;
     }
 
     [HttpPost]
     public async Task<ActionResult<VirtualMachineResponse>> Create(CreateVirtualMachineRequest request)
     {
-        var os = await _db.OperatingSystems.FindAsync(request.OSId);
-        if (os is null)
+        var result = await _virtualMachineService.CreateAsync(
+            request.Quantity,
+            request.CpuCores,
+            request.RamGb,
+            request.StorageGb,
+            request.AccessType,
+            request.Notes,
+            request.OSId,
+            request.HostServerId);
+
+        if (result.Status == VirtualMachineOperationStatus.OperatingSystemNotFound)
             return BadRequest("Operating system not found");
 
-        if (request.HostServerId.HasValue)
-        {
-            var hostServer = await _db.PhysicalServers.FindAsync(request.HostServerId);
-            if (hostServer is null)
-                return BadRequest("Host server not found");
-        }
+        if (result.Status == VirtualMachineOperationStatus.HostServerNotFound)
+            return BadRequest("Host server not found");
 
-        var vm = new VirtualMachine
-        {
-            Quantity = request.Quantity,
-            CpuCores = request.CpuCores,
-            RamGb = request.RamGb,
-            StorageGb = request.StorageGb,
-            AccessType = request.AccessType,
-            Notes = request.Notes,
-            OSId = request.OSId,
-            HostServerId = request.HostServerId
-        };
-
-        _db.VirtualMachines.Add(vm);
-        await _db.SaveChangesAsync();
-
-        await _db.Entry(vm).Reference(v => v.OS).LoadAsync();
-        if (vm.HostServerId.HasValue)
-            await _db.Entry(vm).Reference(v => v.HostServer).LoadAsync();
+        var vm = result.VirtualMachine!;
 
         return CreatedAtAction(
             nameof(GetById),
@@ -66,20 +52,14 @@ public class VirtualMachinesController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<VirtualMachineResponse>>> GetAll()
     {
-        var vms = await _db.VirtualMachines
-            .Include(v => v.OS)
-            .Include(v => v.HostServer)
-            .ToListAsync();
+        var vms = await _virtualMachineService.GetAllAsync();
         return Ok(vms.Select(v => v.ToResponse()));
     }
 
     [HttpGet("{id}")]
     public async Task<ActionResult<VirtualMachineResponse>> GetById(int id)
     {
-        var vm = await _db.VirtualMachines
-            .Include(v => v.OS)
-            .Include(v => v.HostServer)
-            .FirstOrDefaultAsync(v => v.Id == id);
+        var vm = await _virtualMachineService.GetByIdAsync(id);
         if (vm is null)
             return NotFound();
         return Ok(vm.ToResponse());
@@ -88,32 +68,25 @@ public class VirtualMachinesController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, UpdateVirtualMachineRequest request)
     {
-        var vm = await _db.VirtualMachines.FindAsync(id);
+        var status = await _virtualMachineService.UpdateAsync(
+            id,
+            request.Quantity,
+            request.CpuCores,
+            request.RamGb,
+            request.StorageGb,
+            request.AccessType,
+            request.Notes,
+            request.OSId,
+            request.HostServerId);
 
-        if (vm is null)
+        if (status == VirtualMachineOperationStatus.NotFound)
             return NotFound();
 
-        var os = await _db.OperatingSystems.FindAsync(request.OSId);
-        if (os is null)
+        if (status == VirtualMachineOperationStatus.OperatingSystemNotFound)
             return BadRequest("Operating system not found");
 
-        if (request.HostServerId.HasValue)
-        {
-            var hostServer = await _db.PhysicalServers.FindAsync(request.HostServerId);
-            if (hostServer is null)
-                return BadRequest("Host server not found");
-        }
-
-        vm.Quantity = request.Quantity;
-        vm.CpuCores = request.CpuCores;
-        vm.RamGb = request.RamGb;
-        vm.StorageGb = request.StorageGb;
-        vm.AccessType = request.AccessType;
-        vm.Notes = request.Notes;
-        vm.OSId = request.OSId;
-        vm.HostServerId = request.HostServerId;
-
-        await _db.SaveChangesAsync();
+        if (status == VirtualMachineOperationStatus.HostServerNotFound)
+            return BadRequest("Host server not found");
 
         return NoContent();
     }
@@ -121,13 +94,10 @@ public class VirtualMachinesController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
-        var vm = await _db.VirtualMachines.FindAsync(id);
+        var deleted = await _virtualMachineService.DeleteAsync(id);
 
-        if (vm is null)
+        if (!deleted)
             return NotFound();
-
-        _db.VirtualMachines.Remove(vm);
-        await _db.SaveChangesAsync();
 
         return NoContent();
     }
