@@ -67,7 +67,7 @@ public static class InitializeData
 
     private static async Task SeedAdminUserAsync(AppDbContext db, IPasswordService passwordService)
     {
-        const string adminUsername = "admin";
+        const string adminUsername = "admin@local.dev";
         const string adminPassword = "Password123!";
 
         var adminUser = await db.Users

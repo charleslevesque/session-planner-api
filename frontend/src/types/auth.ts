@@ -20,9 +20,12 @@ export interface RefreshTokenRequest {
   refreshToken: string;
 }
 
+export const APP_ROLES = ['admin', 'technician', 'planner', 'management', 'teacher'] as const;
+export type RoleName = (typeof APP_ROLES)[number];
+
 export interface MeResponse {
   id: number;
   email: string;
   name: string;
-  role: string;
+  role: RoleName;
 }

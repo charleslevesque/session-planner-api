@@ -98,6 +98,23 @@ public class AuthService : IAuthService
         return result;
     }
 
+    public async Task<ChangePasswordStatus> ChangePasswordAsync(int userId, string currentPassword, string newPassword)
+    {
+        var user = await _db.Users
+            .FirstOrDefaultAsync(u => u.Id == userId && u.IsActive);
+
+        if (user is null)
+            return ChangePasswordStatus.UserNotFound;
+
+        if (!_passwordService.VerifyPassword(user, user.PasswordHash, currentPassword))
+            return ChangePasswordStatus.InvalidCurrentPassword;
+
+        user.PasswordHash = _passwordService.HashPassword(user, newPassword);
+        await _db.SaveChangesAsync();
+
+        return ChangePasswordStatus.Success;
+    }
+
     public async Task LogoutAsync(string refreshToken)
     {
         var token = await _db.RefreshTokens

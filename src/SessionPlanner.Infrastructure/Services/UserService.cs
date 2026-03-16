@@ -119,6 +119,20 @@ public class UserService : IUserService
         return UpdateUserRoleStatus.Success;
     }
 
+    public async Task<UpdateUserPasswordStatus> UpdatePasswordAsync(int id, string newPassword)
+    {
+        var user = await _db.Users
+            .FirstOrDefaultAsync(u => u.Id == id && u.IsActive);
+
+        if (user is null)
+            return UpdateUserPasswordStatus.UserNotFound;
+
+        user.PasswordHash = _passwordService.HashPassword(user, newPassword);
+        await _db.SaveChangesAsync();
+
+        return UpdateUserPasswordStatus.Success;
+    }
+
     public async Task<bool> DeactivateAsync(int id)
     {
         var user = await _db.Users.FindAsync(id);

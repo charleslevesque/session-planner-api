@@ -2,13 +2,17 @@ import { Navigate, createBrowserRouter } from 'react-router-dom';
 import { AppLayout } from './components/AppLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { PublicOnlyRoute } from './components/PublicOnlyRoute';
+import { RoleRoute } from './components/RoleRoute';
 import { useAuth } from './contexts/AuthContext';
+import { PAGE_ACCESS } from './lib/access';
 import { DashboardPage } from './pages/DashboardPage';
 import { LoginPage } from './pages/LoginPage';
 import { MatrixPage } from './pages/MatrixPage';
 import { NeedsPage } from './pages/NeedsPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { RegisterPage } from './pages/RegisterPage';
+import { SecurityPage } from './pages/SecurityPage';
+import { UsersPage } from './pages/UsersPage';
 
 function RootRedirect() {
   const { isAuthenticated } = useAuth();
@@ -51,11 +55,31 @@ export const router = createBrowserRouter([
       },
       {
         path: 'besoins',
-        element: <NeedsPage />,
+        element: (
+          <RoleRoute allowedRoles={PAGE_ACCESS.besoins}>
+            <NeedsPage />
+          </RoleRoute>
+        ),
       },
       {
         path: 'matrice',
-        element: <MatrixPage />,
+        element: (
+          <RoleRoute allowedRoles={PAGE_ACCESS.matrice}>
+            <MatrixPage />
+          </RoleRoute>
+        ),
+      },
+      {
+        path: 'compte/securite',
+        element: <SecurityPage />,
+      },
+      {
+        path: 'admin/users',
+        element: (
+          <RoleRoute allowedRoles={PAGE_ACCESS.users}>
+            <UsersPage />
+          </RoleRoute>
+        ),
       },
     ],
   },

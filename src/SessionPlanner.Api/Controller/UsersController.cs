@@ -92,6 +92,18 @@ public class UsersController : ControllerBase
         return NoContent();
     }
 
+    [HttpPut("{id:int}/password")]
+    [HasPermission(Permissions.Users.Update)]
+    public async Task<IActionResult> UpdatePassword(int id, UpdateUserPasswordRequest request)
+    {
+        var status = await _userService.UpdatePasswordAsync(id, request.NewPassword);
+
+        if (status == UpdateUserPasswordStatus.UserNotFound)
+            return NotFound();
+
+        return NoContent();
+    }
+
     [HttpDelete("{id:int}")]
     [HasPermission(Permissions.Users.Delete)]
     public async Task<IActionResult> Delete(int id)
