@@ -11,7 +11,8 @@ export function NotFoundPage() {
         </p>
         <Link
           to="/"
-          className="mt-6 inline-flex items-center justify-center rounded-2xl bg-stone-950 px-5 py-3 text-sm font-medium text-white transition hover:bg-stone-800"
+          className="mt-6 inline-flex items-center justify-center rounded-2xl bg-stone-950 px-5 py-3 text-sm font-medium transition hover:bg-stone-800"
+          style={{ color: 'white' }}
         >
           Revenir a l&apos;application
         </Link>

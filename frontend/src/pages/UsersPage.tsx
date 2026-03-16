@@ -184,16 +184,15 @@ export function UsersPage() {
         ) : users.length === 0 ? (
           <div className="px-6 py-10 text-center text-sm text-stone-500">Aucun utilisateur trouvé.</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div>
+            <table className="w-full table-auto text-sm">
               <thead>
                 <tr className="border-b border-stone-100 bg-stone-50/70 text-xs uppercase tracking-[0.15em] text-stone-500">
-                  <th className="px-6 py-3 text-left font-medium">ID</th>
-                  <th className="px-6 py-3 text-left font-medium">Email</th>
-                  <th className="px-6 py-3 text-left font-medium">Rôle actuel</th>
-                  <th className="px-6 py-3 text-left font-medium">Changer le rôle</th>
-                  <th className="px-6 py-3 text-left font-medium">Mot de passe temporaire</th>
-                  <th className="px-6 py-3 text-left font-medium">Actions</th>
+                  <th className="w-[24%] px-6 py-4 text-left font-medium">Email</th>
+                  <th className="w-[12%] px-6 py-4 text-left font-medium">Rôle</th>
+                  <th className="w-[20%] px-6 py-4 text-left font-medium">Changer le rôle</th>
+                  <th className="w-[30%] px-6 py-4 text-left font-medium">Mot de passe temp.</th>
+                  <th className="w-[14%] px-6 py-4 text-left font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100">
@@ -208,12 +207,11 @@ export function UsersPage() {
 
                   return (
                     <tr key={user.id} className="transition hover:bg-stone-50/60">
-                      <td className="px-6 py-4 text-stone-400">#{user.id}</td>
-                      <td className="px-6 py-4 font-medium text-stone-950">{user.username}</td>
-                      <td className="px-6 py-4">
+                      <td className="truncate px-6 py-5 font-medium text-stone-950">{user.username}</td>
+                      <td className="px-6 py-5">
                         <RoleBadge role={user.roles} />
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-5">
                         <div className="flex items-center gap-2">
                           <select
                             value={pendingRole}
@@ -238,16 +236,16 @@ export function UsersPage() {
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="flex min-w-72 items-center gap-2">
+                      <td className="px-6 py-5">
+                        <div className="flex items-center gap-2">
                           <input
                             type="password"
                             value={pendingPassword}
                             onChange={(event) =>
                               setPasswordEdits((prev) => ({ ...prev, [user.id]: event.target.value }))
                             }
-                            className="input-field"
-                            placeholder="Nouveau mot de passe temporaire"
+                            className="input-field min-w-0"
+                            placeholder="Nouveau mot de passe"
                             minLength={8}
                           />
                           <button
@@ -260,7 +258,7 @@ export function UsersPage() {
                           </button>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-5">
                         {isProtectedAdmin ? (
                           <span className="text-xs text-stone-400">Compte protégé</span>
                         ) : deleteConfirm === user.id ? (
