@@ -10,6 +10,7 @@ using SessionPlanner.Infrastructure.Data;
 using SessionPlanner.Infrastructure.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+const string FrontendCorsPolicy = "FrontendCors";
 
 builder.Services.AddOpenApi();
 
@@ -42,6 +43,13 @@ builder.Services.AddScoped<ISaaSProductService, SaaSProductService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ITeachingNeedService, TeachingNeedService>();
 
+var jwtKey = builder.Configuration["Jwt:Key"];
+
+if (string.IsNullOrWhiteSpace(jwtKey))
+{
+    throw new InvalidOperationException("JWT key is missing. Configure Jwt:Key in appsettings or user secrets.");
+}
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -54,7 +62,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
             ValidAudience = builder.Configuration["Jwt:Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
+                Encoding.UTF8.GetBytes(jwtKey))
         };
     });
 
@@ -70,6 +78,26 @@ builder.Services.AddAuthorization(options =>
 });
 
 builder.Services.AddControllers();
+
+var corsOrigins = builder.Configuration
+    .GetSection("Cors:AllowedOrigins")
+    .Get<string[]>() ?? [];
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(FrontendCorsPolicy, policy =>
+    {
+        if (corsOrigins.Length == 0)
+        {
+            return;
+        }
+
+        policy
+            .WithOrigins(corsOrigins)
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
 
 var app = builder.Build();
 
@@ -96,6 +124,11 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+if (corsOrigins.Length > 0)
+{
+    app.UseCors(FrontendCorsPolicy);
+}
 
 app.UseAuthentication();
 app.UseAuthorization();

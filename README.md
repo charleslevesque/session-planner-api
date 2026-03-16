@@ -63,6 +63,34 @@ The API will start locally.
 
 ---
 
+## Frontend
+
+The workspace now includes a React frontend in [frontend](c:/PFEcode/session-planner-api/frontend).
+
+### Frontend Prerequisites
+
+- Node.js
+- npm
+
+### Run the Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The Vite dev server proxies `/api/*` requests to `http://localhost:5290` through [frontend/vite.config.ts](c:/PFEcode/session-planner-api/frontend/vite.config.ts), so the frontend can call the API without additional browser-side CORS setup in development.
+
+### Build the Frontend
+
+```bash
+cd frontend
+npm run build
+```
+
+---
+
 ## Testing
 
 The project includes comprehensive unit and integration tests using **xUnit** and **FluentAssertions**.
