@@ -134,11 +134,8 @@ public class TeachingNeedService : ITeachingNeedService
 
         if (need is null) return null;
 
-        if (need.Status == NeedStatus.Approved)
-            throw new InvalidOperationException("Cannot modify an approved need.");
-
-        if (need.Status != NeedStatus.Draft && need.Status != NeedStatus.Rejected)
-            throw new InvalidOperationException("Need can only be modified when in Draft or Rejected status.");
+        if (need.Status != NeedStatus.Draft && need.Status != NeedStatus.Submitted && need.Status != NeedStatus.Rejected)
+            throw new InvalidOperationException("Need can only be modified when in Draft, Submitted, or Rejected status.");
 
         need.CourseId = courseId;
         need.Notes = notes;
@@ -170,8 +167,8 @@ public class TeachingNeedService : ITeachingNeedService
 
         if (need is null) return null;
 
-        if (need.Status != NeedStatus.Draft)
-            throw new InvalidOperationException("Items can only be added to Draft needs.");
+        if (need.Status != NeedStatus.Draft && need.Status != NeedStatus.Submitted)
+            throw new InvalidOperationException("Items can only be added to Draft or Submitted needs.");
 
         var item = new TeachingNeedItem
         {
@@ -200,8 +197,8 @@ public class TeachingNeedService : ITeachingNeedService
 
         if (need is null) return false;
 
-        if (need.Status != NeedStatus.Draft)
-            throw new InvalidOperationException("Items can only be removed from Draft needs.");
+        if (need.Status != NeedStatus.Draft && need.Status != NeedStatus.Submitted)
+            throw new InvalidOperationException("Items can only be removed from Draft or Submitted needs.");
 
         var item = await _db.TeachingNeedItems
             .FirstOrDefaultAsync(i => i.Id == itemId && i.TeachingNeedId == needId);

@@ -220,12 +220,58 @@ function TeacherNeedsView({ sessionId, startInCreateMode = false }: { sessionId:
     }
   }
 
+  const [addItemNeedId, setAddItemNeedId] = useState<number | null>(null);
+  const [inlineSoftwareName, setInlineSoftwareName] = useState('');
+  const [inlineVersionInput, setInlineVersionInput] = useState('');
+  const [itemBusy, setItemBusy] = useState(false);
+
+  async function addItemToExistingNeed(needId: number) {
+    const name = inlineSoftwareName.trim();
+    if (!name) return;
+
+    setItemBusy(true);
+    setError('');
+
+    try {
+      const softwareId = await resolveSoftwareId(name);
+      const itemNotes = inlineVersionInput.trim() ? `Version demandee: ${inlineVersionInput.trim()}` : undefined;
+
+      await apiFetch(`/sessions/${sessionId}/needs/${needId}/items`, {
+        method: 'POST',
+        body: JSON.stringify({ softwareId, quantity: 1, notes: itemNotes } satisfies AddNeedItemRequest),
+      });
+
+      setInlineSoftwareName('');
+      setInlineVersionInput('');
+      setAddItemNeedId(null);
+      await loadData();
+    } catch (err) {
+      setError(getErrorMessage(err, 'Impossible d\'ajouter ce logiciel.'));
+    } finally {
+      setItemBusy(false);
+    }
+  }
+
+  async function removeItemFromNeed(needId: number, itemId: number) {
+    setItemBusy(true);
+    setError('');
+
+    try {
+      await apiFetch(`/sessions/${sessionId}/needs/${needId}/items/${itemId}`, { method: 'DELETE' });
+      await loadData();
+    } catch (err) {
+      setError(getErrorMessage(err, 'Impossible de retirer ce logiciel.'));
+    } finally {
+      setItemBusy(false);
+    }
+  }
+
   if (loading) {
     return <div className="rounded-2xl border border-stone-200 bg-white/70 px-4 py-6 text-sm text-stone-600">Chargement...</div>;
   }
 
-  const draftNeeds = needs.filter((need) => need.status === 'Draft');
-  const sentNeeds = needs.filter((need) => need.status !== 'Draft');
+  const editableNeeds = needs.filter((need) => need.status === 'Draft' || need.status === 'Submitted');
+  const lockedNeeds = needs.filter((need) => need.status !== 'Draft' && need.status !== 'Submitted');
 
   return (
     <div className="space-y-6">
@@ -368,37 +414,109 @@ function TeacherNeedsView({ sessionId, startInCreateMode = false }: { sessionId:
         <h2 className="text-lg font-semibold text-stone-950">Mes demandes</h2>
         <p className="mt-1 text-sm text-stone-600">Vous voyez uniquement vos propres demandes et leur statut.</p>
         <div className="mt-4 grid gap-3">
-          {[...draftNeeds, ...sentNeeds].length === 0 ? (
+          {[...editableNeeds, ...lockedNeeds].length === 0 ? (
             <p className="text-sm text-stone-500">Aucun besoin pour cette session.</p>
           ) : (
-            [...draftNeeds, ...sentNeeds].map((need) => (
-              <article key={need.id} className="rounded-2xl border border-stone-200 bg-white/80 p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="font-medium text-stone-900">{need.courseCode}{need.courseName ? ` - ${need.courseName}` : ''}</p>
-                    <p className="text-sm text-stone-600">{need.items.length} logiciel(s)</p>
-                  </div>
-                  <NeedStatusBadge status={need.status} />
-                </div>
+            [...editableNeeds, ...lockedNeeds].map((need) => {
+              const isEditable = need.status === 'Draft' || need.status === 'Submitted';
 
-                {need.rejectionReason ? (
-                  <p className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">Motif: {need.rejectionReason}</p>
-                ) : null}
-
-                {need.status === 'Draft' ? (
-                  <div className="mt-3">
-                    <button
-                      type="button"
-                      onClick={() => void submitExistingNeed(need.id)}
-                      disabled={submittingNeedId === need.id}
-                      className="rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-                    >
-                      {submittingNeedId === need.id ? 'Soumission...' : 'Soumettre'}
-                    </button>
+              return (
+                <article key={need.id} className="rounded-2xl border border-stone-200 bg-white/80 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="font-medium text-stone-900">{need.courseCode}{need.courseName ? ` - ${need.courseName}` : ''}</p>
+                      <p className="text-sm text-stone-600">{need.items.length} logiciel(s)</p>
+                    </div>
+                    <NeedStatusBadge status={need.status} />
                   </div>
-                ) : null}
-              </article>
-            ))
+
+                  {need.rejectionReason ? (
+                    <p className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">Motif: {need.rejectionReason}</p>
+                  ) : null}
+
+                  {need.items.length > 0 ? (
+                    <ul className="mt-3 space-y-1.5">
+                      {need.items.map((item) => (
+                        <li key={item.id} className="flex items-center justify-between rounded-xl bg-stone-50 px-3 py-2 text-sm">
+                          <span className="text-stone-700">
+                            {item.softwareName ?? 'Logiciel inconnu'}
+                            {item.notes ? ` — ${item.notes}` : ''}
+                          </span>
+                          {isEditable ? (
+                            <button
+                              type="button"
+                              onClick={() => void removeItemFromNeed(need.id, item.id)}
+                              disabled={itemBusy}
+                              className="text-xs text-rose-600 hover:text-rose-700 disabled:opacity-50"
+                            >
+                              Retirer
+                            </button>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+
+                  {isEditable ? (
+                    <div className="mt-3">
+                      {addItemNeedId === need.id ? (
+                        <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto_auto]">
+                          <input
+                            value={inlineSoftwareName}
+                            onChange={(e) => setInlineSoftwareName(e.target.value)}
+                            className="input-field"
+                            list="software-name-suggestions"
+                            placeholder="Nom logiciel"
+                          />
+                          <input
+                            value={inlineVersionInput}
+                            onChange={(e) => setInlineVersionInput(e.target.value)}
+                            className="input-field"
+                            placeholder="Version (optionnel)"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => void addItemToExistingNeed(need.id)}
+                            disabled={itemBusy || !inlineSoftwareName.trim()}
+                            className="rounded-xl bg-stone-950 px-3 py-1.5 text-xs font-medium text-white hover:bg-stone-800 disabled:opacity-50"
+                          >
+                            {itemBusy ? '...' : 'Ajouter'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setAddItemNeedId(null); setInlineSoftwareName(''); setInlineVersionInput(''); }}
+                            className="rounded-xl border border-stone-300 px-3 py-1.5 text-xs text-stone-600 hover:bg-stone-100"
+                          >
+                            Annuler
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setAddItemNeedId(need.id)}
+                          className="rounded-xl border border-stone-300 px-3 py-1.5 text-xs text-stone-600 hover:bg-stone-100"
+                        >
+                          + Ajouter un logiciel
+                        </button>
+                      )}
+                    </div>
+                  ) : null}
+
+                  {need.status === 'Draft' ? (
+                    <div className="mt-3">
+                      <button
+                        type="button"
+                        onClick={() => void submitExistingNeed(need.id)}
+                        disabled={submittingNeedId === need.id}
+                        className="rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                      >
+                        {submittingNeedId === need.id ? 'Soumission...' : 'Soumettre'}
+                      </button>
+                    </div>
+                  ) : null}
+                </article>
+              );
+            })
           )}
         </div>
       </section>
@@ -496,8 +614,19 @@ function TechnicianReviewView({ sessionId }: { sessionId: number }) {
 
   return (
     <section className="surface-card p-6 sm:p-8">
-      <h2 className="text-lg font-semibold text-stone-950">Approbation besoins</h2>
-      <p className="mt-1 text-sm text-stone-600">Vue complète des besoins. Vous pouvez changer le statut, approuver ou rejeter.</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold text-stone-950">Approbation besoins</h2>
+          <p className="mt-1 text-sm text-stone-600">Vue complète des besoins. Vous pouvez changer le statut, approuver ou rejeter.</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => void loadNeeds()}
+          className="rounded-xl border border-stone-200 px-3 py-1.5 text-xs text-stone-600 transition hover:bg-stone-50"
+        >
+          Rafraîchir
+        </button>
+      </div>
 
       {error ? <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
 
@@ -515,9 +644,41 @@ function TechnicianReviewView({ sessionId }: { sessionId: number }) {
                 <NeedStatusBadge status={need.status} />
               </div>
 
-              <p className="mt-2 text-sm text-stone-600">{need.items.length} logiciel(s) demandé(s)</p>
+              {need.items.length > 0 ? (
+                <ul className="mt-3 space-y-1.5">
+                  {need.items.map((item) => (
+                    <li key={item.id} className="rounded-xl bg-stone-50 px-3 py-2 text-sm text-stone-700">
+                      {item.softwareName ?? 'Logiciel inconnu'}
+                      {item.notes ? ` — ${item.notes}` : ''}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-2 text-sm text-stone-500">Aucun logiciel demandé.</p>
+              )}
 
-              {need.status === 'Approved' || need.status === 'Rejected' || need.status === 'Draft' ? null : (
+              {need.notes ? (
+                <p className="mt-2 rounded-xl bg-stone-50 px-3 py-2 text-sm text-stone-600 italic">{need.notes}</p>
+              ) : null}
+
+              {need.rejectionReason ? (
+                <p className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">Motif: {need.rejectionReason}</p>
+              ) : null}
+
+              {need.status === 'Submitted' ? (
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    onClick={() => void setUnderReview(need)}
+                    disabled={busyId === need.id}
+                    className="rounded-xl border border-violet-300 bg-violet-50 px-3 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-100 disabled:opacity-50"
+                  >
+                    Passer en révision
+                  </button>
+                </div>
+              ) : null}
+
+              {need.status === 'Submitted' || need.status === 'UnderReview' ? (
                 <div className="mt-4 grid gap-2 md:grid-cols-[1fr_auto_auto]">
                   <input
                     className="input-field"
@@ -542,23 +703,6 @@ function TechnicianReviewView({ sessionId }: { sessionId: number }) {
                     Rejeter
                   </button>
                 </div>
-              )}
-
-              {need.status === 'Submitted' ? (
-                <div className="mt-3">
-                  <button
-                    type="button"
-                    onClick={() => void setUnderReview(need)}
-                    disabled={busyId === need.id}
-                    className="rounded-xl border border-violet-300 bg-violet-50 px-3 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-100 disabled:opacity-50"
-                  >
-                    Passer en révision
-                  </button>
-                </div>
-              ) : null}
-
-              {need.rejectionReason ? (
-                <p className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">Motif: {need.rejectionReason}</p>
               ) : null}
             </article>
           ))
