@@ -27,7 +27,7 @@ public class AuthService : IAuthService
         if (exists)
             throw new InvalidOperationException("A user with this email already exists.");
 
-        var teacherRole = await _db.Roles.FirstAsync(r => r.Name == Roles.Teacher);
+        var teacherRole = await _db.Roles.FirstAsync(r => r.Name == Roles.Professor);
 
         var user = new User
         {

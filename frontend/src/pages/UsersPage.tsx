@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { getErrorMessage } from '../lib/api';
 import {
   ALL_ROLES,
+  ROLE_LABELS,
   type CreateUserRequest,
   type RoleName,
   type UpdateUserPasswordRequest,
@@ -12,23 +13,23 @@ import {
 const initialForm: CreateUserRequest = {
   username: '',
   password: '',
-  roleName: 'teacher',
+  roleName: 'professor',
 };
 
 function RoleBadge({ role }: { role: string }) {
   const colors: Record<string, string> = {
     admin: 'bg-rose-100 text-rose-700 border-rose-200',
-    planner: 'bg-violet-100 text-violet-700 border-violet-200',
-    technician: 'bg-blue-100 text-blue-700 border-blue-200',
-    teacher: 'bg-amber-100 text-amber-700 border-amber-200',
-    management: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+    professor: 'bg-amber-100 text-amber-700 border-amber-200',
+    lab_instructor: 'bg-blue-100 text-blue-700 border-blue-200',
+    course_instructor: 'bg-violet-100 text-violet-700 border-violet-200',
   };
 
+  const label = ROLE_LABELS[role as RoleName] ?? role;
   const cls = colors[role] ?? 'bg-stone-100 text-stone-600 border-stone-200';
 
   return (
     <span className={`inline-flex items-center rounded-xl border px-2.5 py-0.5 text-xs font-medium ${cls}`}>
-      {role}
+      {label}
     </span>
   );
 }
@@ -139,7 +140,7 @@ export function UsersPage() {
         method: 'POST',
         body: JSON.stringify(form),
       });
-      setCreateSuccess(`Compte "${form.username}" créé avec le rôle ${form.roleName}.`);
+      setCreateSuccess(`Compte "${form.username}" créé avec le rôle ${ROLE_LABELS[form.roleName as RoleName] ?? form.roleName}.`);
       setForm(initialForm);
       await loadUsers();
     } catch (err) {
@@ -221,7 +222,7 @@ export function UsersPage() {
                             className="rounded-xl border border-stone-200 bg-white px-3 py-1.5 text-sm text-stone-700 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
                           >
                             {ALL_ROLES.map((r) => (
-                              <option key={r} value={r}>{r}</option>
+                              <option key={r} value={r}>{ROLE_LABELS[r]}</option>
                             ))}
                           </select>
                           {roleChanged && (
@@ -352,7 +353,7 @@ export function UsersPage() {
               className="input-field"
             >
               {ALL_ROLES.map((r) => (
-                <option key={r} value={r}>{r}</option>
+                <option key={r} value={r}>{ROLE_LABELS[r]}</option>
               ))}
             </select>
           </label>

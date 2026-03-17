@@ -156,9 +156,10 @@ public static class InitializeData
     {
         return roleName switch
         {
-            Roles.Teacher => PersonnelFunction.Professor,
-            Roles.Technician => PersonnelFunction.LabInstructor,
-            _ => PersonnelFunction.CourseInstructor,
+            Roles.Professor => PersonnelFunction.Professor,
+            Roles.LabInstructor => PersonnelFunction.LabInstructor,
+            Roles.CourseInstructor => PersonnelFunction.CourseInstructor,
+            _ => PersonnelFunction.Professor,
         };
     }
 

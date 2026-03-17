@@ -28,8 +28,8 @@ export function NeedsPage() {
     void loadSessions();
   }, [loadSessions]);
 
-  const canAccessSessionNeeds = user?.role === 'teacher' || user?.role === 'technician' || user?.role === 'admin';
-  const isTeacher = user?.role === 'teacher';
+  const canAccessSessionNeeds = user?.role === 'professor' || user?.role === 'course_instructor' || user?.role === 'lab_instructor' || user?.role === 'admin';
+  const isTeacher = user?.role === 'professor' || user?.role === 'course_instructor';
 
   return (
     <div className="space-y-6">

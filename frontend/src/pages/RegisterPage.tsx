@@ -46,7 +46,7 @@ export function RegisterPage() {
             <p className="text-xs uppercase tracking-[0.35em] text-stone-500">Register</p>
             <h1 className="mt-3 text-3xl font-semibold text-stone-950">Creer un compte enseignant</h1>
             <p className="mt-3 text-sm leading-7 text-stone-600">
-              Le backend attribue le role teacher par defaut. Le compte est cree en base, puis le flux renvoie vers login.
+              Le backend attribue le rôle Professor par défaut. Le compte est créé en base, puis le flux renvoie vers login.
             </p>
 
             {error ? (

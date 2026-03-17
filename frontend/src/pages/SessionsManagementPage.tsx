@@ -69,9 +69,9 @@ export function SessionsManagementPage() {
     endDate: '',
   });
 
-  const canCreateSessions = user?.role === 'admin' || user?.role === 'planner';
-  const canUpdateSessions = user?.role === 'admin' || user?.role === 'planner' || user?.role === 'technician';
-  const canDeleteSessions = user?.role === 'admin' || user?.role === 'planner';
+  const canCreateSessions = user?.role === 'admin';
+  const canUpdateSessions = user?.role === 'admin' || user?.role === 'lab_instructor';
+  const canDeleteSessions = user?.role === 'admin';
 
   const loadSessions = useCallback(async () => {
     setLoading(true);

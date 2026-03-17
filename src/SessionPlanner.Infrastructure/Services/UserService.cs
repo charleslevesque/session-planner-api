@@ -63,7 +63,7 @@ public class UserService : IUserService
         else
         {
             role = await _db.Roles
-                .FirstAsync(r => r.Name == Roles.Teacher);
+                .FirstAsync(r => r.Name == Roles.Professor);
         }
 
         var user = new User
@@ -126,9 +126,10 @@ public class UserService : IUserService
     {
         return roleName switch
         {
-            Roles.Teacher => PersonnelFunction.Professor,
-            Roles.Technician => PersonnelFunction.LabInstructor,
-            _ => PersonnelFunction.CourseInstructor,
+            Roles.Professor => PersonnelFunction.Professor,
+            Roles.LabInstructor => PersonnelFunction.LabInstructor,
+            Roles.CourseInstructor => PersonnelFunction.CourseInstructor,
+            _ => PersonnelFunction.Professor,
         };
     }
 

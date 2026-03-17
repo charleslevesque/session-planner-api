@@ -1,13 +1,13 @@
 import type { RoleName } from '../types/auth';
 
 export const PAGE_ACCESS = {
-  dashboard: ['admin', 'technician', 'planner', 'management', 'teacher'],
-  sessionsManage: ['admin', 'technician', 'planner'],
-  besoins: ['admin', 'technician', 'teacher'],
-  sessionNeeds: ['admin', 'technician', 'teacher'],
-  matrice: ['admin', 'planner'],
+  dashboard: ['admin', 'professor', 'lab_instructor', 'course_instructor'],
+  sessionsManage: ['admin', 'lab_instructor'],
+  besoins: ['admin', 'lab_instructor', 'professor', 'course_instructor'],
+  sessionNeeds: ['admin', 'lab_instructor', 'professor', 'course_instructor'],
+  matrice: ['admin', 'lab_instructor'],
   users: ['admin'],
-  security: ['admin', 'technician', 'planner', 'management', 'teacher'],
+  security: ['admin', 'professor', 'lab_instructor', 'course_instructor'],
 } as const satisfies Record<string, readonly RoleName[]>;
 
 export function hasRoleAccess(role: string | null | undefined, allowedRoles: readonly RoleName[]): boolean {

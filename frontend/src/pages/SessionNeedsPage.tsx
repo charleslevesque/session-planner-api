@@ -605,8 +605,8 @@ export function SessionNeedsPage() {
     };
   }, [apiFetch, sessionId]);
 
-  const isTeacher = user?.role === 'teacher';
-  const isReviewer = user?.role === 'technician' || user?.role === 'admin';
+  const isTeacher = user?.role === 'professor' || user?.role === 'course_instructor';
+  const isReviewer = user?.role === 'lab_instructor' || user?.role === 'admin';
   const openCreateForm = searchParams.get('create') === '1';
 
   return (

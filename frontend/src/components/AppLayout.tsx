@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { ROLE_LABELS, type RoleName } from '../types/users';
 import { Sidebar } from './Sidebar';
 
 function formatRole(role: string) {
@@ -8,7 +9,7 @@ function formatRole(role: string) {
     return 'Utilisateur';
   }
 
-  return role.charAt(0).toUpperCase() + role.slice(1);
+  return ROLE_LABELS[role as RoleName] ?? role;
 }
 
 export function AppLayout() {

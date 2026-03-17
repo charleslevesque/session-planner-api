@@ -37,9 +37,9 @@ export function DashboardPage() {
     endDate: '',
   });
 
-  const canTransitionSessions = user?.role === 'technician' || user?.role === 'admin';
+  const canTransitionSessions = user?.role === 'lab_instructor' || user?.role === 'admin';
   const canCreateSessions = user?.role === 'admin';
-  const canAccessNeeds = user?.role === 'teacher' || user?.role === 'technician' || user?.role === 'admin';
+  const canAccessNeeds = user?.role === 'professor' || user?.role === 'course_instructor' || user?.role === 'lab_instructor' || user?.role === 'admin';
 
   const loadData = useCallback(async () => {
     setLoading(true);

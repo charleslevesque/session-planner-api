@@ -49,7 +49,7 @@ public class TeachingNeedsWorkflowControllerTests : IClassFixture<TeachingNeedWo
 
     private async Task<TeachingNeedResponse> CreateNeedAsTeacherAsync(int sessionId, int courseId)
     {
-        SetRole("teacher");
+        SetRole("professor");
         var response = await _client.PostAsJsonAsync(
             $"/api/v1/sessions/{sessionId}/needs",
             new CreateTeachingNeedRequest(courseId, null, "workflow need"));
@@ -65,7 +65,7 @@ public class TeachingNeedsWorkflowControllerTests : IClassFixture<TeachingNeedWo
         var courseId = await CreateCourseAsync("WF201");
         var need = await CreateNeedAsTeacherAsync(sessionId, courseId);
 
-        SetRole("teacher");
+        SetRole("professor");
         var submitResponse = await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need.Id}/submit", null);
         submitResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         var submitted = await submitResponse.Content.ReadFromJsonAsync<TeachingNeedResponse>();
@@ -90,7 +90,7 @@ public class TeachingNeedsWorkflowControllerTests : IClassFixture<TeachingNeedWo
         var courseId = await CreateCourseAsync("WF202");
         var need = await CreateNeedAsTeacherAsync(sessionId, courseId);
 
-        SetRole("teacher");
+        SetRole("professor");
         (await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need.Id}/submit", null)).StatusCode.Should().Be(HttpStatusCode.OK);
 
         SetRole("admin");
@@ -104,7 +104,7 @@ public class TeachingNeedsWorkflowControllerTests : IClassFixture<TeachingNeedWo
         rejected!.Status.Should().Be("Rejected");
         rejected.RejectionReason.Should().Be("Please specify exact software version");
 
-        SetRole("teacher");
+        SetRole("professor");
         var reviseResponse = await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need.Id}/revise", null);
         reviseResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         var revised = await reviseResponse.Content.ReadFromJsonAsync<TeachingNeedResponse>();
@@ -119,7 +119,7 @@ public class TeachingNeedsWorkflowControllerTests : IClassFixture<TeachingNeedWo
         var courseId = await CreateCourseAsync("WF203");
         var need = await CreateNeedAsTeacherAsync(sessionId, courseId);
 
-        SetRole("teacher");
+        SetRole("professor");
         (await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need.Id}/submit", null)).StatusCode.Should().Be(HttpStatusCode.OK);
 
         SetRole("admin");
@@ -156,7 +156,7 @@ public class TeachingNeedsWorkflowControllerTests : IClassFixture<TeachingNeedWo
         var submitAsAdmin = await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need.Id}/submit", null);
         submitAsAdmin.StatusCode.Should().Be(HttpStatusCode.Forbidden);
 
-        SetRole("teacher");
+        SetRole("professor");
         (await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need.Id}/submit", null)).StatusCode.Should().Be(HttpStatusCode.OK);
 
         var reviewAsTeacher = await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need.Id}/review", null);

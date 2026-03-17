@@ -128,7 +128,7 @@ public class AuthControllerTests : IClassFixture<AuthWebApplicationFactory>
         var me = await response.Content.ReadFromJsonAsync<MeResponse>();
         me!.Email.Should().Be(email);
         me.Name.Should().Be("Marie Dupont");
-        me.Role.Should().Be("teacher");
+        me.Role.Should().Be("professor");
     }
 
     [Fact]
