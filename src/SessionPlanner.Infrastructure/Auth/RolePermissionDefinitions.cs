@@ -24,6 +24,8 @@ public static class RolePermissionDefinitions
 
             [Roles.Technician] = new List<string>
             {
+                Permissions.Sessions.Read,
+                Permissions.Sessions.Update,
                 Permissions.Laboratories.Read,
                 Permissions.Laboratories.Update,
                 Permissions.Laboratories.Create,
@@ -60,6 +62,7 @@ public static class RolePermissionDefinitions
 
             [Roles.Management] = new List<string>
             {
+                Permissions.Sessions.Read,
                 Permissions.Laboratories.Read,
                 Permissions.Workstations.Read,
                 Permissions.Softwares.Read,
@@ -74,6 +77,7 @@ public static class RolePermissionDefinitions
 
             [Roles.Teacher] = new List<string>
             {
+                Permissions.Sessions.Read,
                 Permissions.Laboratories.Read,
                 Permissions.Workstations.Read,
                 Permissions.Softwares.Read,

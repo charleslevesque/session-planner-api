@@ -41,15 +41,21 @@ public class AuthService : IAuthService
 
         _db.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = teacherRole.Id });
 
-        var personnel = new Personnel
+        var personnel = await _db.Personnel
+            .FirstOrDefaultAsync(p => p.Email == email);
+
+        if (personnel is null)
         {
-            FirstName = firstName,
-            LastName = lastName,
-            Email = email,
-            Function = PersonnelFunction.Professor,
-        };
-        _db.Personnel.Add(personnel);
-        await _db.SaveChangesAsync();
+            personnel = new Personnel
+            {
+                FirstName = firstName,
+                LastName = lastName,
+                Email = email,
+                Function = PersonnelFunction.Professor,
+            };
+            _db.Personnel.Add(personnel);
+            await _db.SaveChangesAsync();
+        }
 
         user.PersonnelId = personnel.Id;
         await _db.SaveChangesAsync();

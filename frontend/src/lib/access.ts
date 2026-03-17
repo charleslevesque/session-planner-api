@@ -2,7 +2,9 @@ import type { RoleName } from '../types/auth';
 
 export const PAGE_ACCESS = {
   dashboard: ['admin', 'technician', 'planner', 'management', 'teacher'],
+  sessionsManage: ['admin', 'technician', 'planner'],
   besoins: ['admin', 'technician', 'teacher'],
+  sessionNeeds: ['admin', 'technician', 'teacher'],
   matrice: ['admin', 'planner'],
   users: ['admin'],
   security: ['admin', 'technician', 'planner', 'management', 'teacher'],

@@ -77,6 +77,37 @@ public class UserService : IUserService
         _db.Users.Add(user);
         await _db.SaveChangesAsync();
 
+        var existingPersonnel = await _db.Personnel
+            .FirstOrDefaultAsync(p => p.Email == username);
+
+        if (existingPersonnel is not null)
+        {
+            user.PersonnelId = existingPersonnel.Id;
+        }
+        else
+        {
+            var localPart = username.Split('@')[0];
+            var nameParts = localPart
+                .Split(new[] { '.', '_', '-', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+
+            var firstName = nameParts.Length > 0 ? ToTitle(nameParts[0]) : "User";
+            var lastName = nameParts.Length > 1 ? ToTitle(nameParts[1]) : "Account";
+
+            var personnel = new Personnel
+            {
+                FirstName = firstName,
+                LastName = lastName,
+                Email = username,
+                Function = MapRoleToPersonnelFunction(role.Name),
+            };
+
+            _db.Personnel.Add(personnel);
+            await _db.SaveChangesAsync();
+            user.PersonnelId = personnel.Id;
+        }
+
+        await _db.SaveChangesAsync();
+
         _db.UserRoles.Add(new UserRole
         {
             UserId = user.Id,
@@ -89,6 +120,22 @@ public class UserService : IUserService
             .FirstAsync(u => u.Id == user.Id);
 
         return new CreateUserResult(CreateUserStatus.Success, createdUser);
+    }
+
+    private static PersonnelFunction MapRoleToPersonnelFunction(string roleName)
+    {
+        return roleName switch
+        {
+            Roles.Teacher => PersonnelFunction.Professor,
+            Roles.Technician => PersonnelFunction.LabInstructor,
+            _ => PersonnelFunction.CourseInstructor,
+        };
+    }
+
+    private static string ToTitle(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "User";
+        return char.ToUpperInvariant(value[0]) + value[1..].ToLowerInvariant();
     }
 
     public async Task<UpdateUserRoleStatus> UpdateRoleAsync(int id, string roleName)

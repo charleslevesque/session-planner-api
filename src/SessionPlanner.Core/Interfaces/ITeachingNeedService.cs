@@ -41,4 +41,10 @@ public interface ITeachingNeedService
 
     /// <summary>Returns the PersonnelId linked to the given userId, or null if none.</summary>
     Task<int?> GetPersonnelIdForUserAsync(int userId);
+
+    /// <summary>
+    /// Returns linked PersonnelId for a user, creating/linking a Personnel record when missing.
+    /// Intended for teacher flows where account-to-personnel link may be absent.
+    /// </summary>
+    Task<int?> GetOrCreatePersonnelIdForUserAsync(int userId);
 }

@@ -21,6 +21,62 @@ public class TeachingNeedService : ITeachingNeedService
         return user?.PersonnelId;
     }
 
+    public async Task<int?> GetOrCreatePersonnelIdForUserAsync(int userId)
+    {
+        var user = await _db.Users
+            .FirstOrDefaultAsync(u => u.Id == userId && u.IsActive);
+
+        if (user is null)
+            return null;
+
+        if (user.PersonnelId is not null)
+            return user.PersonnelId;
+
+        var rawUsername = (user.Username ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(rawUsername))
+            return null;
+
+        // Reuse existing Personnel by email when present to avoid duplicates.
+        var existingPersonnel = await _db.Personnel
+            .FirstOrDefaultAsync(p => p.Email == rawUsername);
+
+        if (existingPersonnel is not null)
+        {
+            user.PersonnelId = existingPersonnel.Id;
+            await _db.SaveChangesAsync();
+            return existingPersonnel.Id;
+        }
+
+        var localPart = rawUsername.Split('@')[0];
+        var nameParts = localPart
+            .Split(new[] { '.', '_', '-', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+
+        var firstName = nameParts.Length > 0 ? ToTitle(nameParts[0]) : "Teacher";
+        var lastName = nameParts.Length > 1 ? ToTitle(nameParts[1]) : "User";
+
+        var personnel = new Personnel
+        {
+            FirstName = firstName,
+            LastName = lastName,
+            Email = rawUsername,
+            Function = PersonnelFunction.Professor,
+        };
+
+        _db.Personnel.Add(personnel);
+        await _db.SaveChangesAsync();
+
+        user.PersonnelId = personnel.Id;
+        await _db.SaveChangesAsync();
+
+        return personnel.Id;
+    }
+
+    private static string ToTitle(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "User";
+        return char.ToUpperInvariant(value[0]) + value[1..].ToLowerInvariant();
+    }
+
     public async Task<List<TeachingNeed>> GetAllBySessionAsync(int sessionId, int? filterByPersonnelId = null)
     {
         var query = _db.TeachingNeeds

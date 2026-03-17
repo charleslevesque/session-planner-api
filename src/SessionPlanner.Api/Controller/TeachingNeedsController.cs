@@ -35,7 +35,11 @@ public class TeachingNeedsController : ControllerBase
         {
             var userId = GetCurrentUserId();
             if (userId is null) return Unauthorized();
-            filterByPersonnelId = await _needService.GetPersonnelIdForUserAsync(userId.Value);
+
+            // Ensure teachers always resolve to a personnel scope; never return all needs for unlinked accounts.
+            filterByPersonnelId = await _needService.GetOrCreatePersonnelIdForUserAsync(userId.Value);
+            if (filterByPersonnelId is null)
+                return Ok(Array.Empty<TeachingNeedResponse>());
         }
 
         var needs = await _needService.GetAllBySessionAsync(sessionId, filterByPersonnelId);
@@ -71,7 +75,7 @@ public class TeachingNeedsController : ControllerBase
 
         if (User.IsInRole(Roles.Teacher))
         {
-            var ownPersonnelId = await _needService.GetPersonnelIdForUserAsync(userId.Value);
+            var ownPersonnelId = await _needService.GetOrCreatePersonnelIdForUserAsync(userId.Value);
             if (ownPersonnelId is null)
                 return BadRequest(new { error = "Your account is not linked to any personnel record." });
             personnelId = ownPersonnelId.Value;

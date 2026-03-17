@@ -11,6 +11,8 @@ import { MatrixPage } from './pages/MatrixPage';
 import { NeedsPage } from './pages/NeedsPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { RegisterPage } from './pages/RegisterPage';
+import { SessionNeedsPage } from './pages/SessionNeedsPage';
+import { SessionsManagementPage } from './pages/SessionsManagementPage';
 import { SecurityPage } from './pages/SecurityPage';
 import { UsersPage } from './pages/UsersPage';
 
@@ -58,6 +60,22 @@ export const router = createBrowserRouter([
         element: (
           <RoleRoute allowedRoles={PAGE_ACCESS.besoins}>
             <NeedsPage />
+          </RoleRoute>
+        ),
+      },
+      {
+        path: 'sessions/manage',
+        element: (
+          <RoleRoute allowedRoles={PAGE_ACCESS.sessionsManage}>
+            <SessionsManagementPage />
+          </RoleRoute>
+        ),
+      },
+      {
+        path: 'sessions/:id/needs',
+        element: (
+          <RoleRoute allowedRoles={PAGE_ACCESS.sessionNeeds}>
+            <SessionNeedsPage />
           </RoleRoute>
         ),
       },
