@@ -37,16 +37,18 @@ export function DashboardPage() {
     endDate: '',
   });
 
+  const isTeacher = user?.role === 'professor' || user?.role === 'course_instructor';
   const canTransitionSessions = user?.role === 'lab_instructor' || user?.role === 'admin';
   const canCreateSessions = user?.role === 'admin';
-  const canAccessNeeds = user?.role === 'professor' || user?.role === 'course_instructor' || user?.role === 'lab_instructor' || user?.role === 'admin';
+  const canAccessNeeds = isTeacher || user?.role === 'lab_instructor' || user?.role === 'admin';
 
   const loadData = useCallback(async () => {
     setLoading(true);
     setError('');
 
     try {
-      const sessionsData = await apiFetch<SessionResponse[]>('/sessions');
+      const path = isTeacher ? '/sessions?active=true' : '/sessions';
+      const sessionsData = await apiFetch<SessionResponse[]>(path);
       setSessions(sessionsData);
 
       const statsEntries = await Promise.all(
@@ -67,7 +69,7 @@ export function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [apiFetch]);
+  }, [apiFetch, isTeacher]);
 
   useEffect(() => {
     void loadData();

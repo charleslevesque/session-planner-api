@@ -2,7 +2,18 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getErrorMessage } from '../lib/api';
-import type { SessionResponse } from '../types/sessions';
+import type { SessionResponse, SessionStatus } from '../types/sessions';
+
+function SessionStatusBadge({ status }: { status: SessionStatus }) {
+  const styles: Record<SessionStatus, string> = {
+    Draft: 'bg-slate-100 text-slate-700 border-slate-200',
+    Open: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+    Closed: 'bg-amber-100 text-amber-700 border-amber-200',
+    Archived: 'bg-stone-200 text-stone-700 border-stone-300',
+  };
+
+  return <span className={`inline-flex rounded-xl border px-2.5 py-0.5 text-xs font-medium ${styles[status]}`}>{status}</span>;
+}
 
 export function NeedsPage() {
   const { apiFetch, user } = useAuth();
@@ -10,26 +21,27 @@ export function NeedsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const isTeacher = user?.role === 'professor' || user?.role === 'course_instructor';
+  const canAccessSessionNeeds = isTeacher || user?.role === 'lab_instructor' || user?.role === 'admin';
+
   const loadSessions = useCallback(async () => {
     setLoading(true);
     setError('');
 
     try {
-      const data = await apiFetch<SessionResponse[]>('/sessions');
+      const path = isTeacher ? '/sessions?active=true' : '/sessions';
+      const data = await apiFetch<SessionResponse[]>(path);
       setSessions(data);
     } catch (err) {
       setError(getErrorMessage(err, 'Impossible de charger les sessions pour la saisie des besoins.'));
     } finally {
       setLoading(false);
     }
-  }, [apiFetch]);
+  }, [apiFetch, isTeacher]);
 
   useEffect(() => {
     void loadSessions();
   }, [loadSessions]);
-
-  const canAccessSessionNeeds = user?.role === 'professor' || user?.role === 'course_instructor' || user?.role === 'lab_instructor' || user?.role === 'admin';
-  const isTeacher = user?.role === 'professor' || user?.role === 'course_instructor';
 
   return (
     <div className="space-y-6">
@@ -66,7 +78,10 @@ export function NeedsPage() {
           <div className="grid gap-4 p-6 lg:grid-cols-2">
             {sessions.map((session) => (
               <article key={session.id} className="rounded-2xl border border-stone-200 bg-white/80 p-4">
-                <p className="text-lg font-semibold text-stone-950">{session.title}</p>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-lg font-semibold text-stone-950">{session.title}</p>
+                  <SessionStatusBadge status={session.status} />
+                </div>
                 <p className="mt-2 text-sm text-stone-600">
                   {new Date(session.startDate).toLocaleDateString('fr-FR')} - {new Date(session.endDate).toLocaleDateString('fr-FR')}
                 </p>

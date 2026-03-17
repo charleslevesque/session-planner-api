@@ -628,7 +628,11 @@ export function SessionNeedsPage() {
       )}
 
       {!loading && !error ? (
-        isTeacher ? (
+        isTeacher && session?.status !== 'Open' ? (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+            Cette session n&apos;accepte pas de besoins actuellement. Seules les sessions ouvertes permettent la soumission.
+          </div>
+        ) : isTeacher ? (
           <TeacherNeedsView sessionId={sessionId} startInCreateMode={openCreateForm} />
         ) : isReviewer ? (
           <TechnicianReviewView sessionId={sessionId} />

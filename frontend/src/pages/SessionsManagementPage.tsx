@@ -9,32 +9,39 @@ type ApiSessionResponse = Omit<SessionResponse, 'status'> & {
 
 function normalizeSessionStatus(status: SessionStatus | number | string): SessionStatus {
   if (typeof status === 'number') {
-    const byIndex: SessionStatus[] = ['Draft', 'Open', 'Closed', 'Archived'];
-    return byIndex[status] ?? 'Draft';
+    const byValue: Record<number, SessionStatus> = { 1: 'Draft', 2: 'Open', 3: 'Closed', 4: 'Archived' };
+    return byValue[status] ?? 'Draft';
   }
 
-  const normalized = String(status).trim().toLowerCase();
-  if (normalized === 'draft') {
-    return 'Draft';
-  }
+  const normalized = String(status).trim();
+  const map: Record<string, SessionStatus> = {
+    draft: 'Draft',
+    open: 'Open',
+    closed: 'Closed',
+    archived: 'Archived',
+  };
 
-  if (normalized === 'open') {
-    return 'Open';
-  }
-
-  if (normalized === 'closed') {
-    return 'Closed';
-  }
-
-  if (normalized === 'archived') {
-    return 'Archived';
-  }
-
-  return 'Draft';
+  return map[normalized.toLowerCase()] ?? (normalized as SessionStatus) ?? 'Draft';
 }
 
 function toDateInput(value: string) {
   return new Date(value).toISOString().slice(0, 10);
+}
+
+function getTransitionAction(from: SessionStatus, to: SessionStatus): 'open' | 'close' | 'archive' | null {
+  if (from === 'Draft' && to === 'Open') return 'open';
+  if (from === 'Open' && to === 'Closed') return 'close';
+  if (from === 'Closed' && to === 'Archived') return 'archive';
+  return null;
+}
+
+function getValidTargets(current: SessionStatus): SessionStatus[] {
+  switch (current) {
+    case 'Draft': return ['Draft', 'Open'];
+    case 'Open': return ['Open', 'Closed'];
+    case 'Closed': return ['Closed', 'Archived'];
+    default: return [current];
+  }
 }
 
 function SessionStatusBadge({ status }: { status: SessionStatus }) {
@@ -157,10 +164,12 @@ export function SessionsManagementPage() {
     setError('');
 
     try {
-      await apiFetch(`/sessions/${sessionId}/${action}`, {
+      const updated = await apiFetch<ApiSessionResponse>(`/sessions/${sessionId}/${action}`, {
         method: 'POST',
       });
-      await loadSessions();
+      const normalized: SessionResponse = { ...updated, status: normalizeSessionStatus(updated.status) };
+      setSessions((prev) => prev.map((s) => (s.id === sessionId ? normalized : s)));
+      setTargetStatusById((prev) => ({ ...prev, [sessionId]: normalized.status }));
     } catch (err) {
       setError(getErrorMessage(err, 'Transition impossible pour cette session.'));
     } finally {
@@ -168,48 +177,30 @@ export function SessionsManagementPage() {
     }
   }
 
-  async function applyStatus(session: SessionResponse) {
-    const currentStatus = normalizeSessionStatus(session.status);
-    const target = normalizeSessionStatus(targetStatusById[session.id] ?? currentStatus);
+  async function applyStatus(sessionId: number) {
+    const session = sessions.find((s) => s.id === sessionId);
+    if (!session) return;
 
-    if (target === currentStatus) {
+    const target = targetStatusById[sessionId];
+    if (!target || target === session.status) return;
+
+    const action = getTransitionAction(session.status, target);
+    if (!action) {
+      setError('Transition invalide.');
       return;
     }
 
-    const order: SessionStatus[] = ['Draft', 'Open', 'Closed', 'Archived'];
-    const currentIndex = order.indexOf(currentStatus);
-    const targetIndex = order.indexOf(target);
-
-    if (currentIndex < 0 || targetIndex < 0) {
-      setError('Statut de session invalide. Rafraichissez la page puis reessayez.');
-      return;
-    }
-
-    if (targetIndex < currentIndex) {
-      setError('Les transitions arrière ne sont pas autorisées.');
-      return;
-    }
-
-    setSavingId(session.id);
+    setSavingId(sessionId);
     setError('');
 
     try {
-      const actions: Array<'open' | 'close' | 'archive'> = [];
-      for (let i = currentIndex; i < targetIndex; i += 1) {
-        if (order[i] === 'Draft') {
-          actions.push('open');
-        } else if (order[i] === 'Open') {
-          actions.push('close');
-        } else if (order[i] === 'Closed') {
-          actions.push('archive');
-        }
-      }
-
-      for (const action of actions) {
-        await apiFetch(`/sessions/${session.id}/${action}`, { method: 'POST' });
-      }
-
-      await loadSessions();
+      const updated = await apiFetch<ApiSessionResponse>(`/sessions/${sessionId}/${action}`, {
+        method: 'POST',
+      });
+      const normalized: SessionResponse = { ...updated, status: normalizeSessionStatus(updated.status) };
+      setSessions((prev) => prev.map((s) => (s.id === sessionId ? normalized : s)));
+      setTargetStatusById((prev) => ({ ...prev, [sessionId]: normalized.status }));
+      setEditId(null);
     } catch (err) {
       setError(getErrorMessage(err, 'Impossible de changer le statut de la session.'));
     } finally {
@@ -331,17 +322,17 @@ export function SessionsManagementPage() {
                             [session.id]: event.target.value as SessionStatus,
                           }))
                         }
-                        className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm text-stone-700 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+                        disabled={savingId === session.id}
+                        className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm text-stone-700 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100 disabled:opacity-50"
                       >
-                        <option value="Draft">Draft</option>
-                        <option value="Open">Open</option>
-                        <option value="Closed">Closed</option>
-                        <option value="Archived">Archived</option>
+                        {getValidTargets(session.status).map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
                       </select>
                       <button
                         type="button"
-                        onClick={() => void applyStatus(session)}
-                        disabled={savingId === session.id}
+                        onClick={() => void applyStatus(session.id)}
+                        disabled={savingId === session.id || (targetStatusById[session.id] ?? session.status) === session.status}
                         className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50"
                       >
                         Appliquer statut
