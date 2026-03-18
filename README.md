@@ -89,6 +89,10 @@ cd frontend
 npm run build
 ```
 
+### Logo ÉTS
+
+Pour afficher le logo de l'École de technologie supérieure dans la barre latérale, placez le fichier `ets-logo.png` dans le dossier `frontend/public/`. Si le fichier est absent, un badge « ÉTS » sera affiché à la place.
+
 ---
 
 ## Testing

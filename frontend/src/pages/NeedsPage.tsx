@@ -91,14 +91,14 @@ export function NeedsPage() {
                     <div className="flex flex-wrap gap-2">
                       <Link
                         to={`/sessions/${session.id}/needs`}
-                        className="inline-flex rounded-xl border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800 transition hover:bg-amber-100"
+                        className="inline-flex rounded-xl border-2 border-[var(--ets-primary)]/40 bg-[rgba(220,4,44,0.08)] px-3 py-1.5 text-xs font-medium text-[var(--ets-primary)] transition hover:bg-[rgba(220,4,44,0.14)]"
                       >
                         Ouvrir le workflow besoins
                       </Link>
                       {isTeacher ? (
                         <Link
                           to={`/sessions/${session.id}/needs?create=1`}
-                          className="inline-flex rounded-xl bg-stone-950 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-stone-800"
+                          className="inline-flex rounded-xl bg-[var(--ets-primary)] px-3 py-1.5 text-xs font-medium !text-white transition hover:bg-[var(--ets-primary-hover)] hover:!text-white"
                         >
                           Créer un besoin
                         </Link>

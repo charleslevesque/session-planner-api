@@ -162,7 +162,7 @@ export function DashboardPage() {
           type="button"
           onClick={() => void handleTransition(session.id, 'close')}
           disabled={transitionLoading[session.id]}
-          className="rounded-xl bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+          className="rounded-xl bg-[var(--ets-primary)] px-3 py-1.5 text-xs font-medium text-white hover:bg-[var(--ets-primary-hover)] disabled:opacity-50"
         >
           Close
         </button>
@@ -187,10 +187,10 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <section className="rounded-[2rem] bg-[radial-gradient(circle_at_top_left,_rgba(251,191,36,0.32),_transparent_32%),linear-gradient(135deg,_#20150d_0%,_#3f2b1d_45%,_#8a5a31_100%)] px-6 py-8 text-white sm:px-8">
-        <p className="text-xs uppercase tracking-[0.35em] text-amber-100/80">Dashboard</p>
+      <section className="rounded-[2rem] bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.12),_transparent_28%),linear-gradient(135deg,_#682a36_0%,_#dc042c_50%,_#c00328_100%)] px-6 py-8 text-white sm:px-8">
+        <p className="text-xs uppercase tracking-[0.35em] text-white/90">ÉTS · Dashboard</p>
         <h1 className="mt-4 max-w-2xl text-3xl font-semibold sm:text-4xl">Sessions et suivi des besoins</h1>
-        <p className="mt-4 max-w-2xl text-sm leading-7 text-amber-50/80 sm:text-base">
+        <p className="mt-4 max-w-2xl text-sm leading-7 text-white/85 sm:text-base">
           Consultez le cycle de vie des sessions, puis accédez à la saisie ou la validation des besoins pédagogiques.
         </p>
       </section>

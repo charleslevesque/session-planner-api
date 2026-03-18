@@ -116,7 +116,7 @@ export function RegisterPage() {
 
             <p className="mt-6 text-sm text-stone-600">
               Deja inscrit ?{' '}
-              <Link to="/login" className="font-medium text-stone-950 underline decoration-amber-500 underline-offset-4">
+              <Link to="/login" className="font-medium text-stone-950 underline decoration-[var(--ets-primary)] underline-offset-4 hover:text-[var(--ets-primary)]">
                 Retour au login
               </Link>
             </p>

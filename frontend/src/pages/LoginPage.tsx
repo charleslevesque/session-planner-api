@@ -42,12 +42,12 @@ export function LoginPage() {
     <div className="auth-shell px-4 py-10 sm:px-6 lg:px-8">
       <div className="mx-auto grid max-w-6xl overflow-hidden rounded-[2rem] border border-white/60 bg-white/70 shadow-[0_30px_80px_rgba(79,53,24,0.18)] backdrop-blur lg:grid-cols-[0.95fr_1.05fr]">
         <section className="auth-hero px-6 py-10 text-white sm:px-10 sm:py-12">
-          <p className="text-xs uppercase tracking-[0.35em] text-amber-100/75">Session Planner</p>
+          <p className="text-xs uppercase tracking-[0.35em] text-white/90">ÉTS · Planificateur de sessions</p>
           <h1 className="mt-6 max-w-lg text-4xl font-semibold sm:text-5xl">
             Authentification du portail de planification.
           </h1>
-          <p className="mt-6 max-w-xl text-sm leading-7 text-amber-50/80 sm:text-base">
-            Ce premier lot connecte le frontend a l&apos;API et pose les fondations pour le dashboard, les besoins et la matrice.
+          <p className="mt-6 max-w-xl text-sm leading-7 text-white/85 sm:text-base">
+            Connectez-vous pour accéder au dashboard, aux besoins et à la matrice.
           </p>
         </section>
 
@@ -106,7 +106,7 @@ export function LoginPage() {
 
             <p className="mt-6 text-sm text-stone-600">
               Pas encore de compte ?{' '}
-              <Link to="/register" className="font-medium text-stone-950 underline decoration-amber-500 underline-offset-4">
+              <Link to="/register" className="font-medium text-stone-950 underline decoration-[var(--ets-primary)] underline-offset-4 hover:text-[var(--ets-primary)]">
                 Creer un compte
               </Link>
             </p>

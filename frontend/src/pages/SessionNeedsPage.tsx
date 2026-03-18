@@ -80,7 +80,7 @@ function ChevronIcon({ expanded }: { expanded: boolean }) {
 
 function PencilButton({ onClick }: { onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="ml-2 inline-flex items-center rounded-md p-0.5 text-stone-400 hover:text-amber-600 hover:bg-amber-50 transition" title="Modifier">
+    <button type="button" onClick={onClick} className="ml-2 inline-flex items-center rounded-md p-0.5 text-stone-400 hover:text-[var(--ets-primary)] hover:bg-[rgba(220,4,44,0.08)] transition" title="Modifier">
       <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zM19.5 7.125L16.862 4.487M13.5 19.5h7" />
       </svg>
@@ -565,7 +565,7 @@ function TeacherNeedsView({ sessionId, startInCreateMode = false }: { sessionId:
           <button
             type="button"
             onClick={() => setShowCreateForm((prev) => !prev)}
-            className="rounded-2xl border border-amber-300 bg-amber-100 px-4 py-2 text-sm font-semibold text-stone-900 hover:bg-amber-200"
+            className="rounded-2xl border-2 border-[var(--ets-primary)] bg-[rgba(220,4,44,0.08)] px-4 py-2 text-sm font-semibold text-[var(--ets-primary)] hover:bg-[rgba(220,4,44,0.14)]"
           >
             {showCreateForm ? 'Fermer le formulaire' : 'Créer un besoin'}
           </button>
@@ -1162,7 +1162,7 @@ export function SessionNeedsPage() {
 
   return (
     <div className="space-y-6">
-      <Link to="/dashboard" className="inline-flex text-sm text-amber-700 hover:text-amber-800">&larr; Retour dashboard</Link>
+      <Link to="/dashboard" className="inline-flex text-sm text-[var(--ets-primary)] hover:text-[var(--ets-primary-hover)]">&larr; Retour dashboard</Link>
 
       {loading ? (
         <div className="rounded-2xl border border-stone-200 bg-white/70 px-4 py-6 text-sm text-stone-600">Chargement...</div>
@@ -1180,7 +1180,7 @@ export function SessionNeedsPage() {
 
       {!loading && !error ? (
         isTeacher && session?.status !== 'Open' ? (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          <div className="rounded-2xl border border-[var(--ets-primary)]/30 bg-[rgba(220,4,44,0.06)] px-4 py-3 text-sm text-[var(--ets-primary-dark)]">
             Cette session n&apos;accepte pas de besoins actuellement. Seules les sessions ouvertes permettent la soumission.
           </div>
         ) : isTeacher ? (
@@ -1188,7 +1188,7 @@ export function SessionNeedsPage() {
         ) : isReviewer ? (
           <TechnicianReviewView sessionId={sessionId} />
         ) : (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          <div className="rounded-2xl border border-[var(--ets-primary)]/30 bg-[rgba(220,4,44,0.06)] px-4 py-3 text-sm text-[var(--ets-primary-dark)]">
             Cette vue n&apos;est pas accessible pour votre rôle.
           </div>
         )

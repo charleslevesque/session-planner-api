@@ -34,7 +34,7 @@ export function AppLayout() {
 
         <aside
           className={[
-            'fixed inset-y-0 left-0 z-40 w-80 max-w-[85vw] border-r border-white/60 bg-[#fff8ef] p-6 shadow-[0_20px_60px_rgba(34,24,13,0.22)] transition-transform xl:hidden',
+            'fixed inset-y-0 left-0 z-40 w-80 max-w-[85vw] border-r border-white/60 bg-[var(--ets-bg-warm)] p-6 shadow-[0_20px_60px_rgba(65,63,73,0.15)] transition-transform xl:hidden',
             mobileOpen ? 'translate-x-0' : '-translate-x-full',
           ].join(' ')}
         >
@@ -54,26 +54,26 @@ export function AppLayout() {
               </button>
 
               <div>
-                <p className="text-xs uppercase tracking-[0.35em] text-stone-500">Espace securise</p>
-                <h2 className="mt-1 text-2xl font-semibold text-stone-950">Socle UI du planner</h2>
+                <p className="text-xs uppercase tracking-[0.35em] text-[var(--ets-primary)]/80">ÉTS · Planificateur de sessions</p>
+                <h2 className="mt-1 text-2xl font-semibold text-stone-950">Pilotage des sessions</h2>
               </div>
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <div className="rounded-2xl bg-stone-950 px-4 py-3 text-white shadow-lg shadow-stone-900/15">
+              <div className="rounded-2xl bg-[var(--ets-primary)] px-4 py-3 text-white shadow-lg shadow-[rgba(220,4,44,0.25)]">
                 <p className="text-sm font-medium">{user?.name ?? 'Utilisateur connecte'}</p>
                 <p className="mt-1 text-sm text-white/70">{formatRole(user?.role ?? '')}</p>
               </div>
 
               <button
                 type="button"
-                className="inline-flex items-center justify-center rounded-2xl border border-stone-900 px-4 py-3 text-sm font-medium text-stone-900 transition hover:bg-stone-900 hover:text-white"
+                className="inline-flex items-center justify-center rounded-2xl border-2 border-[var(--ets-primary)] px-4 py-3 text-sm font-medium text-[var(--ets-primary)] transition hover:bg-[var(--ets-primary)] hover:text-white"
                 onClick={() => {
                   setMobileOpen(false);
                   void logout();
                 }}
               >
-                Logout
+                Déconnexion
               </button>
             </div>
           </header>

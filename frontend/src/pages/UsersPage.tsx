@@ -153,10 +153,10 @@ export function UsersPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <section className="rounded-[2rem] bg-[radial-gradient(circle_at_top_left,_rgba(251,191,36,0.28),_transparent_32%),linear-gradient(135deg,_#20150d_0%,_#3f2b1d_45%,_#8a5a31_100%)] px-6 py-8 text-white sm:px-8">
-        <p className="text-xs uppercase tracking-[0.35em] text-amber-100/80">Administration</p>
+      <section className="rounded-[2rem] bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.12),_transparent_28%),linear-gradient(135deg,_#682a36_0%,_#dc042c_50%,_#c00328_100%)] px-6 py-8 text-white sm:px-8">
+        <p className="text-xs uppercase tracking-[0.35em] text-white/90">ÉTS · Administration</p>
         <h1 className="mt-4 text-3xl font-semibold sm:text-4xl">Gestion des utilisateurs</h1>
-        <p className="mt-3 text-sm leading-7 text-amber-50/75">
+        <p className="mt-3 text-sm leading-7 text-white/85">
           Consultez, modifiez les rôles et désactivez les comptes. Créez de nouveaux utilisateurs avec le rôle de votre choix.
         </p>
       </section>
@@ -219,7 +219,7 @@ export function UsersPage() {
                             onChange={(e) =>
                               setRoleEdits((prev) => ({ ...prev, [user.id]: e.target.value }))
                             }
-                            className="rounded-xl border border-stone-200 bg-white px-3 py-1.5 text-sm text-stone-700 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+                            className="rounded-xl border border-stone-200 bg-white px-3 py-1.5 text-sm text-stone-700 outline-none focus:border-[var(--ets-primary)] focus:ring-2 focus:ring-[rgba(220,4,44,0.15)]"
                           >
                             {ALL_ROLES.map((r) => (
                               <option key={r} value={r}>{ROLE_LABELS[r]}</option>
@@ -253,7 +253,7 @@ export function UsersPage() {
                             type="button"
                             onClick={() => void handlePasswordReset(user.id)}
                             disabled={isPasswordUpdating || pendingPassword.trim().length < 8}
-                            className="rounded-xl bg-amber-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-amber-700 disabled:opacity-50"
+                            className="rounded-xl bg-[var(--ets-primary)] px-3 py-1.5 text-xs font-medium text-white transition hover:bg-[var(--ets-primary-hover)] disabled:opacity-50"
                           >
                             {isPasswordUpdating ? '...' : 'Reset'}
                           </button>

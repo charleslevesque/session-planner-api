@@ -323,7 +323,7 @@ export function SessionsManagementPage() {
                           }))
                         }
                         disabled={savingId === session.id}
-                        className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm text-stone-700 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100 disabled:opacity-50"
+                        className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm text-stone-700 outline-none focus:border-[var(--ets-primary)] focus:ring-2 focus:ring-[rgba(220,4,44,0.15)] disabled:opacity-50"
                       >
                         {getValidTargets(session.status).map((s) => (
                           <option key={s} value={s}>{s}</option>
@@ -333,7 +333,7 @@ export function SessionsManagementPage() {
                         type="button"
                         onClick={() => void applyStatus(session.id)}
                         disabled={savingId === session.id || (targetStatusById[session.id] ?? session.status) === session.status}
-                        className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+                        className="rounded-xl border-2 border-[var(--ets-primary)] bg-[rgba(220,4,44,0.08)] px-3 py-2 text-xs font-medium text-[var(--ets-primary)] hover:bg-[rgba(220,4,44,0.14)] disabled:opacity-50"
                       >
                         Appliquer statut
                       </button>
@@ -393,7 +393,7 @@ export function SessionsManagementPage() {
                           type="button"
                           onClick={() => void transition(session.id, 'close')}
                           disabled={savingId === session.id}
-                          className="rounded-xl bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+                          className="rounded-xl bg-[var(--ets-primary)] px-3 py-1.5 text-xs font-medium text-white hover:bg-[var(--ets-primary-hover)] disabled:opacity-50"
                         >
                           Close
                         </button>

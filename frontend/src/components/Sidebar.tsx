@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { PAGE_ACCESS, hasRoleAccess } from '../lib/access';
@@ -27,8 +28,8 @@ function NavItem({ to, label, hint, onNavigate }: { to: string; label: string; h
         [
           'group block rounded-2xl border px-4 py-3 transition',
           isActive
-            ? 'border-amber-300 bg-amber-100/90 text-stone-900 shadow-lg shadow-amber-200/40'
-            : 'border-stone-200 bg-white/75 text-stone-700 hover:border-amber-300 hover:bg-amber-50/80',
+            ? 'border-[var(--ets-primary)]/40 bg-[rgba(220,4,44,0.08)] text-stone-900 shadow-lg shadow-[rgba(220,4,44,0.12)]'
+            : 'border-stone-200 bg-white/75 text-stone-700 hover:border-[var(--ets-primary)]/30 hover:bg-[rgba(220,4,44,0.04)]',
         ].join(' ')
       }
     >
@@ -41,6 +42,7 @@ function NavItem({ to, label, hint, onNavigate }: { to: string; label: string; h
 export function Sidebar({ onNavigate }: SidebarProps) {
   const { user } = useAuth();
   const role = user?.role;
+  const [logoError, setLogoError] = useState(false);
 
   const visibleNavigation = navigation.filter((item) => hasRoleAccess(role, item.allowedRoles));
   const visibleAdminNavigation = adminNavigation.filter((item) => hasRoleAccess(role, item.allowedRoles));
@@ -48,10 +50,17 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   return (
     <nav className="flex h-full flex-col gap-6">
       <div>
-        <p className="text-xs uppercase tracking-[0.35em] text-amber-700/70">Session Planner</p>
-        <h1 className="mt-3 text-2xl font-semibold text-stone-950">Pilotage des sessions</h1>
+        <a href="https://www.etsmtl.ca/" target="_blank" rel="noopener noreferrer" className="block">
+          {logoError ? (
+            <span className="inline-flex items-center rounded-xl bg-[var(--ets-primary)] px-4 py-2.5 text-lg font-bold italic text-white">ÉTS</span>
+          ) : (
+            <img src="/ets-logo.png" alt="ÉTS - École de technologie supérieure" className="h-14 w-auto object-contain" onError={() => setLogoError(true)} />
+          )}
+        </a>
+        <p className="mt-4 text-xs uppercase tracking-[0.35em] text-[var(--ets-primary)]/80">Planificateur de sessions</p>
+        <h1 className="mt-2 text-xl font-semibold text-stone-950">Pilotage des sessions</h1>
         <p className="mt-2 text-sm leading-6 text-stone-600">
-          Une base de travail pour orchestrer besoins, ressources et arbitrages.
+          Orchestrer besoins, ressources et arbitrages.
         </p>
       </div>
 
