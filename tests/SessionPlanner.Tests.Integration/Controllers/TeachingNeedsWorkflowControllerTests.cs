@@ -52,7 +52,7 @@ public class TeachingNeedsWorkflowControllerTests : IClassFixture<TeachingNeedWo
         SetRole("professor");
         var response = await _client.PostAsJsonAsync(
             $"/api/v1/sessions/{sessionId}/needs",
-            new CreateTeachingNeedRequest(courseId, null, "workflow need"));
+            new CreateTeachingNeedRequest(courseId, null, "workflow need", null, null, null, null, null, null));
 
         response.StatusCode.Should().Be(HttpStatusCode.Created);
         return (await response.Content.ReadFromJsonAsync<TeachingNeedResponse>())!;

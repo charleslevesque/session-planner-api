@@ -2,6 +2,7 @@ namespace SessionPlanner.Api.Dtos.TeachingNeeds;
 
 public record TeachingNeedItemResponse(
     int Id,
+    string ItemType,
     int? SoftwareId,
     string? SoftwareName,
     int? SoftwareVersionId,
@@ -9,4 +10,5 @@ public record TeachingNeedItemResponse(
     int? OSId,
     string? OSName,
     int? Quantity,
+    string? Description,
     string? Notes);

@@ -87,7 +87,9 @@ public class TeachingNeedsController : ControllerBase
 
         try
         {
-            var need = await _needService.CreateAsync(sessionId, personnelId, request.CourseId, request.Notes);
+            var need = await _needService.CreateAsync(sessionId, personnelId, request.CourseId, request.Notes,
+                request.ExpectedStudents, request.HasTechNeeds, request.FoundAllCourses,
+                request.DesiredModifications, request.AllowsUpdates, request.AdditionalComments);
             return CreatedAtAction(nameof(GetById), new { sessionId, id = need.Id }, need.ToResponse());
         }
         catch (InvalidOperationException ex)
@@ -109,7 +111,9 @@ public class TeachingNeedsController : ControllerBase
 
         try
         {
-            var updated = await _needService.UpdateAsync(sessionId, id, request.CourseId, request.Notes);
+            var updated = await _needService.UpdateAsync(sessionId, id, request.CourseId, request.Notes,
+                request.ExpectedStudents, request.HasTechNeeds, request.FoundAllCourses,
+                request.DesiredModifications, request.AllowsUpdates, request.AdditionalComments);
             if (updated is null) return NotFound();
             return Ok(updated.ToResponse());
         }
@@ -157,8 +161,9 @@ public class TeachingNeedsController : ControllerBase
         {
             var item = await _needService.AddItemAsync(
                 sessionId, id,
+                request.ItemType ?? "software",
                 request.SoftwareId, request.SoftwareVersionId, request.OSId,
-                request.Quantity, request.Notes);
+                request.Quantity, request.Description, request.Notes);
 
             if (item is null) return NotFound();
             return StatusCode(StatusCodes.Status201Created, item.ToResponse());

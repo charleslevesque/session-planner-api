@@ -27,5 +27,12 @@ public class TeachingNeed
     public string? RejectionReason { get; set; }
     public string? Notes { get; set; }
 
+    public int? ExpectedStudents { get; set; }
+    public bool? HasTechNeeds { get; set; }
+    public bool? FoundAllCourses { get; set; }
+    public string? DesiredModifications { get; set; }
+    public bool? AllowsUpdates { get; set; }
+    public string? AdditionalComments { get; set; }
+
     public ICollection<TeachingNeedItem> Items { get; set; } = new List<TeachingNeedItem>();
 }

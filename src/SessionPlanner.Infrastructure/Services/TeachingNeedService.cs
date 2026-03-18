@@ -104,7 +104,9 @@ public class TeachingNeedService : ITeachingNeedService
             .FirstOrDefaultAsync(n => n.SessionId == sessionId && n.Id == id);
     }
 
-    public async Task<TeachingNeed> CreateAsync(int sessionId, int personnelId, int courseId, string? notes)
+    public async Task<TeachingNeed> CreateAsync(int sessionId, int personnelId, int courseId, string? notes,
+        int? expectedStudents = null, bool? hasTechNeeds = null, bool? foundAllCourses = null,
+        string? desiredModifications = null, bool? allowsUpdates = null, string? additionalComments = null)
     {
         var session = await _db.Sessions.FindAsync(sessionId)
             ?? throw new InvalidOperationException("Session not found.");
@@ -117,7 +119,13 @@ public class TeachingNeedService : ITeachingNeedService
             SessionId = sessionId,
             PersonnelId = personnelId,
             CourseId = courseId,
-            Notes = notes
+            Notes = notes,
+            ExpectedStudents = expectedStudents,
+            HasTechNeeds = hasTechNeeds,
+            FoundAllCourses = foundAllCourses,
+            DesiredModifications = desiredModifications,
+            AllowsUpdates = allowsUpdates,
+            AdditionalComments = additionalComments
         };
 
         _db.TeachingNeeds.Add(need);
@@ -127,7 +135,9 @@ public class TeachingNeedService : ITeachingNeedService
             ?? throw new InvalidOperationException("Failed to reload created teaching need.");
     }
 
-    public async Task<TeachingNeed?> UpdateAsync(int sessionId, int id, int courseId, string? notes)
+    public async Task<TeachingNeed?> UpdateAsync(int sessionId, int id, int courseId, string? notes,
+        int? expectedStudents = null, bool? hasTechNeeds = null, bool? foundAllCourses = null,
+        string? desiredModifications = null, bool? allowsUpdates = null, string? additionalComments = null)
     {
         var need = await _db.TeachingNeeds
             .FirstOrDefaultAsync(n => n.SessionId == sessionId && n.Id == id);
@@ -139,6 +149,12 @@ public class TeachingNeedService : ITeachingNeedService
 
         need.CourseId = courseId;
         need.Notes = notes;
+        need.ExpectedStudents = expectedStudents;
+        need.HasTechNeeds = hasTechNeeds;
+        need.FoundAllCourses = foundAllCourses;
+        need.DesiredModifications = desiredModifications;
+        need.AllowsUpdates = allowsUpdates;
+        need.AdditionalComments = additionalComments;
 
         await _db.SaveChangesAsync();
 
@@ -160,7 +176,7 @@ public class TeachingNeedService : ITeachingNeedService
         return true;
     }
 
-    public async Task<TeachingNeedItem?> AddItemAsync(int sessionId, int needId, int? softwareId, int? softwareVersionId, int? osId, int? quantity, string? notes)
+    public async Task<TeachingNeedItem?> AddItemAsync(int sessionId, int needId, string itemType, int? softwareId, int? softwareVersionId, int? osId, int? quantity, string? description, string? notes)
     {
         var need = await _db.TeachingNeeds
             .FirstOrDefaultAsync(n => n.SessionId == sessionId && n.Id == needId);
@@ -173,10 +189,12 @@ public class TeachingNeedService : ITeachingNeedService
         var item = new TeachingNeedItem
         {
             TeachingNeedId = needId,
+            ItemType = itemType,
             SoftwareId = softwareId,
             SoftwareVersionId = softwareVersionId,
             OSId = osId,
             Quantity = quantity,
+            Description = description,
             Notes = notes
         };
 
