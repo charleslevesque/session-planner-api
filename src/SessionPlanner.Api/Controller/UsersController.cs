@@ -108,7 +108,7 @@ public class UsersController : ControllerBase
     [HasPermission(Permissions.Users.Delete)]
     public async Task<IActionResult> Delete(int id)
     {
-        var deleted = await _userService.DeactivateAsync(id);
+        var deleted = await _userService.DeleteAsync(id);
 
         if (!deleted)
             return NotFound();

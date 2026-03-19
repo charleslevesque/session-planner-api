@@ -181,15 +181,61 @@ public class UserService : IUserService
         return UpdateUserPasswordStatus.Success;
     }
 
-    public async Task<bool> DeactivateAsync(int id)
+    public async Task<bool> DeleteAsync(int id)
     {
-        var user = await _db.Users.FindAsync(id);
+        var user = await _db.Users
+            .Include(u => u.UserRoles)
+            .FirstOrDefaultAsync(u => u.Id == id);
 
         if (user is null)
             return false;
 
-        user.IsActive = false;
+        var personnelId = user.PersonnelId;
+
+        _db.UserRoles.RemoveRange(user.UserRoles);
+
+        var userPermissions = await _db.UserPermissions
+            .Where(up => up.UserId == id)
+            .ToListAsync();
+        _db.UserPermissions.RemoveRange(userPermissions);
+
+        var reviewedNeeds = await _db.TeachingNeeds
+            .Where(tn => tn.ReviewedByUserId == id)
+            .ToListAsync();
+        foreach (var need in reviewedNeeds)
+        {
+            need.ReviewedByUserId = null;
+        }
+
+        _db.Users.Remove(user);
         await _db.SaveChangesAsync();
+
+        if (personnelId.HasValue)
+        {
+            var teachingNeeds = await _db.TeachingNeeds
+                .Include(tn => tn.Items)
+                .Where(tn => tn.PersonnelId == personnelId.Value)
+                .ToListAsync();
+
+            foreach (var need in teachingNeeds)
+            {
+                _db.TeachingNeedItems.RemoveRange(need.Items);
+            }
+            _db.TeachingNeeds.RemoveRange(teachingNeeds);
+
+            var coursePersonnels = await _db.Set<CoursePersonnel>()
+                .Where(cp => cp.PersonnelId == personnelId.Value)
+                .ToListAsync();
+            _db.Set<CoursePersonnel>().RemoveRange(coursePersonnels);
+
+            var personnel = await _db.Personnel.FindAsync(personnelId.Value);
+            if (personnel is not null)
+            {
+                _db.Personnel.Remove(personnel);
+            }
+
+            await _db.SaveChangesAsync();
+        }
 
         return true;
     }

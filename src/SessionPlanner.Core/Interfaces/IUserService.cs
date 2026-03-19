@@ -31,5 +31,5 @@ public interface IUserService
     Task<CreateUserResult> CreateAsync(string username, string password, string? roleName);
     Task<UpdateUserRoleStatus> UpdateRoleAsync(int id, string roleName);
     Task<UpdateUserPasswordStatus> UpdatePasswordAsync(int id, string newPassword);
-    Task<bool> DeactivateAsync(int id);
+    Task<bool> DeleteAsync(int id);
 }

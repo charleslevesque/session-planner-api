@@ -45,6 +45,8 @@ export function UsersPage() {
   const [passwordEdits, setPasswordEdits] = useState<Record<number, string>>({});
   const [passwordUpdating, setPasswordUpdating] = useState<Record<number, boolean>>({});
 
+  const [passwordResetSuccess, setPasswordResetSuccess] = useState<Record<number, string>>({});
+
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [deleting, setDeleting] = useState<Record<number, boolean>>({});
 
@@ -100,7 +102,7 @@ export function UsersPage() {
       setUsers((prev) => prev.filter((u) => u.id !== userId));
       setDeleteConfirm(null);
     } catch (err) {
-      setPageError(getErrorMessage(err, 'Impossible de désactiver l\'utilisateur.'));
+      setPageError(getErrorMessage(err, 'Impossible de supprimer l\'utilisateur.'));
     } finally {
       setDeleting((prev) => ({ ...prev, [userId]: false }));
     }
@@ -114,6 +116,7 @@ export function UsersPage() {
     }
 
     setPasswordUpdating((prev) => ({ ...prev, [userId]: true }));
+    setPasswordResetSuccess((prev) => ({ ...prev, [userId]: '' }));
     setPageError('');
 
     try {
@@ -123,6 +126,10 @@ export function UsersPage() {
         body: JSON.stringify(body),
       });
       setPasswordEdits((prev) => ({ ...prev, [userId]: '' }));
+      setPasswordResetSuccess((prev) => ({ ...prev, [userId]: 'Mot de passe réinitialisé.' }));
+      setTimeout(() => {
+        setPasswordResetSuccess((prev) => ({ ...prev, [userId]: '' }));
+      }, 4000);
     } catch (err) {
       setPageError(getErrorMessage(err, 'Impossible de réinitialiser le mot de passe.'));
     } finally {
@@ -185,117 +192,116 @@ export function UsersPage() {
         ) : users.length === 0 ? (
           <div className="px-6 py-10 text-center text-sm text-stone-500">Aucun utilisateur trouvé.</div>
         ) : (
-          <div>
-            <table className="w-full table-auto text-sm">
-              <thead>
-                <tr className="border-b border-stone-100 bg-stone-50/70 text-xs uppercase tracking-[0.15em] text-stone-500">
-                  <th className="w-[24%] px-6 py-4 text-left font-medium">Email</th>
-                  <th className="w-[12%] px-6 py-4 text-left font-medium">Rôle</th>
-                  <th className="w-[20%] px-6 py-4 text-left font-medium">Changer le rôle</th>
-                  <th className="w-[30%] px-6 py-4 text-left font-medium">Mot de passe temp.</th>
-                  <th className="w-[14%] px-6 py-4 text-left font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-stone-100">
-                {users.map((user) => {
-                  const pendingRole = roleEdits[user.id] ?? user.roles;
-                  const roleChanged = pendingRole !== user.roles;
-                  const isUpdating = roleUpdating[user.id] ?? false;
-                  const isPasswordUpdating = passwordUpdating[user.id] ?? false;
-                  const pendingPassword = passwordEdits[user.id] ?? '';
-                  const isDeleting = deleting[user.id] ?? false;
-                  const isProtectedAdmin = user.username.toLowerCase() === 'admin@local.dev';
+          <div className="divide-y divide-stone-100">
+            {users.map((user) => {
+              const pendingRole = roleEdits[user.id] ?? user.roles;
+              const roleChanged = pendingRole !== user.roles;
+              const isUpdating = roleUpdating[user.id] ?? false;
+              const isPasswordUpdating = passwordUpdating[user.id] ?? false;
+              const pendingPassword = passwordEdits[user.id] ?? '';
+              const isDeleting = deleting[user.id] ?? false;
+              const isProtectedAdmin = user.username.toLowerCase() === 'admin@local.dev';
+              const passwordSuccess = passwordResetSuccess[user.id];
 
-                  return (
-                    <tr key={user.id} className="transition hover:bg-stone-50/60">
-                      <td className="truncate px-6 py-5 font-medium text-stone-950">{user.username}</td>
-                      <td className="px-6 py-5">
-                        <RoleBadge role={user.roles} />
-                      </td>
-                      <td className="px-6 py-5">
+              return (
+                <div key={user.id} className="px-5 py-5 transition hover:bg-stone-50/60 sm:px-6">
+                  {/* Row 1: email + role badge */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium text-stone-950 break-all">{user.username}</span>
+                    <RoleBadge role={user.roles} />
+                  </div>
+
+                  {/* Row 2: actions */}
+                  <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+                    {/* Role change */}
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={pendingRole}
+                        onChange={(e) =>
+                          setRoleEdits((prev) => ({ ...prev, [user.id]: e.target.value }))
+                        }
+                        className="min-w-0 flex-1 rounded-xl border border-stone-200 bg-white px-3 py-1.5 text-sm text-stone-700 outline-none focus:border-[var(--ets-primary)] focus:ring-2 focus:ring-[rgba(220,4,44,0.15)]"
+                      >
+                        {ALL_ROLES.map((r) => (
+                          <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                        ))}
+                      </select>
+                      {roleChanged && (
+                        <button
+                          type="button"
+                          onClick={() => void handleRoleUpdate(user.id)}
+                          disabled={isUpdating}
+                          className="shrink-0 rounded-xl bg-stone-950 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-stone-700 disabled:opacity-50"
+                        >
+                          {isUpdating ? '...' : 'Sauvegarder'}
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Password reset */}
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="password"
+                        value={pendingPassword}
+                        onChange={(event) =>
+                          setPasswordEdits((prev) => ({ ...prev, [user.id]: event.target.value }))
+                        }
+                        className="input-field min-w-0 flex-1"
+                        placeholder="Nouveau mot de passe"
+                        minLength={8}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => void handlePasswordReset(user.id)}
+                        disabled={isPasswordUpdating || pendingPassword.trim().length < 8}
+                        className="shrink-0 rounded-xl bg-[var(--ets-primary)] px-3 py-1.5 text-xs font-medium text-white transition hover:bg-[var(--ets-primary-hover)] disabled:opacity-50"
+                      >
+                        {isPasswordUpdating ? '...' : 'Reset'}
+                      </button>
+                    </div>
+
+                    {/* Delete / protected */}
+                    <div className="flex items-center">
+                      {isProtectedAdmin ? (
+                        <span className="text-xs text-stone-400">Compte protégé</span>
+                      ) : deleteConfirm === user.id ? (
                         <div className="flex items-center gap-2">
-                          <select
-                            value={pendingRole}
-                            onChange={(e) =>
-                              setRoleEdits((prev) => ({ ...prev, [user.id]: e.target.value }))
-                            }
-                            className="rounded-xl border border-stone-200 bg-white px-3 py-1.5 text-sm text-stone-700 outline-none focus:border-[var(--ets-primary)] focus:ring-2 focus:ring-[rgba(220,4,44,0.15)]"
-                          >
-                            {ALL_ROLES.map((r) => (
-                              <option key={r} value={r}>{ROLE_LABELS[r]}</option>
-                            ))}
-                          </select>
-                          {roleChanged && (
-                            <button
-                              type="button"
-                              onClick={() => void handleRoleUpdate(user.id)}
-                              disabled={isUpdating}
-                              className="rounded-xl bg-stone-950 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-stone-700 disabled:opacity-50"
-                            >
-                              {isUpdating ? '...' : 'Sauvegarder'}
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-5">
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="password"
-                            value={pendingPassword}
-                            onChange={(event) =>
-                              setPasswordEdits((prev) => ({ ...prev, [user.id]: event.target.value }))
-                            }
-                            className="input-field min-w-0"
-                            placeholder="Nouveau mot de passe"
-                            minLength={8}
-                          />
+                          <span className="text-xs text-stone-600">Supprimer ?</span>
                           <button
                             type="button"
-                            onClick={() => void handlePasswordReset(user.id)}
-                            disabled={isPasswordUpdating || pendingPassword.trim().length < 8}
-                            className="rounded-xl bg-[var(--ets-primary)] px-3 py-1.5 text-xs font-medium text-white transition hover:bg-[var(--ets-primary-hover)] disabled:opacity-50"
+                            onClick={() => void handleDelete(user.id)}
+                            disabled={isDeleting}
+                            className="rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-rose-700 disabled:opacity-50"
                           >
-                            {isPasswordUpdating ? '...' : 'Reset'}
+                            {isDeleting ? '...' : 'Oui'}
                           </button>
-                        </div>
-                      </td>
-                      <td className="px-6 py-5">
-                        {isProtectedAdmin ? (
-                          <span className="text-xs text-stone-400">Compte protégé</span>
-                        ) : deleteConfirm === user.id ? (
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-stone-600">Confirmer ?</span>
-                            <button
-                              type="button"
-                              onClick={() => void handleDelete(user.id)}
-                              disabled={isDeleting}
-                              className="rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-rose-700 disabled:opacity-50"
-                            >
-                              {isDeleting ? '...' : 'Oui'}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setDeleteConfirm(null)}
-                              className="rounded-xl border border-stone-200 px-3 py-1.5 text-xs text-stone-600 hover:bg-stone-50"
-                            >
-                              Non
-                            </button>
-                          </div>
-                        ) : (
                           <button
                             type="button"
-                            onClick={() => setDeleteConfirm(user.id)}
-                            className="rounded-xl border border-rose-200 px-3 py-1.5 text-xs text-rose-600 transition hover:bg-rose-50"
+                            onClick={() => setDeleteConfirm(null)}
+                            className="rounded-xl border border-stone-200 px-3 py-1.5 text-xs text-stone-600 hover:bg-stone-50"
                           >
-                            Désactiver
+                            Non
                           </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setDeleteConfirm(user.id)}
+                          className="rounded-xl border border-rose-200 px-3 py-1.5 text-xs text-rose-600 transition hover:bg-rose-50"
+                        >
+                          Supprimer
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Password reset success feedback */}
+                  {passwordSuccess ? (
+                    <p className="mt-2 text-xs text-emerald-600">{passwordSuccess}</p>
+                  ) : null}
+                </div>
+              );
+            })}
           </div>
         )}
       </section>
