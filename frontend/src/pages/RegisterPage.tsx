@@ -28,11 +28,11 @@ export function RegisterPage() {
       navigate('/login', {
         replace: true,
         state: {
-          message: 'Compte cree. Vous pouvez maintenant vous connecter.',
+          message: 'Compte créé. Vous pouvez maintenant vous connecter.',
         },
       });
     } catch (submitError) {
-      setError(getErrorMessage(submitError, 'Inscription impossible.'));
+      setError(getErrorMessage(submitError, 'Impossible de créer le compte.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -43,10 +43,10 @@ export function RegisterPage() {
       <div className="mx-auto grid max-w-6xl overflow-hidden rounded-[2rem] border border-white/60 bg-white/70 shadow-[0_30px_80px_rgba(79,53,24,0.18)] backdrop-blur lg:grid-cols-[1.02fr_0.98fr]">
         <section className="px-6 py-10 sm:px-10 sm:py-12">
           <div className="mx-auto max-w-md">
-            <p className="text-xs uppercase tracking-[0.35em] text-stone-500">Register</p>
-            <h1 className="mt-3 text-3xl font-semibold text-stone-950">Creer un compte enseignant</h1>
+            <p className="text-xs uppercase tracking-[0.35em] text-stone-500">Inscription</p>
+            <h1 className="mt-3 text-3xl font-semibold text-stone-950">Créer un compte enseignant</h1>
             <p className="mt-3 text-sm leading-7 text-stone-600">
-              Le backend attribue le rôle Professor par défaut. Le compte est créé en base, puis le flux renvoie vers login.
+              Inscrivez-vous pour accéder au planificateur de sessions et soumettre vos besoins technologiques.
             </p>
 
             {error ? (
@@ -58,7 +58,7 @@ export function RegisterPage() {
             <form className="mt-8 grid gap-5" onSubmit={handleSubmit}>
               <div className="grid gap-5 sm:grid-cols-2">
                 <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-stone-700">First name</span>
+                  <span className="mb-2 block text-sm font-medium text-stone-700">Prénom</span>
                   <input
                     type="text"
                     value={form.firstName}
@@ -71,7 +71,7 @@ export function RegisterPage() {
                 </label>
 
                 <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-stone-700">Last name</span>
+                  <span className="mb-2 block text-sm font-medium text-stone-700">Nom</span>
                   <input
                     type="text"
                     value={form.lastName}
@@ -85,7 +85,7 @@ export function RegisterPage() {
               </div>
 
               <label className="block">
-                <span className="mb-2 block text-sm font-medium text-stone-700">Email</span>
+                <span className="mb-2 block text-sm font-medium text-stone-700">Courriel</span>
                 <input
                   type="email"
                   value={form.email}
@@ -97,7 +97,7 @@ export function RegisterPage() {
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-sm font-medium text-stone-700">Password</span>
+                <span className="mb-2 block text-sm font-medium text-stone-700">Mot de passe</span>
                 <input
                   type="password"
                   value={form.password}
@@ -110,14 +110,14 @@ export function RegisterPage() {
               </label>
 
               <button type="submit" className="primary-button w-full" disabled={isSubmitting}>
-                {isSubmitting ? 'Creation...' : 'Creer mon compte'}
+                {isSubmitting ? 'Création...' : 'Créer mon compte'}
               </button>
             </form>
 
             <p className="mt-6 text-sm text-stone-600">
-              Deja inscrit ?{' '}
+              Déjà inscrit ?{' '}
               <Link to="/login" className="font-medium text-stone-950 underline decoration-[var(--ets-primary)] underline-offset-4 hover:text-[var(--ets-primary)]">
-                Retour au login
+                Se connecter
               </Link>
             </p>
           </div>
@@ -125,12 +125,12 @@ export function RegisterPage() {
 
         <section className="auth-panel px-6 py-10 sm:px-10 sm:py-12">
           <div className="rounded-[2rem] border border-stone-900/10 bg-white/55 p-8 shadow-[0_20px_50px_rgba(54,36,17,0.08)] backdrop-blur-sm">
-            <p className="text-xs uppercase tracking-[0.35em] text-stone-500">Pourquoi cette base UI</p>
-            <h2 className="mt-4 text-3xl font-semibold text-stone-950">Une fondation stable pour les prochains modules.</h2>
+            <p className="text-xs uppercase tracking-[0.35em] text-stone-500">Planificateur de sessions</p>
+            <h2 className="mt-4 text-3xl font-semibold text-stone-950">Soumettez vos besoins technologiques.</h2>
             <div className="mt-6 space-y-4 text-sm leading-7 text-stone-600">
-              <p>AuthContext centralise le token, le refresh et le logout.</p>
-              <p>ProtectedRoute verrouille l&apos;espace applicatif tant que la session n&apos;est pas valide.</p>
-              <p>Le layout responsive laisse deja de la place pour des ecrans riches sans refaire la structure.</p>
+              <p>Déclarez vos logiciels, machines virtuelles et équipements pour chaque session d&apos;enseignement.</p>
+              <p>Sauvegardez en brouillon, modifiez à tout moment, puis soumettez lorsque vous êtes prêt.</p>
+              <p>L&apos;équipe technique traite vos demandes et vous tient informé du statut.</p>
             </div>
           </div>
         </section>
