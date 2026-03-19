@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SessionPlanner — ER Diagram</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#0d1117;font-family:'Inter',sans-serif;padding:0;color:#e6edf3;}
+a{color:inherit;text-decoration:none;}
+.topbar{display:flex;align-items:center;gap:24px;padding:0 28px;height:48px;background:#161b22;border-bottom:1px solid #21262d;}
+.topbar-title{font-size:.72rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#e6edf3;white-space:nowrap;}
+.topbar-divider{width:1px;height:16px;background:#21262d;}
+.topbar a{font-size:.72rem;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:#484f58;padding:4px 10px;border-radius:4px;transition:color .15s,background .15s;}
+.topbar a:hover{color:#8b949e;background:#21262d;}
+.topbar a.active{color:#e6edf3;}
+.page-header{display:flex;align-items:center;justify-content:space-between;padding:16px 28px;border-bottom:1px solid #21262d;flex-wrap:wrap;gap:12px;}
+.page-header h1{font-size:.78rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#e6edf3;}
+.legend{display:flex;gap:14px;align-items:center;font-size:.6rem;color:#484f58;flex-wrap:wrap;}
+.leg{display:flex;align-items:center;gap:5px;}
+.ld{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.tabs-bar{display:flex;gap:6px;padding:16px 28px 0;border-bottom:1px solid #21262d;}
+.tab-btn{font-size:.68rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:6px 14px;background:transparent;border:1px solid #21262d;border-bottom:none;border-radius:4px 4px 0 0;color:#484f58;cursor:pointer;transition:color .15s,background .15s,border-color .15s;position:relative;bottom:-1px;}
+.tab-btn:hover{color:#8b949e;border-color:#30363d;}
+.tab-btn.active{background:#0d1117;border-color:#21262d;color:#e6edf3;border-bottom:1px solid #0d1117;}
+.tab-content{display:none;padding:20px 28px;}
+.tab-content.active{display:block;}
+.diagram-note{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:#484f58;margin-bottom:14px;}
+.wrap{overflow:auto;border:1px solid #21262d;border-radius:6px;}
+/* ─── entity cards ─── */
+.card{position:absolute;z-index:3;border-radius:6px;overflow:hidden;font-family:'JetBrains Mono',monospace;font-size:.58rem;line-height:1.65;box-shadow:0 2px 12px rgba(0,0,0,.6);}
+.card.people {border:1px solid #6d28d9;} .card.people .hd{background:#2e1065;color:#c4b5fd;border-bottom:1px solid #6d28d933;} .card.people .bd{background:#130a2e;}
+.card.softcfg{border:1px solid #065f46;} .card.softcfg .hd{background:#052e16;color:#6ee7b7;border-bottom:1px solid #065f4633;} .card.softcfg .bd{background:#031a0e;}
+.card.infra  {border:1px solid #0e7490;} .card.infra  .hd{background:#083344;color:#67e8f9;border-bottom:1px solid #0e749033;} .card.infra  .bd{background:#041d27;}
+.card.catalog{border:1px solid #92400e;} .card.catalog .hd{background:#451a03;color:#fcd34d;border-bottom:1px solid #92400e33;} .card.catalog .bd{background:#240e02;}
+.card.core   {border:1px solid #1d4ed8;} .card.core   .hd{background:#172554;color:#93c5fd;border-bottom:1px solid #1d4ed833;} .card.core   .bd{background:#0c1524;}
+.hd{padding:6px 10px;font-weight:600;font-size:.63rem;letter-spacing:.03em;}
+.bd{padding:6px 10px;}
+.row{display:flex;align-items:center;gap:5px;padding:2px 0;border-bottom:1px solid #ffffff07;color:#8b949e;}
+.row:last-child{border-bottom:none;}
+.row .n{flex:1;} .row .t{color:#30363d;font-size:.53rem;}
+.row.pk .n{color:#f0883e;font-weight:600;} .row.fk .n{color:#bc8cff;} .row.r .n{color:#adbac7;}
+.div{border-top:1px solid #21262d;margin:3px 0;}
+.bpk{font-size:.46rem;padding:1px 3px;border-radius:2px;font-weight:700;flex-shrink:0;background:#3d1f00;color:#f0883e;}
+.bfk{font-size:.46rem;padding:1px 3px;border-radius:2px;font-weight:700;flex-shrink:0;background:#1f103e;color:#bc8cff;}
+.uq{color:#3fb950;font-size:.6rem;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="topbar-title">SessionPlanner API</span>
+  <div class="topbar-divider"></div>
+  <a href="index.html">Overview</a>
+  <a href="erd.html" class="active">ER Diagram</a>
+  <a href="classes.html">Class Diagram</a>
+  <a href="sequences.html">Sequence Diagrams</a>
+</div>
+
+<div class="page-header">
+  <h1>SessionPlanner — Entity Relationship Diagram</h1>
+  <div class="legend">
+    <div class="leg"><div class="ld" style="background:#3b82f6"></div>Core</div>
+    <div class="leg"><div class="ld" style="background:#8b5cf6"></div>People</div>
+    <div class="leg"><div class="ld" style="background:#10b981"></div>Software / Config</div>
+    <div class="leg"><div class="ld" style="background:#22d3ee"></div>Infrastructure</div>
+    <div class="leg"><div class="ld" style="background:#f59e0b"></div>Catalog</div>
+    <div class="leg"><svg width="26" height="10"><line x1="0" y1="5" x2="26" y2="5" stroke="#484f58" stroke-width="1.5" stroke-dasharray="4,2"/></svg>1:N</div>
+    <div class="leg"><svg width="26" height="10"><line x1="0" y1="5" x2="26" y2="5" stroke="#484f58" stroke-width="2"/></svg>M:N</div>
+  </div>
+</div>
+
+<div class="tabs-bar">
+  <button class="tab-btn active" onclick="showTab('resources',this)">Resources</button>
+  <button class="tab-btn" onclick="showTab('core',this)">Core Domain</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     TAB 1: RESOURCES (original diagram)
+════════════════════════════════════════════════════════ -->
+<div class="tab-content active" id="tab-resources">
+<div class="diagram-note">Course, Laboratory, Software, Infrastructure, and Catalog entities — how resources are linked to Courses.</div>
+<div class="wrap">
+<div style="position:relative;width:1500px;height:1210px;background:#0d1117;">
+
+<svg style="position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;z-index:1;" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <marker id="ag"  markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,1.5 L6,4 L0,6.5" fill="none" stroke="#374151" stroke-width="1.4" stroke-linejoin="round"/></marker>
+  <marker id="apu" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,1.5 L6,4 L0,6.5" fill="none" stroke="#a78bfa" stroke-width="1.4" stroke-linejoin="round"/></marker>
+  <marker id="agr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,1.5 L6,4 L0,6.5" fill="none" stroke="#6ee7b7" stroke-width="1.4" stroke-linejoin="round"/></marker>
+  <marker id="acy" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,1.5 L6,4 L0,6.5" fill="none" stroke="#38bdf8" stroke-width="1.4" stroke-linejoin="round"/></marker>
+  <marker id="aam" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,1.5 L6,4 L0,6.5" fill="none" stroke="#fcd34d" stroke-width="1.4" stroke-linejoin="round"/></marker>
+</defs>
+<!-- ZONE FILL RECTS -->
+<rect x="62"   y="142" width="221" height="196" rx="9" fill="#1a0533" stroke="#6d28d9" stroke-width="1" stroke-dasharray="5,3"/>
+<rect x="62"   y="362" width="236" height="578" rx="9" fill="#011c0f" stroke="#065f46" stroke-width="1" stroke-dasharray="5,3"/>
+<rect x="1222" y="142" width="226" height="416" rx="9" fill="#1c0a00" stroke="#92400e" stroke-width="1" stroke-dasharray="5,3"/>
+<rect x="1222" y="582" width="236" height="584" rx="9" fill="#011c27" stroke="#0e7490" stroke-width="1" stroke-dasharray="5,3"/>
+<rect x="652"  y="712" width="493" height="414" rx="9" fill="#011c27" stroke="#0e7490" stroke-width="1" stroke-dasharray="5,3"/>
+<!-- 1:N DIRECT (grey dashed) -->
+<path d="M150,676 L150,740" stroke="#374151" stroke-width="1.5" stroke-dasharray="5,3" fill="none" marker-end="url(#ag)"/>
+<path d="M762,890 L762,970" stroke="#374151" stroke-width="1.5" stroke-dasharray="5,3" fill="none" marker-end="url(#ag)"/>
+<path d="M975,1017 L855,1017" stroke="#374151" stroke-width="1.5" stroke-dasharray="5,3" fill="none" marker-end="url(#ag)"/>
+<path d="M1340,826 L1340,900" stroke="#374151" stroke-width="1.5" stroke-dasharray="5,3" fill="none" marker-end="url(#ag)"/>
+<path d="M1127,1017 L1210,1017 L1210,1024 L1240,1024" stroke="#374151" stroke-width="1.5" stroke-dasharray="5,3" fill="none" marker-end="url(#ag)"/>
+<path d="M1127,1000 L1205,1000 L1205,723 L1240,723" stroke="#374151" stroke-width="1.5" stroke-dasharray="5,3" fill="none" marker-end="url(#ag)"/>
+<path d="M975,1024 L630,1024 L630,831 L280,831" stroke="#374151" stroke-width="1.5" stroke-dasharray="5,3" fill="none" marker-end="url(#ag)"/>
+<!-- TOP-CORRIDOR M:N (PS/VM → Config/Software) -->
+<path d="M1240,640 L1195,640 L1195,75 L118,75 L118,380" stroke="#6ee7b7" stroke-width="1.8" fill="none" marker-end="url(#agr)"/>
+<rect x="586" y="68" width="142" height="14" rx="3" fill="#0d1117" stroke="#6ee7b7" stroke-width=".8"/>
+<text x="657" y="79" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#6ee7b7" font-weight="500">PhysicalServerConfiguration</text>
+<path d="M1240,655 L1185,655 L1185,88 L140,88 L140,560" stroke="#6ee7b7" stroke-width="1.8" fill="none" marker-end="url(#agr)"/>
+<rect x="604" y="81" width="116" height="14" rx="3" fill="#0d1117" stroke="#6ee7b7" stroke-width=".8"/>
+<text x="662" y="92" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#6ee7b7" font-weight="500">PhysicalServerSoftware</text>
+<path d="M1240,940 L1175,940 L1175,101 L130,101 L130,380" stroke="#6ee7b7" stroke-width="1.8" fill="none" marker-end="url(#agr)"/>
+<rect x="582" y="94" width="142" height="14" rx="3" fill="#0d1117" stroke="#6ee7b7" stroke-width=".8"/>
+<text x="653" y="105" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#6ee7b7" font-weight="500">VirtualMachineConfiguration</text>
+<path d="M1240,960 L1165,960 L1165,114 L158,114 L158,560" stroke="#6ee7b7" stroke-width="1.8" fill="none" marker-end="url(#agr)"/>
+<rect x="603" y="107" width="116" height="14" rx="3" fill="#0d1117" stroke="#6ee7b7" stroke-width=".8"/>
+<text x="661" y="118" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#6ee7b7" font-weight="500">VirtualMachineSoftware</text>
+<!-- COURSE LEFT CONNECTIONS -->
+<path d="M670,488 L545,488 L545,240 L265,240" stroke="#a78bfa" stroke-width="1.8" fill="none" marker-end="url(#apu)"/>
+<rect x="504" y="357" width="84" height="14" rx="3" fill="#0d1117" stroke="#a78bfa" stroke-width=".8"/>
+<text x="546" y="368" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#a78bfa" font-weight="500">CoursePersonnel</text>
+<path d="M670,500 L525,500 L525,430 L255,430" stroke="#6ee7b7" stroke-width="1.8" fill="none" marker-end="url(#agr)"/>
+<rect x="338" y="423" width="102" height="14" rx="3" fill="#0d1117" stroke="#6ee7b7" stroke-width=".8"/>
+<text x="389" y="434" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#6ee7b7" font-weight="500">CourseConfiguration</text>
+<path d="M670,512 L505,512 L505,610 L260,610" stroke="#6ee7b7" stroke-width="1.8" fill="none" marker-end="url(#agr)"/>
+<rect x="344" y="603" width="78" height="14" rx="3" fill="#0d1117" stroke="#6ee7b7" stroke-width=".8"/>
+<text x="383" y="614" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#6ee7b7" font-weight="500">CourseSoftware</text>
+<path d="M757,566 L757,730" stroke="#38bdf8" stroke-width="1.8" fill="none" marker-end="url(#acy)"/>
+<rect x="714" y="641" width="88" height="14" rx="3" fill="#0d1117" stroke="#38bdf8" stroke-width=".8"/>
+<text x="758" y="652" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#38bdf8" font-weight="500">CourseLaboratory</text>
+<!-- COURSE RIGHT CONNECTIONS -->
+<path d="M845,488 L905,488 L905,229 L1240,229" stroke="#fcd34d" stroke-width="1.8" fill="none" marker-end="url(#aam)"/>
+<rect x="1026" y="222" width="93" height="14" rx="3" fill="#0d1117" stroke="#fcd34d" stroke-width=".8"/>
+<text x="1072" y="233" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#fcd34d" font-weight="500">CourseSaaSProduct</text>
+<path d="M845,500 L925,500 L925,460 L1240,460" stroke="#fcd34d" stroke-width="1.8" fill="none" marker-end="url(#aam)"/>
+<rect x="1029" y="453" width="107" height="14" rx="3" fill="#0d1117" stroke="#fcd34d" stroke-width=".8"/>
+<text x="1082" y="464" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#fcd34d" font-weight="500">CourseEquipmentModel</text>
+<path d="M845,512 L945,512 L945,703 L1240,703" stroke="#38bdf8" stroke-width="1.8" fill="none" marker-end="url(#acy)"/>
+<rect x="1039" y="696" width="107" height="14" rx="3" fill="#0d1117" stroke="#38bdf8" stroke-width=".8"/>
+<text x="1092" y="707" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#38bdf8" font-weight="500">CoursePhysicalServer</text>
+<path d="M845,524 L1160,524 L1160,960 L1240,960" stroke="#38bdf8" stroke-width="1.8" fill="none" marker-end="url(#acy)"/>
+<rect x="1107" y="735" width="107" height="14" rx="3" fill="#0d1117" stroke="#38bdf8" stroke-width=".8"/>
+<text x="1160" y="746" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#38bdf8" font-weight="500">CourseVirtualMachine</text>
+<!-- OTHER M:N -->
+<path d="M670,810 L440,810 L440,446 L255,446" stroke="#6ee7b7" stroke-width="1.8" fill="none" marker-end="url(#agr)"/>
+<rect x="381" y="621" width="120" height="14" rx="3" fill="#0d1117" stroke="#6ee7b7" stroke-width=".8"/>
+<text x="441" y="632" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#6ee7b7" font-weight="500">LaboratoryConfiguration</text>
+<path d="M670,1039 L420,1039 L420,626 L260,626" stroke="#6ee7b7" stroke-width="1.8" fill="none" marker-end="url(#agr)"/>
+<rect x="370" y="825" width="103" height="14" rx="3" fill="#0d1117" stroke="#6ee7b7" stroke-width=".8"/>
+<text x="421" y="836" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#6ee7b7" font-weight="500">WorkstationSoftware</text>
+<!-- BOTTOM CORRIDOR (Software/Config → OS) -->
+<path d="M260,630 L305,630 L305,1175 L1051,1175 L1051,1064" stroke="#38bdf8" stroke-width="1.8" fill="none" marker-end="url(#acy)"/>
+<rect x="649" y="1168" width="60" height="14" rx="3" fill="#0d1117" stroke="#38bdf8" stroke-width=".8"/>
+<text x="679" y="1179" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#38bdf8" font-weight="500">SoftwareOS</text>
+<path d="M255,460 L330,460 L330,1195 L1031,1195 L1031,1064" stroke="#38bdf8" stroke-width="1.8" fill="none" marker-end="url(#acy)"/>
+<rect x="639" y="1188" width="83" height="14" rx="3" fill="#0d1117" stroke="#38bdf8" stroke-width=".8"/>
+<text x="680" y="1199" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#38bdf8" font-weight="500">ConfigurationOS</text>
+<!-- ZONE LABEL COVER RECTS -->
+<rect x="62" y="363" width="155" height="17" fill="#011c0f"/>
+<rect x="652" y="712" width="175" height="18" fill="#011c27"/>
+<!-- ZONE LABEL TEXTS -->
+<text x="74"   y="156" font-family="Inter" font-size="8" font-weight="700" letter-spacing="2" fill="#a78bfa" opacity=".75">PEOPLE</text>
+<text x="74"   y="376" font-family="Inter" font-size="8" font-weight="700" letter-spacing="2" fill="#6ee7b7" opacity=".75">SOFTWARE &amp; CONFIG</text>
+<text x="1234" y="156" font-family="Inter" font-size="8" font-weight="700" letter-spacing="2" fill="#fcd34d" opacity=".75">CATALOG</text>
+<text x="1234" y="596" font-family="Inter" font-size="8" font-weight="700" letter-spacing="2" fill="#67e8f9" opacity=".75">INFRASTRUCTURE</text>
+<text x="664"  y="726" font-family="Inter" font-size="8" font-weight="700" letter-spacing="2" fill="#67e8f9" opacity=".75">LABS &amp; WORKSTATIONS</text>
+</svg>
+
+<!-- Course -->
+<div class="card core" style="left:670px;top:450px;width:175px;height:116px">
+  <div class="hd">Course</div><div class="bd">
+    <div class="row pk"><span class="n">Id</span><span class="bpk">PK</span></div><div class="div"></div>
+    <div class="row r"><span class="n">Code</span><span class="t">string</span></div>
+    <div class="row"><span class="n">Name</span><span class="t">string?</span></div>
+  </div>
+</div>
+<!-- Personnel -->
+<div class="card people" style="left:80px;top:160px;width:185px;height:160px">
+  <div class="hd">Personnel</div><div class="bd">
+    <div class="row pk"><span class="n">Id</span><span class="bpk">PK</span></div><div class="div"></div>
+    <div class="row r"><span class="n">FirstName</span><span class="t">string</span></div>
+    <div class="row r"><span class="n">LastName</span><span class="t">string</span></div>
+    <div class="row r"><span class="n">Function</span><span class="t">enum</span></div>
+    <div class="row r"><span class="n">Email</span><span class="t">string <span class="uq">★</span></span></div>
+  </div>
+</div>
+<!-- Configuration -->
+<div class="card softcfg" style="left:80px;top:380px;width:175px;height:116px">
+  <div class="hd">Configuration</div><div class="bd">
+    <div class="row pk"><span class="n">Id</span><span class="bpk">PK</span></div><div class="div"></div>
+    <div class="row r"><span class="n">Title</span><span class="t">string</span></div>
+    <div class="row"><span class="n">Notes</span><span class="t">string?</span></div>
+  </div>
+</div>
+<!-- Software -->
+<div class="card softcfg" style="left:80px;top:560px;width:180px;height:116px">
+  <div class="hd">Software</div><div class="bd">
+    <div class="row pk"><span class="n">Id</span><span class="bpk">PK</span></div><div class="div"></div>
+    <div class="row r"><span class="n">Name</span><span class="t">string</span></div>
+    <div class="row"><span class="n">InstallCommand</span><span class="t">string?</span></div>
+  </div>
+</div>
+<!-- SoftwareVersion -->
+<div class="card softcfg" style="left:80px;top:740px;width:200px;height:182px">
+  <div class="hd">SoftwareVersion</div><div class="bd">
+    <div class="row pk"><span class="n">Id</span><span class="bpk">PK</span></div><div class="div"></div>
+    <div class="row r"><span class="n">VersionNumber</span><span class="t">string</span></div>
+    <div class="row"><span class="n">InstallationDetails</span><span class="t">string?</span></div>
+    <div class="row"><span class="n">Notes</span><span class="t">string?</span></div>
+    <div class="row fk"><span class="n">SoftwareId</span><span class="bfk">FK</span></div>
+    <div class="row fk"><span class="n">OsId</span><span class="bfk">FK</span></div>
+  </div>
+</div>
+<!-- Laboratory -->
+<div class="card infra" style="left:670px;top:730px;width:185px;height:160px">
+  <div class="hd">Laboratory</div><div class="bd">
+    <div class="row pk"><span class="n">Id</span><span class="bpk">PK</span></div><div class="div"></div>
+    <div class="row r"><span class="n">Name</span><span class="t">string</span></div>
+    <div class="row r"><span class="n">Building</span><span class="t">string</span></div>
+    <div class="row r"><span class="n">NumberOfPCs</span><span class="t">int</span></div>
+    <div class="row r"><span class="n">SeatingCapacity</span><span class="t">int</span></div>
+  </div>
+</div>
+<!-- Workstation -->
+<div class="card infra" style="left:670px;top:970px;width:185px;height:138px">
+  <div class="hd">Workstation</div><div class="bd">
+    <div class="row pk"><span class="n">Id</span><span class="bpk">PK</span></div><div class="div"></div>
+    <div class="row r"><span class="n">Name</span><span class="t">string</span></div>
+    <div class="row fk"><span class="n">LaboratoryId</span><span class="bfk">FK</span></div>
+    <div class="row fk"><span class="n">OSId</span><span class="bfk">FK</span></div>
+  </div>
+</div>
+<!-- OS -->
+<div class="card infra" style="left:975px;top:970px;width:152px;height:94px">
+  <div class="hd">OS</div><div class="bd">
+    <div class="row pk"><span class="n">Id</span><span class="bpk">PK</span></div><div class="div"></div>
+    <div class="row r"><span class="n">Name</span><span class="t">string</span></div>
+  </div>
+</div>
+<!-- PhysicalServer -->
+<div class="card infra" style="left:1240px;top:600px;width:200px;height:226px">
+  <div class="hd">PhysicalServer</div><div class="bd">
+    <div class="row pk"><span class="n">Id</span><span class="bpk">PK</span></div><div class="div"></div>
+    <div class="row r"><span class="n">Hostname</span><span class="t">string <span class="uq">★</span></span></div>
+    <div class="row r"><span class="n">CpuCores</span><span class="t">int</span></div>
+    <div class="row r"><span class="n">RamGb</span><span class="t">int</span></div>
+    <div class="row r"><span class="n">StorageGb</span><span class="t">int</span></div>
+    <div class="row r"><span class="n">AccessType</span><span class="t">string</span></div>
+    <div class="row"><span class="n">Notes</span><span class="t">string?</span></div>
+    <div class="row fk"><span class="n">OSId</span><span class="bfk">FK</span></div>
+  </div>
+</div>
+<!-- VirtualMachine -->
+<div class="card infra" style="left:1240px;top:900px;width:200px;height:248px">
+  <div class="hd">VirtualMachine</div><div class="bd">
+    <div class="row pk"><span class="n">Id</span><span class="bpk">PK</span></div><div class="div"></div>
+    <div class="row r"><span class="n">Quantity</span><span class="t">int</span></div>
+    <div class="row r"><span class="n">CpuCores</span><span class="t">int</span></div>
+    <div class="row r"><span class="n">RamGb</span><span class="t">int</span></div>
+    <div class="row r"><span class="n">StorageGb</span><span class="t">int</span></div>
+    <div class="row r"><span class="n">AccessType</span><span class="t">string</span></div>
+    <div class="row"><span class="n">Notes</span><span class="t">string?</span></div>
+    <div class="row fk"><span class="n">OSId</span><span class="bfk">FK</span></div>
+    <div class="row fk"><span class="n">HostServerId?</span><span class="bfk">FK</span></div>
+  </div>
+</div>
+<!-- SaaSProduct -->
+<div class="card catalog" style="left:1240px;top:160px;width:185px;height:138px">
+  <div class="hd">SaaSProduct</div><div class="bd">
+    <div class="row pk"><span class="n">Id</span><span class="bpk">PK</span></div><div class="div"></div>
+    <div class="row r"><span class="n">Name</span><span class="t">string</span></div>
+    <div class="row"><span class="n">NumberOfAccounts</span><span class="t">int?</span></div>
+    <div class="row"><span class="n">Notes</span><span class="t">string?</span></div>
+  </div>
+</div>
+<!-- EquipmentModel -->
+<div class="card catalog" style="left:1240px;top:380px;width:190px;height:160px">
+  <div class="hd">EquipmentModel</div><div class="bd">
+    <div class="row pk"><span class="n">Id</span><span class="bpk">PK</span></div><div class="div"></div>
+    <div class="row r"><span class="n">Name</span><span class="t">string</span></div>
+    <div class="row r"><span class="n">Quantity</span><span class="t">int</span></div>
+    <div class="row"><span class="n">DefaultAccessories</span><span class="t">string?</span></div>
+    <div class="row"><span class="n">Notes</span><span class="t">string?</span></div>
+  </div>
+</div>
+
+</div></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     TAB 2: CORE DOMAIN
+════════════════════════════════════════════════════════ -->
+<div class="tab-content" id="tab-core">
+<div class="diagram-note">User, Session, TeachingNeed — the authentication, session lifecycle, and approval workflow entities.</div>
+<div class="wrap">
+<div style="position:relative;width:1260px;height:860px;background:#0d1117;">
+
+<svg style="position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;z-index:1;" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <marker id="ag2"  markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,1.5 L6,4 L0,6.5" fill="none" stroke="#374151" stroke-width="1.4" stroke-linejoin="round"/></marker>
+  <marker id="apu2" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,1.5 L6,4 L0,6.5" fill="none" stroke="#a78bfa" stroke-width="1.4" stroke-linejoin="round"/></marker>
+  <marker id="agr2" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,1.5 L6,4 L0,6.5" fill="none" stroke="#6ee7b7" stroke-width="1.4" stroke-linejoin="round"/></marker>
+  <marker id="acy2" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,1.5 L6,4 L0,6.5" fill="none" stroke="#38bdf8" stroke-width="1.4" stroke-linejoin="round"/></marker>
+  <marker id="aam2" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,1.5 L6,4 L0,6.5" fill="none" stroke="#fcd34d" stroke-width="1.4" stroke-linejoin="round"/></marker>
+  <marker id="abl2" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,1.5 L6,4 L0,6.5" fill="none" stroke="#93c5fd" stroke-width="1.4" stroke-linejoin="round"/></marker>
+</defs>
+
+<!-- ZONE FILL RECTS -->
+<rect x="62"  y="62"  width="241" height="448" rx="9" fill="#0c1524" stroke="#1d4ed8" stroke-width="1" stroke-dasharray="5,3"/>
+<rect x="62"  y="528" width="206" height="284" rx="9" fill="#0c1524" stroke="#1d4ed8" stroke-width="1" stroke-dasharray="5,3"/>
+<rect x="372" y="62"  width="221" height="196" rx="9" fill="#1a0533" stroke="#6d28d9" stroke-width="1" stroke-dasharray="5,3"/>
+<rect x="662" y="62"  width="231" height="306" rx="9" fill="#011c0f" stroke="#065f46" stroke-width="1" stroke-dasharray="5,3"/>
+<rect x="972" y="62"  width="211" height="152" rx="9" fill="#1c0a00" stroke="#92400e" stroke-width="1" stroke-dasharray="5,3"/>
+<rect x="662" y="412" width="551" height="310" rx="9" fill="#011c27" stroke="#0e7490" stroke-width="1" stroke-dasharray="5,3"/>
+
+<!-- 1: User → RefreshToken (1:N dashed down) -->
+<path d="M182,240 L182,310" stroke="#374151" stroke-width="1.5" stroke-dasharray="5,3" fill="none" marker-end="url(#ag2)"/>
+
+<!-- 2: Role → Permission (dashed) -->
+<path d="M157,654 L157,712" stroke="#374151" stroke-width="1.5" stroke-dasharray="5,3" fill="none" marker-end="url(#ag2)"/>
+
+<!-- 3: User ↔ Personnel (optional 1:1, purple horizontal) -->
+<path d="M270,160 L390,160" stroke="#a78bfa" stroke-width="1.8" fill="none" marker-end="url(#apu2)"/>
+
+<!-- 4: User → Session (creates, top corridor y=36, blue) -->
+<path d="M175,80 L175,36 L777,36 L777,80" stroke="#93c5fd" stroke-width="1.8" fill="none" marker-end="url(#abl2)"/>
+<rect x="456" y="29" width="54" height="14" rx="3" fill="#0d1117" stroke="#93c5fd" stroke-width=".8"/>
+<text x="483" y="40" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#93c5fd" font-weight="500">creates</text>
+
+<!-- 5: User → Role (M:N UserRole, left corridor x=45) -->
+<path d="M80,155 L45,155 L45,607 L80,607" stroke="#93c5fd" stroke-width="1.8" fill="none" marker-end="url(#abl2)"/>
+<rect x="22" y="373" width="52" height="14" rx="3" fill="#0d1117" stroke="#93c5fd" stroke-width=".8"/>
+<text x="48" y="384" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#93c5fd" font-weight="500">UserRole</text>
+
+<!-- 6: User → Permission (M:N, left corridor x=32) -->
+<path d="M80,170 L32,170 L32,759 L80,759" stroke="#93c5fd" stroke-width="1.8" fill="none" marker-end="url(#abl2)"/>
+<rect x="4" y="457" width="84" height="14" rx="3" fill="#0d1117" stroke="#93c5fd" stroke-width=".8"/>
+<text x="46" y="468" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#93c5fd" font-weight="500">UserPermission</text>
+
+<!-- 7: Session → TeachingNeed (1:N contains, green) -->
+<path d="M777,350 L777,390 L787,390 L787,430" stroke="#6ee7b7" stroke-width="1.8" fill="none" marker-end="url(#agr2)"/>
+
+<!-- 8: TeachingNeed → Personnel (N:1, purple) -->
+<path d="M680,565 L620,565 L620,250 L482,250 L482,240" stroke="#a78bfa" stroke-width="1.8" fill="none" marker-end="url(#apu2)"/>
+<rect x="541" y="418" width="68" height="14" rx="3" fill="#0d1117" stroke="#a78bfa" stroke-width=".8"/>
+<text x="575" y="429" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#a78bfa" font-weight="500">belongs to</text>
+
+<!-- 9: TeachingNeed → Course (N:1, amber) -->
+<path d="M895,510 L955,510 L955,200 L1077,200 L1077,196" stroke="#fcd34d" stroke-width="1.8" fill="none" marker-end="url(#aam2)"/>
+<rect x="996" y="193" width="24" height="14" rx="3" fill="#0d1117" stroke="#fcd34d" stroke-width=".8"/>
+<text x="1008" y="204" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#fcd34d" font-weight="500">for</text>
+
+<!-- 10: TeachingNeed → TeachingNeedItem (1:N cyan dashed) -->
+<path d="M895,543 L990,543" stroke="#374151" stroke-width="1.5" stroke-dasharray="5,3" fill="none" marker-end="url(#ag2)"/>
+
+<!-- 11: Personnel ↔ Course (M:N CoursePersonnel, top corridor y=22) -->
+<path d="M482,80 L482,22 L1077,22 L1077,80" stroke="#a78bfa" stroke-width="1.8" fill="none" marker-end="url(#apu2)"/>
+<rect x="726" y="15" width="109" height="14" rx="3" fill="#0d1117" stroke="#a78bfa" stroke-width=".8"/>
+<text x="780" y="26" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#a78bfa" font-weight="500">CoursePersonnel</text>
+
+<!-- 12: User reviews TeachingNeed (bottom corridor y=750) -->
+<path d="M787,700 L787,750 L58,750 L58,200 L80,200" stroke="#93c5fd" stroke-width="1.8" fill="none" marker-end="url(#abl2)"/>
+<rect x="380" y="743" width="54" height="14" rx="3" fill="#0d1117" stroke="#93c5fd" stroke-width=".8"/>
+<text x="407" y="754" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#93c5fd" font-weight="500">reviews</text>
+
+<!-- ZONE LABEL COVER RECTS -->
+<rect x="62"  y="63"  width="160" height="17" fill="#0c1524"/>
+<rect x="62"  y="529" width="175" height="17" fill="#0c1524"/>
+<rect x="372" y="63"  width="100" height="17" fill="#1a0533"/>
+<rect x="662" y="63"  width="100" height="17" fill="#011c0f"/>
+<rect x="972" y="63"  width="100" height="17" fill="#1c0a00"/>
+<rect x="662" y="413" width="160" height="17" fill="#011c27"/>
+
+<!-- ZONE LABEL TEXTS -->
+<text x="74"  y="77"  font-family="Inter" font-size="8" font-weight="700" letter-spacing="2" fill="#93c5fd" opacity=".75">USERS / AUTH</text>
+<text x="74"  y="543" font-family="Inter" font-size="8" font-weight="700" letter-spacing="2" fill="#93c5fd" opacity=".75">ACCESS CONTROL</text>
+<text x="384" y="77"  font-family="Inter" font-size="8" font-weight="700" letter-spacing="2" fill="#c4b5fd" opacity=".75">PEOPLE</text>
+<text x="674" y="77"  font-family="Inter" font-size="8" font-weight="700" letter-spacing="2" fill="#6ee7b7" opacity=".75">SESSIONS</text>
+<text x="984" y="77"  font-family="Inter" font-size="8" font-weight="700" letter-spacing="2" fill="#fcd34d" opacity=".75">COURSES</text>
+<text x="674" y="427" font-family="Inter" font-size="8" font-weight="700" letter-spacing="2" fill="#67e8f9" opacity=".75">TEACHING NEEDS</text>
+</svg>
+
+<!-- User -->
+<div class="card core" style="left:80px;top:80px;width:190px;height:160px">
+  <div class="hd">User</div><div class="bd">
+    <div class="row pk"><span class="n">Id</span><span class="bpk">PK</span></div><div class="div"></div>
+    <div class="row r"><span class="n">Username</span><span class="t">string <span class="uq">★</span></span></div>
+    <div class="row r"><span class="n">PasswordHash</span><span class="t">string</span></div>
+    <div class="row r"><span class="n">IsActive</span><span class="t">bool</span></div>
+    <div class="row fk"><span class="n">PersonnelId?</span><span class="bfk">FK</span></div>
+  </div>
+</div>
+<!-- RefreshToken -->
+<div class="card core" style="left:80px;top:310px;width:205px;height:182px">
+  <div class="hd">RefreshToken</div><div class="bd">
+    <div class="row pk"><span class="n">Id</span><span class="bpk">PK</span></div><div class="div"></div>
+    <div class="row r"><span class="n">Token</span><span class="t">string <span class="uq">★</span></span></div>
+    <div class="row fk"><span class="n">UserId</span><span class="bfk">FK</span></div>
+    <div class="row r"><span class="n">CreatedAtUtc</span><span class="t">datetime</span></div>
+    <div class="row r"><span class="n">ExpiresAtUtc</span><span class="t">datetime</span></div>
+    <div class="row"><span class="n">RevokedAtUtc?</span><span class="t">datetime</span></div>
+  </div>
+</div>
+<!-- Role -->
+<div class="card core" style="left:80px;top:560px;width:155px;height:94px">
+  <div class="hd">Role</div><div class="bd">
+    <div class="row pk"><span class="n">Id</span><span class="bpk">PK</span></div><div class="div"></div>
+    <div class="row r"><span class="n">Name</span><span class="t">string <span class="uq">★</span></span></div>
+  </div>
+</div>
+<!-- Permission -->
+<div class="card core" style="left:80px;top:712px;width:170px;height:94px">
+  <div class="hd">Permission</div><div class="bd">
+    <div class="row pk"><span class="n">Id</span><span class="bpk">PK</span></div><div class="div"></div>
+    <div class="row r"><span class="n">Name</span><span class="t">string <span class="uq">★</span></span></div>
+  </div>
+</div>
+<!-- Personnel -->
+<div class="card people" style="left:390px;top:80px;width:185px;height:160px">
+  <div class="hd">Personnel</div><div class="bd">
+    <div class="row pk"><span class="n">Id</span><span class="bpk">PK</span></div><div class="div"></div>
+    <div class="row r"><span class="n">FirstName</span><span class="t">string</span></div>
+    <div class="row r"><span class="n">LastName</span><span class="t">string</span></div>
+    <div class="row r"><span class="n">Function</span><span class="t">enum</span></div>
+    <div class="row r"><span class="n">Email</span><span class="t">string <span class="uq">★</span></span></div>
+  </div>
+</div>
+<!-- Session -->
+<div class="card softcfg" style="left:680px;top:80px;width:195px;height:270px">
+  <div class="hd">Session</div><div class="bd">
+    <div class="row pk"><span class="n">Id</span><span class="bpk">PK</span></div><div class="div"></div>
+    <div class="row r"><span class="n">Title</span><span class="t">string</span></div>
+    <div class="row r"><span class="n">Status</span><span class="t">enum</span></div>
+    <div class="row r"><span class="n">StartDate</span><span class="t">datetime</span></div>
+    <div class="row r"><span class="n">EndDate</span><span class="t">datetime</span></div>
+    <div class="row r"><span class="n">CreatedAt</span><span class="t">datetime</span></div>
+    <div class="row"><span class="n">OpenedAt?</span><span class="t">datetime</span></div>
+    <div class="row"><span class="n">ClosedAt?</span><span class="t">datetime</span></div>
+    <div class="row"><span class="n">ArchivedAt?</span><span class="t">datetime</span></div>
+    <div class="row fk"><span class="n">CreatedByUserId?</span><span class="bfk">FK</span></div>
+  </div>
+</div>
+<!-- Course -->
+<div class="card catalog" style="left:990px;top:80px;width:175px;height:116px">
+  <div class="hd">Course</div><div class="bd">
+    <div class="row pk"><span class="n">Id</span><span class="bpk">PK</span></div><div class="div"></div>
+    <div class="row r"><span class="n">Code</span><span class="t">string <span class="uq">★</span></span></div>
+    <div class="row"><span class="n">Name</span><span class="t">string?</span></div>
+  </div>
+</div>
+<!-- TeachingNeed -->
+<div class="card infra" style="left:680px;top:430px;width:215px;height:270px">
+  <div class="hd">TeachingNeed</div><div class="bd">
+    <div class="row pk"><span class="n">Id</span><span class="bpk">PK</span></div><div class="div"></div>
+    <div class="row fk"><span class="n">SessionId</span><span class="bfk">FK</span></div>
+    <div class="row fk"><span class="n">PersonnelId</span><span class="bfk">FK</span></div>
+    <div class="row fk"><span class="n">CourseId</span><span class="bfk">FK</span></div>
+    <div class="row r"><span class="n">Status</span><span class="t">enum</span></div>
+    <div class="row r"><span class="n">CreatedAt</span><span class="t">datetime</span></div>
+    <div class="row"><span class="n">SubmittedAt?</span><span class="t">datetime</span></div>
+    <div class="row"><span class="n">ReviewedAt?</span><span class="t">datetime</span></div>
+    <div class="row fk"><span class="n">ReviewedByUserId?</span><span class="bfk">FK</span></div>
+    <div class="row"><span class="n">RejectionReason?</span><span class="t">string</span></div>
+  </div>
+</div>
+<!-- TeachingNeedItem -->
+<div class="card infra" style="left:990px;top:430px;width:205px;height:248px">
+  <div class="hd">TeachingNeedItem</div><div class="bd">
+    <div class="row pk"><span class="n">Id</span><span class="bpk">PK</span></div><div class="div"></div>
+    <div class="row fk"><span class="n">TeachingNeedId</span><span class="bfk">FK</span></div>
+    <div class="row r"><span class="n">ItemType</span><span class="t">string</span></div>
+    <div class="row fk"><span class="n">SoftwareId?</span><span class="bfk">FK</span></div>
+    <div class="row fk"><span class="n">SoftwareVersionId?</span><span class="bfk">FK</span></div>
+    <div class="row fk"><span class="n">OSId?</span><span class="bfk">FK</span></div>
+    <div class="row"><span class="n">Quantity?</span><span class="t">int</span></div>
+    <div class="row"><span class="n">Description?</span><span class="t">string</span></div>
+  </div>
+</div>
+
+</div></div>
+</div>
+
+<script>
+function showTab(name, btn) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+}
+</script>
+</body>
+</html>

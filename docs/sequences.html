@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SessionPlanner — Sequence Diagrams</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#0d1117;font-family:'Inter',sans-serif;padding:0;color:#e6edf3;}
+a{color:inherit;text-decoration:none;}
+.topbar{display:flex;align-items:center;gap:24px;padding:0 28px;height:48px;background:#161b22;border-bottom:1px solid #21262d;}
+.topbar-title{font-size:.72rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#e6edf3;white-space:nowrap;}
+.topbar-divider{width:1px;height:16px;background:#21262d;}
+.topbar a{font-size:.72rem;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:#484f58;padding:4px 10px;border-radius:4px;transition:color .15s,background .15s;}
+.topbar a:hover{color:#8b949e;background:#21262d;}
+.topbar a.active{color:#e6edf3;}
+.page-header{display:flex;align-items:center;justify-content:space-between;padding:16px 28px;border-bottom:1px solid #21262d;flex-wrap:wrap;gap:12px;}
+.page-header h1{font-size:.78rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#e6edf3;}
+.legend{display:flex;gap:14px;align-items:center;font-size:.6rem;color:#484f58;flex-wrap:wrap;}
+.leg{display:flex;align-items:center;gap:5px;}
+.ld{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.tabs-bar{display:flex;gap:6px;padding:16px 28px 0;border-bottom:1px solid #21262d;flex-wrap:wrap;}
+.tab-btn{font-size:.68rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:6px 14px;background:transparent;border:1px solid #21262d;border-bottom:none;border-radius:4px 4px 0 0;color:#484f58;cursor:pointer;transition:color .15s,background .15s,border-color .15s;position:relative;bottom:-1px;}
+.tab-btn:hover{color:#8b949e;border-color:#30363d;}
+.tab-btn.active{background:#0d1117;border-color:#21262d;color:#e6edf3;border-bottom:1px solid #0d1117;}
+.tab-content{display:none;padding:20px 28px;}
+.tab-content.active{display:block;}
+.diagram-note{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:#484f58;margin-bottom:14px;}
+.seq-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(520px,1fr));gap:16px;}
+.seq-card{background:#161b22;border:1px solid #21262d;border-radius:6px;overflow:hidden;}
+.seq-card-head{padding:10px 16px;border-bottom:1px solid #21262d;}
+.seq-num{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:#484f58;margin-bottom:3px;}
+.seq-title{font-family:'JetBrains Mono',monospace;font-size:.74rem;font-weight:600;color:#e6edf3;}
+.seq-desc{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:#484f58;margin-top:4px;}
+.seq-body{overflow-x:auto;padding:16px 16px 12px;}
+.seq-body svg{display:block;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="topbar-title">SessionPlanner API</span>
+  <div class="topbar-divider"></div>
+  <a href="index.html">Overview</a>
+  <a href="erd.html">ER Diagram</a>
+  <a href="classes.html">Class Diagram</a>
+  <a href="sequences.html" class="active">Sequence Diagrams</a>
+</div>
+
+<div class="page-header">
+  <h1>SessionPlanner — Sequence Diagrams</h1>
+  <div class="legend">
+    <div class="leg"><div class="ld" style="background:#484f58"></div>Client</div>
+    <div class="leg"><div class="ld" style="background:#3b82f6"></div>Controller</div>
+    <div class="leg"><div class="ld" style="background:#10b981"></div>Service</div>
+    <div class="leg"><div class="ld" style="background:#f59e0b"></div>DbContext</div>
+    <div class="leg"><div class="ld" style="background:#8b5cf6"></div>JWT / Helper</div>
+    <div class="leg"><svg width="30" height="10"><line x1="0" y1="5" x2="22" y2="5" stroke="#8b949e" stroke-width="1.5"/><path d="M20,2 L26,5 L20,8" fill="none" stroke="#8b949e" stroke-width="1.2"/></svg>call</div>
+    <div class="leg"><svg width="30" height="10"><line x1="0" y1="5" x2="22" y2="5" stroke="#484f58" stroke-width="1.5" stroke-dasharray="4,2"/><path d="M20,2 L26,5 L20,8" fill="none" stroke="#484f58" stroke-width="1.2"/></svg>return</div>
+  </div>
+</div>
+
+<div class="tabs-bar">
+  <button class="tab-btn active" onclick="showTab('auth',this)">Auth</button>
+  <button class="tab-btn" onclick="showTab('sessions',this)">Sessions</button>
+  <button class="tab-btn" onclick="showTab('needs',this)">Teaching Needs</button>
+  <button class="tab-btn" onclick="showTab('users',this)">Users</button>
+  <button class="tab-btn" onclick="showTab('infra',this)">Infrastructure</button>
+</div>
+
+<div class="tab-content active" id="tab-auth">
+  <div class="diagram-note">Authentication flows — registration, login, token refresh, password change, logout, and current user retrieval.</div>
+  <div class="seq-grid" id="grid-auth"></div>
+</div>
+<div class="tab-content" id="tab-sessions">
+  <div class="diagram-note">Session lifecycle — CRUD operations and state machine transitions (Draft &rarr; Open &rarr; Closed &rarr; Archived).</div>
+  <div class="seq-grid" id="grid-sessions"></div>
+</div>
+<div class="tab-content" id="tab-needs">
+  <div class="diagram-note">Teaching Need workflow — creation, submission, review, approval, rejection, and revision.</div>
+  <div class="seq-grid" id="grid-needs"></div>
+</div>
+<div class="tab-content" id="tab-users">
+  <div class="diagram-note">User account management — listing, creation, role update, password reset, and deletion.</div>
+  <div class="seq-grid" id="grid-users"></div>
+</div>
+<div class="tab-content" id="tab-infra">
+  <div class="diagram-note">Infrastructure management — laboratories, workstations, virtual machines, and personnel.</div>
+  <div class="seq-grid" id="grid-infra"></div>
+</div>
+
+<script>
+// ── Participant styles ────────────────────────────────────────────────────────
+const ST = {
+  client: {border:'#374151', hd:'#1c2432', txt:'#8b949e'},
+  ctrl:   {border:'#1d4ed8', hd:'#172554', txt:'#93c5fd'},
+  svc:    {border:'#065f46', hd:'#052e16', txt:'#6ee7b7'},
+  db:     {border:'#92400e', hd:'#451a03', txt:'#fcd34d'},
+  jwt:    {border:'#6d28d9', hd:'#2e1065', txt:'#c4b5fd'},
+};
+
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// ── Renderer ─────────────────────────────────────────────────────────────────
+// participants: [{n, t}]
+// steps: {f,t,l,r?,c?} | {sep:'text'}
+function buildSeq(containerId, participants, steps) {
+  const COL=166, BOXW=144, BOXH=34, PAD=82, ROW=38;
+  const LIFE_Y=BOXH+6, MSG_Y0=LIFE_Y+ROW;
+  const np=participants.length;
+  const W=PAD*2+(np-1)*COL;
+  const nrows=steps.length;
+  const H=MSG_Y0+nrows*ROW+14;
+  const cx=i=>PAD+i*COL;
+  const pfx='p'+containerId.replace(/\W/g,'');
+
+  let o=`<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg"><defs>
+<marker id="${pfx}f" markerWidth="7" markerHeight="7" refX="5.5" refY="3.5" orient="auto"><path d="M0,1 L6,3.5 L0,6" fill="none" stroke="#8b949e" stroke-width="1.3"/></marker>
+<marker id="${pfx}r" markerWidth="7" markerHeight="7" refX="5.5" refY="3.5" orient="auto"><path d="M0,1 L6,3.5 L0,6" fill="none" stroke="#484f58" stroke-width="1.3"/></marker>
+<marker id="${pfx}e" markerWidth="7" markerHeight="7" refX="5.5" refY="3.5" orient="auto"><path d="M0,1 L6,3.5 L0,6" fill="none" stroke="#f87171" stroke-width="1.3"/></marker>
+</defs>`;
+
+  // Participant boxes
+  for(let i=0;i<np;i++){
+    const {n,t}=participants[i];
+    const s=ST[t]||ST.client;
+    const x=cx(i)-BOXW/2;
+    o+=`<rect x="${x}" y="2" width="${BOXW}" height="${BOXH}" rx="4" fill="${s.hd}" stroke="${s.border}" stroke-width="1"/>`;
+    o+=`<text x="${cx(i)}" y="${BOXH/2+6}" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" font-weight="600" fill="${s.txt}">${esc(n)}</text>`;
+  }
+  // Lifelines
+  for(let i=0;i<np;i++){
+    o+=`<line x1="${cx(i)}" y1="${LIFE_Y}" x2="${cx(i)}" y2="${H-4}" stroke="#21262d" stroke-width="1" stroke-dasharray="4,3"/>`;
+  }
+  // Steps
+  let row=0;
+  for(const step of steps){
+    const y=MSG_Y0+row*ROW;
+    if(step.sep!==undefined){
+      o+=`<line x1="8" y1="${y-ROW/2}" x2="${W-8}" y2="${y-ROW/2}" stroke="#21262d" stroke-width=".8" stroke-dasharray="2,5"/>`;
+      o+=`<text x="${W/2}" y="${y-ROW/2+10}" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="7.5" fill="#484f58" font-style="italic">${esc(step.sep)}</text>`;
+      row++;continue;
+    }
+    const {f,t:to,l,r,c}=step;
+    const isR=r===true;
+    const stroke=isR?'#484f58':(c||'#8b949e');
+    const mk=isR?pfx+'r':(c==='#f87171'?pfx+'e':pfx+'f');
+    const dash=isR?'5,3':'none';
+    const x1=cx(f),x2=cx(to);
+    if(f===to){
+      const lx=x1+BOXW/2+4;
+      o+=`<path d="M${x1} ${y} L${lx+30} ${y} L${lx+30} ${y+18} L${x1+1} ${y+18}" stroke="${stroke}" stroke-width="1.3" fill="none" stroke-dasharray="${dash}" marker-end="url(#${mk})"/>`;
+      o+=`<text x="${lx+34}" y="${y+4}" font-family="JetBrains Mono,monospace" font-size="7.5" fill="${stroke}">${esc(l)}</text>`;
+    } else {
+      const dir=x2>x1?1:-1;
+      const midX=(x1+x2)/2;
+      const lw=Math.max(l.length*5.6,20);
+      o+=`<line x1="${x1}" y1="${y}" x2="${x2-dir*7}" y2="${y}" stroke="${stroke}" stroke-width="1.3" stroke-dasharray="${dash}" marker-end="url(#${mk})"/>`;
+      o+=`<rect x="${midX-lw/2}" y="${y-12}" width="${lw}" height="13" rx="2" fill="#161b22"/>`;
+      o+=`<text x="${midX}" y="${y-2}" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="7.5" fill="${stroke}">${esc(l)}</text>`;
+    }
+    row++;
+  }
+  o+='</svg>';
+  document.getElementById(containerId).innerHTML=o;
+}
+
+// ── Card builder ─────────────────────────────────────────────────────────────
+let _uid=0;
+function card(gridId,num,title,desc,participants,steps){
+  const id='sq'+(++_uid);
+  const g=document.getElementById(gridId);
+  const d=document.createElement('div');
+  d.className='seq-card';
+  d.innerHTML=`<div class="seq-card-head"><div class="seq-num">${num}</div><div class="seq-title">${title}</div><div class="seq-desc">${desc}</div></div><div class="seq-body" id="${id}"></div>`;
+  g.appendChild(d);
+  buildSeq(id,participants,steps);
+}
+
+// ── Participant shorthands ────────────────────────────────────────────────────
+const CL={n:'Client',t:'client'};
+const AC={n:'AuthController',t:'ctrl'};
+const SC={n:'SessionController',t:'ctrl'};
+const TC={n:'NeedController',t:'ctrl'};
+const UC={n:'UserController',t:'ctrl'};
+const LC={n:'LabController',t:'ctrl'};
+const VC={n:'VMController',t:'ctrl'};
+const PC={n:'PersonnelCtrl',t:'ctrl'};
+const AS={n:'AuthService',t:'svc'};
+const SS={n:'SessionService',t:'svc'};
+const TS={n:'NeedService',t:'svc'};
+const US={n:'UserService',t:'svc'};
+const LS={n:'LabService',t:'svc'};
+const VS={n:'VMService',t:'svc'};
+const PS={n:'PersonnelService',t:'svc'};
+const DB={n:'DbContext',t:'db'};
+const JW={n:'JwtHelper',t:'jwt'};
+
+// ── AUTH ──────────────────────────────────────────────────────────────────────
+card('grid-auth','01','Register',
+'Create a new user account and return access + refresh tokens.',
+[CL,AC,AS,DB],[
+  {f:0,t:1,l:'POST /auth/register'},
+  {f:1,t:2,l:'RegisterAsync(username, pwd, role)'},
+  {f:2,t:3,l:'FindUser(username)'},
+  {f:3,t:2,l:'null — not found',r:true},
+  {f:2,t:3,l:'Insert User + UserRole'},
+  {f:3,t:2,l:'User saved',r:true},
+  {f:2,t:3,l:'Insert RefreshToken'},
+  {f:3,t:2,l:'token saved',r:true},
+  {f:2,t:1,l:'LoginTokenResponse',r:true},
+  {f:1,t:0,l:'201 Created + tokens',r:true},
+]);
+
+card('grid-auth','02','Login',
+'Authenticate with username and password; receive JWT and refresh token.',
+[CL,AC,AS,DB,JW],[
+  {f:0,t:1,l:'POST /auth/login'},
+  {f:1,t:2,l:'LoginAsync(username, pwd)'},
+  {f:2,t:3,l:'GetUser(username)'},
+  {f:3,t:2,l:'User + roles',r:true},
+  {f:2,t:2,l:'VerifyPassword(hash)'},
+  {f:2,t:4,l:'GenerateAccessToken(userId, roles)'},
+  {f:4,t:2,l:'accessToken',r:true},
+  {f:2,t:3,l:'Insert RefreshToken'},
+  {f:3,t:2,l:'saved',r:true},
+  {f:2,t:1,l:'LoginTokenResponse',r:true},
+  {f:1,t:0,l:'200 OK + tokens',r:true},
+]);
+
+card('grid-auth','03','Refresh Token',
+'Exchange a valid refresh token for a new access + refresh token pair.',
+[CL,AC,AS,DB,JW],[
+  {f:0,t:1,l:'POST /auth/refresh'},
+  {f:1,t:2,l:'RefreshTokenAsync(token)'},
+  {f:2,t:3,l:'FindRefreshToken(token)'},
+  {f:3,t:2,l:'RefreshToken record',r:true},
+  {f:2,t:2,l:'Validate not expired / not revoked'},
+  {f:2,t:3,l:'Set RevokedAtUtc on old token'},
+  {f:3,t:2,l:'saved',r:true},
+  {f:2,t:4,l:'GenerateAccessToken(userId, roles)'},
+  {f:4,t:2,l:'new accessToken',r:true},
+  {f:2,t:3,l:'Insert new RefreshToken'},
+  {f:3,t:2,l:'saved',r:true},
+  {f:2,t:1,l:'LoginTokenResponse',r:true},
+  {f:1,t:0,l:'200 OK + new tokens',r:true},
+]);
+
+card('grid-auth','04','Change Password',
+'Authenticated user changes their own password after verifying the current one.',
+[CL,AC,AS,DB],[
+  {f:0,t:1,l:'PUT /auth/password  [JWT]'},
+  {f:1,t:2,l:'ChangePasswordAsync(userId, curr, new)'},
+  {f:2,t:3,l:'GetUser(userId)'},
+  {f:3,t:2,l:'User',r:true},
+  {f:2,t:2,l:'VerifyPassword(currentPwd)'},
+  {f:2,t:3,l:'Update PasswordHash'},
+  {f:3,t:2,l:'saved',r:true},
+  {f:2,t:1,l:'ChangePasswordStatus.Success',r:true},
+  {f:1,t:0,l:'204 No Content',r:true},
+]);
+
+card('grid-auth','05','Logout',
+'Revoke the given refresh token so it cannot be reused.',
+[CL,AC,AS,DB],[
+  {f:0,t:1,l:'POST /auth/logout'},
+  {f:1,t:2,l:'LogoutAsync(refreshToken)'},
+  {f:2,t:3,l:'FindRefreshToken(token)'},
+  {f:3,t:2,l:'RefreshToken',r:true},
+  {f:2,t:3,l:'Set RevokedAtUtc = now'},
+  {f:3,t:2,l:'saved',r:true},
+  {f:2,t:1,l:'void',r:true},
+  {f:1,t:0,l:'204 No Content',r:true},
+]);
+
+card('grid-auth','06','Get Current User',
+'Return the authenticated user profile with roles and permissions.',
+[CL,AC,AS,DB],[
+  {f:0,t:1,l:'GET /auth/me  [JWT]'},
+  {f:1,t:2,l:'GetCurrentUserAsync(userId)'},
+  {f:2,t:3,l:'GetUserWithRoles(userId)'},
+  {f:3,t:2,l:'User + roles + permissions',r:true},
+  {f:2,t:1,l:'User',r:true},
+  {f:1,t:0,l:'200 OK + UserDto',r:true},
+]);
+
+// ── SESSIONS ──────────────────────────────────────────────────────────────────
+card('grid-sessions','07','Get All Sessions',
+'List sessions; optional filter for active-only (Draft or Open).',
+[CL,SC,SS,DB],[
+  {f:0,t:1,l:'GET /sessions'},
+  {f:1,t:2,l:'GetAllAsync(activeOnly)'},
+  {f:2,t:3,l:'Query Sessions'},
+  {f:3,t:2,l:'List<Session>',r:true},
+  {f:2,t:1,l:'List<Session>',r:true},
+  {f:1,t:0,l:'200 OK + sessions[]',r:true},
+]);
+
+card('grid-sessions','08','Get Session By Id',
+'Retrieve a single session by primary key; 404 if not found.',
+[CL,SC,SS,DB],[
+  {f:0,t:1,l:'GET /sessions/{id}'},
+  {f:1,t:2,l:'GetByIdAsync(id)'},
+  {f:2,t:3,l:'FindSession(id)'},
+  {f:3,t:2,l:'Session | null',r:true},
+  {f:2,t:2,l:'throw 404 if null'},
+  {f:2,t:1,l:'Session',r:true},
+  {f:1,t:0,l:'200 OK | 404',r:true},
+]);
+
+card('grid-sessions','09','Create Session',
+'Admin creates a new session in Draft status.',
+[CL,SC,SS,DB],[
+  {f:0,t:1,l:'POST /sessions  [Admin]'},
+  {f:1,t:2,l:'CreateAsync(title, startDate, endDate, userId)'},
+  {f:2,t:2,l:'Status = Draft, CreatedAt = now'},
+  {f:2,t:3,l:'Insert Session'},
+  {f:3,t:2,l:'Session',r:true},
+  {f:2,t:1,l:'Session',r:true},
+  {f:1,t:0,l:'201 Created + Session',r:true},
+]);
+
+card('grid-sessions','10','Update Session',
+'Admin updates title, start, or end date on an existing session.',
+[CL,SC,SS,DB],[
+  {f:0,t:1,l:'PUT /sessions/{id}  [Admin]'},
+  {f:1,t:2,l:'UpdateAsync(id, title, startDate, endDate)'},
+  {f:2,t:3,l:'FindSession(id)'},
+  {f:3,t:2,l:'Session',r:true},
+  {f:2,t:3,l:'SaveChanges'},
+  {f:3,t:2,l:'updated',r:true},
+  {f:2,t:1,l:'Session',r:true},
+  {f:1,t:0,l:'200 OK + Session',r:true},
+]);
+
+card('grid-sessions','11','Delete Session',
+'Admin deletes a session — only allowed while status is Draft.',
+[CL,SC,SS,DB],[
+  {f:0,t:1,l:'DELETE /sessions/{id}  [Admin]'},
+  {f:1,t:2,l:'DeleteAsync(id)'},
+  {f:2,t:3,l:'FindSession(id)'},
+  {f:3,t:2,l:'Session',r:true},
+  {f:2,t:2,l:'validate Status = Draft'},
+  {f:2,t:3,l:'Delete Session'},
+  {f:3,t:2,l:'ok',r:true},
+  {f:2,t:1,l:'true',r:true},
+  {f:1,t:0,l:'204 No Content',r:true},
+]);
+
+card('grid-sessions','12','Session State Transition',
+'Open, Close, or Archive a session — each transition sets a timestamp field.',
+[CL,SC,SS,DB],[
+  {f:0,t:1,l:'POST /sessions/{id}/open  (or /close, /archive)'},
+  {f:1,t:2,l:'OpenAsync(id)  /  CloseAsync  /  ArchiveAsync'},
+  {f:2,t:3,l:'FindSession(id)'},
+  {f:3,t:2,l:'Session',r:true},
+  {f:2,t:2,l:'validate transition (e.g. Draft → Open)'},
+  {f:2,t:2,l:'Status = Open,  OpenedAt = now'},
+  {f:2,t:3,l:'SaveChanges'},
+  {f:3,t:2,l:'updated',r:true},
+  {f:2,t:1,l:'Session',r:true},
+  {f:1,t:0,l:'200 OK + Session',r:true},
+]);
+
+// ── TEACHING NEEDS ────────────────────────────────────────────────────────────
+card('grid-needs','13','Get All Teaching Needs',
+'List needs for a session; professors see only their own entries.',
+[CL,TC,TS,DB],[
+  {f:0,t:1,l:'GET /sessions/{sid}/needs'},
+  {f:1,t:2,l:'GetAllBySessionAsync(sid, personnelId)'},
+  {f:2,t:3,l:'Query TeachingNeeds WHERE SessionId = sid'},
+  {f:3,t:2,l:'List<TeachingNeed>',r:true},
+  {f:2,t:1,l:'List<TeachingNeed>',r:true},
+  {f:1,t:0,l:'200 OK + needs[]',r:true},
+]);
+
+card('grid-needs','14','Get Teaching Need By Id',
+'Retrieve a single teaching need by its id within a given session.',
+[CL,TC,TS,DB],[
+  {f:0,t:1,l:'GET /sessions/{sid}/needs/{id}'},
+  {f:1,t:2,l:'GetByIdAsync(sid, id)'},
+  {f:2,t:3,l:'FindNeed(sid, id)'},
+  {f:3,t:2,l:'TeachingNeed | null',r:true},
+  {f:2,t:2,l:'throw 404 if null'},
+  {f:2,t:1,l:'TeachingNeed',r:true},
+  {f:1,t:0,l:'200 OK | 404',r:true},
+]);
+
+card('grid-needs','15','Create Teaching Need',
+'Personnel creates a need for a course inside an Open session.',
+[CL,TC,TS,DB],[
+  {f:0,t:1,l:'POST /sessions/{sid}/needs  [Prof / Instructor]'},
+  {f:1,t:2,l:'CreateAsync(sid, personnelId, courseId)'},
+  {f:2,t:3,l:'FindSession(sid)'},
+  {f:3,t:2,l:'Session',r:true},
+  {f:2,t:2,l:'validate Status = Open'},
+  {f:2,t:2,l:'Status = Draft, CreatedAt = now'},
+  {f:2,t:3,l:'Insert TeachingNeed'},
+  {f:3,t:2,l:'TeachingNeed',r:true},
+  {f:2,t:1,l:'TeachingNeed',r:true},
+  {f:1,t:0,l:'201 Created + TeachingNeed',r:true},
+]);
+
+card('grid-needs','16','Update / Delete Teaching Need',
+'Modify fields or remove a need — only permitted when status is Draft.',
+[CL,TC,TS,DB],[
+  {f:0,t:1,l:'PUT /sessions/{sid}/needs/{id}  (or DELETE)'},
+  {f:1,t:2,l:'UpdateAsync(sid, id, ...)  /  DeleteAsync'},
+  {f:2,t:3,l:'FindNeed(sid, id)'},
+  {f:3,t:2,l:'TeachingNeed',r:true},
+  {f:2,t:2,l:'validate Status = Draft'},
+  {f:2,t:3,l:'SaveChanges  (or Delete)'},
+  {f:3,t:2,l:'ok',r:true},
+  {f:2,t:1,l:'TeachingNeed | true',r:true},
+  {f:1,t:0,l:'200 OK | 204 No Content',r:true},
+]);
+
+card('grid-needs','17','Add / Remove Item',
+'Attach or detach a line-item (software, OS, etc.) to a Draft need.',
+[CL,TC,TS,DB],[
+  {f:0,t:1,l:'POST /sessions/{sid}/needs/{nid}/items'},
+  {f:1,t:2,l:'AddItemAsync(sid, needId, type, ...)'},
+  {f:2,t:3,l:'FindNeed(sid, needId)'},
+  {f:3,t:2,l:'TeachingNeed (Draft)',r:true},
+  {f:2,t:2,l:'validate Status = Draft'},
+  {f:2,t:3,l:'Insert TeachingNeedItem'},
+  {f:3,t:2,l:'TeachingNeedItem',r:true},
+  {f:2,t:1,l:'TeachingNeedItem',r:true},
+  {f:1,t:0,l:'201 Created | 204 No Content',r:true},
+]);
+
+card('grid-needs','18','Submit Teaching Need',
+'Personnel submits a Draft need for review — transitions to Submitted.',
+[CL,TC,TS,DB],[
+  {f:0,t:1,l:'POST /sessions/{sid}/needs/{id}/submit'},
+  {f:1,t:2,l:'SubmitAsync(sid, id)'},
+  {f:2,t:3,l:'FindNeed(sid, id)'},
+  {f:3,t:2,l:'TeachingNeed (Draft)',r:true},
+  {f:2,t:2,l:'validate Status = Draft'},
+  {f:2,t:2,l:'Status = Submitted, SubmittedAt = now'},
+  {f:2,t:3,l:'SaveChanges'},
+  {f:3,t:2,l:'ok',r:true},
+  {f:2,t:1,l:'TeachingNeed',r:true},
+  {f:1,t:0,l:'200 OK + TeachingNeed',r:true},
+]);
+
+card('grid-needs','19','Review → Approve',
+'Admin / LabInstructor sets UnderReview then Approved on a Submitted need.',
+[CL,TC,TS,DB],[
+  {f:0,t:1,l:'POST /{sid}/needs/{id}/review  [Admin / Lab]'},
+  {f:1,t:2,l:'ReviewAsync(sid, id)'},
+  {f:2,t:3,l:'FindNeed(sid, id)'},
+  {f:3,t:2,l:'TeachingNeed (Submitted)',r:true},
+  {f:2,t:2,l:'Status = UnderReview'},
+  {f:2,t:3,l:'SaveChanges'},
+  {f:3,t:2,l:'ok',r:true},
+  {sep:'then: approve'},
+  {f:0,t:1,l:'POST /{sid}/needs/{id}/approve  [Admin / Lab]'},
+  {f:1,t:2,l:'ApproveAsync(sid, id, reviewerId)'},
+  {f:2,t:2,l:'Status = Approved, ReviewedAt = now'},
+  {f:2,t:3,l:'SaveChanges'},
+  {f:3,t:2,l:'ok',r:true},
+  {f:2,t:1,l:'TeachingNeed',r:true},
+  {f:1,t:0,l:'200 OK + TeachingNeed',r:true},
+]);
+
+card('grid-needs','20','Reject → Revise',
+'Reviewer rejects with a reason; personnel revises back to Draft.',
+[CL,TC,TS,DB],[
+  {f:0,t:1,l:'POST /{sid}/needs/{id}/reject  [Admin / Lab]'},
+  {f:1,t:2,l:'RejectAsync(sid, id, reason, reviewerId)'},
+  {f:2,t:3,l:'FindNeed(sid, id)'},
+  {f:3,t:2,l:'TeachingNeed (UnderReview)',r:true},
+  {f:2,t:2,l:'Status = Rejected, RejectionReason = reason'},
+  {f:2,t:3,l:'SaveChanges'},
+  {f:3,t:2,l:'ok',r:true},
+  {f:2,t:1,l:'TeachingNeed',r:true},
+  {f:1,t:0,l:'200 OK + TeachingNeed',r:true},
+  {sep:'personnel revises'},
+  {f:0,t:1,l:'POST /{sid}/needs/{id}/revise'},
+  {f:1,t:2,l:'ReviseAsync(sid, id)'},
+  {f:2,t:2,l:'Status = Draft, clear RejectionReason'},
+  {f:2,t:3,l:'SaveChanges'},
+  {f:3,t:2,l:'ok',r:true},
+  {f:1,t:0,l:'200 OK + TeachingNeed (Draft)',r:true},
+]);
+
+// ── USERS ─────────────────────────────────────────────────────────────────────
+card('grid-users','21','Get All Users',
+'Admin retrieves all active users with their assigned roles.',
+[CL,UC,US,DB],[
+  {f:0,t:1,l:'GET /users  [Admin]'},
+  {f:1,t:2,l:'GetAllActiveWithRolesAsync()'},
+  {f:2,t:3,l:'Query Users WHERE IsActive = true'},
+  {f:3,t:2,l:'List<User> + roles',r:true},
+  {f:2,t:1,l:'List<User>',r:true},
+  {f:1,t:0,l:'200 OK + users[]',r:true},
+]);
+
+card('grid-users','22','Create User',
+'Admin creates a new user account with a specified role.',
+[CL,UC,US,DB],[
+  {f:0,t:1,l:'POST /users  [Admin]'},
+  {f:1,t:2,l:'CreateAsync(username, pwd, roleName)'},
+  {f:2,t:3,l:'FindUser(username)'},
+  {f:3,t:2,l:'null — username available',r:true},
+  {f:2,t:3,l:'FindRole(roleName)'},
+  {f:3,t:2,l:'Role',r:true},
+  {f:2,t:3,l:'Insert User + UserRole'},
+  {f:3,t:2,l:'User saved',r:true},
+  {f:2,t:1,l:'CreateUserResult',r:true},
+  {f:1,t:0,l:'201 Created | 409 Conflict',r:true},
+]);
+
+card('grid-users','23','Update User Role',
+'Admin assigns a different role to an existing user.',
+[CL,UC,US,DB],[
+  {f:0,t:1,l:'PUT /users/{id}/role  [Admin]'},
+  {f:1,t:2,l:'UpdateRoleAsync(id, roleName)'},
+  {f:2,t:3,l:'FindUser(id)'},
+  {f:3,t:2,l:'User',r:true},
+  {f:2,t:3,l:'FindRole(roleName)'},
+  {f:3,t:2,l:'Role',r:true},
+  {f:2,t:3,l:'Remove old UserRole, Insert new'},
+  {f:3,t:2,l:'saved',r:true},
+  {f:2,t:1,l:'UpdateUserRoleStatus.Success',r:true},
+  {f:1,t:0,l:'204 No Content',r:true},
+]);
+
+card('grid-users','24','Update User Password',
+'Admin resets any user password without requiring the current one.',
+[CL,UC,US,DB],[
+  {f:0,t:1,l:'PUT /users/{id}/password  [Admin]'},
+  {f:1,t:2,l:'UpdatePasswordAsync(id, newPwd)'},
+  {f:2,t:3,l:'FindUser(id)'},
+  {f:3,t:2,l:'User',r:true},
+  {f:2,t:3,l:'Update PasswordHash'},
+  {f:3,t:2,l:'saved',r:true},
+  {f:2,t:1,l:'ok',r:true},
+  {f:1,t:0,l:'204 No Content',r:true},
+]);
+
+card('grid-users','25','Delete User',
+'Admin soft-deletes (deactivates) a user account.',
+[CL,UC,US,DB],[
+  {f:0,t:1,l:'DELETE /users/{id}  [Admin]'},
+  {f:1,t:2,l:'DeleteAsync(id)'},
+  {f:2,t:3,l:'FindUser(id)'},
+  {f:3,t:2,l:'User',r:true},
+  {f:2,t:3,l:'Set IsActive = false'},
+  {f:3,t:2,l:'saved',r:true},
+  {f:2,t:1,l:'true',r:true},
+  {f:1,t:0,l:'204 No Content',r:true},
+]);
+
+// ── INFRASTRUCTURE ────────────────────────────────────────────────────────────
+card('grid-infra','26','Get Laboratories',
+'List labs with optional filters for building, min/max seating capacity.',
+[CL,LC,LS,DB],[
+  {f:0,t:1,l:'GET /labs?building=&minCap=&maxCap='},
+  {f:1,t:2,l:'GetAllAsync(building, minCap, maxCap)'},
+  {f:2,t:3,l:'Query Laboratories (filtered)'},
+  {f:3,t:2,l:'List<Laboratory>',r:true},
+  {f:2,t:1,l:'List<Laboratory>',r:true},
+  {f:1,t:0,l:'200 OK + labs[]',r:true},
+]);
+
+card('grid-infra','27','Create Laboratory',
+'Admin adds a new lab with building, PC count, and seat capacity.',
+[CL,LC,LS,DB],[
+  {f:0,t:1,l:'POST /labs  [Admin]'},
+  {f:1,t:2,l:'CreateAsync(name, building, numPCs, capacity)'},
+  {f:2,t:3,l:'Insert Laboratory'},
+  {f:3,t:2,l:'Laboratory',r:true},
+  {f:2,t:1,l:'Laboratory',r:true},
+  {f:1,t:0,l:'201 Created + Laboratory',r:true},
+]);
+
+card('grid-infra','28','Add Workstation to Lab',
+'Attach a named workstation (with OS) to an existing laboratory.',
+[CL,LC,LS,DB],[
+  {f:0,t:1,l:'POST /labs/{id}/workstations  [Admin]'},
+  {f:1,t:2,l:'AddWorkstationAsync(labId, name, osId)'},
+  {f:2,t:3,l:'FindLab(labId)'},
+  {f:3,t:2,l:'Laboratory',r:true},
+  {f:2,t:3,l:'FindOS(osId)'},
+  {f:3,t:2,l:'OS',r:true},
+  {f:2,t:3,l:'Insert Workstation'},
+  {f:3,t:2,l:'Workstation',r:true},
+  {f:2,t:1,l:'AddWorkstationResult',r:true},
+  {f:1,t:0,l:'201 Created | 404',r:true},
+]);
+
+card('grid-infra','29','Create Virtual Machine',
+'Admin registers a VM with CPU, RAM, storage, OS, and optional host server.',
+[CL,VC,VS,DB],[
+  {f:0,t:1,l:'POST /vms  [Admin]'},
+  {f:1,t:2,l:'CreateAsync(qty, cpu, ram, storage, osId, hostId)'},
+  {f:2,t:3,l:'FindOS(osId)'},
+  {f:3,t:2,l:'OS',r:true},
+  {f:2,t:3,l:'FindServer(hostId)  [optional]'},
+  {f:3,t:2,l:'PhysicalServer | null',r:true},
+  {f:2,t:3,l:'Insert VirtualMachine'},
+  {f:3,t:2,l:'VirtualMachine',r:true},
+  {f:2,t:1,l:'VirtualMachine',r:true},
+  {f:1,t:0,l:'201 Created + VirtualMachine',r:true},
+]);
+
+card('grid-infra','30','Manage Personnel',
+'Create a personnel record; email must be unique across all personnel.',
+[CL,PC,PS,DB],[
+  {f:0,t:1,l:'POST /personnel  [Admin]'},
+  {f:1,t:2,l:'CreateAsync(firstName, lastName, fn, email)'},
+  {f:2,t:3,l:'FindByEmail(email)'},
+  {f:3,t:2,l:'null — email available',r:true},
+  {f:2,t:3,l:'Insert Personnel'},
+  {f:3,t:2,l:'Personnel',r:true},
+  {f:2,t:1,l:'PersonnelOperationResult',r:true},
+  {f:1,t:0,l:'201 Created | 409 Conflict',r:true},
+]);
+
+// ── Tab switcher ──────────────────────────────────────────────────────────────
+function showTab(name,btn){
+  document.querySelectorAll('.tab-content').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el=>el.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  btn.classList.add('active');
+}
+</script>
+</body>
+</html>
