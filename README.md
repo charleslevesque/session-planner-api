@@ -93,6 +93,28 @@ npm run build
 
 Pour afficher le logo de l'École de technologie supérieure dans la barre latérale, placez le fichier `ets-logo.png` dans le dossier `frontend/public/`. Si le fichier est absent, un badge « ÉTS » sera affiché à la place.
 
+### Dépannage Windows (Git: invalid path)
+
+Si vous rencontrez l'erreur « Git: invalid path » sous Windows (notamment avec Visual Studio Code) lors du checkout ou du pull :
+
+1. **Activer les chemins longs dans Git :**
+   ```bash
+   git config core.longpaths true
+   ```
+
+2. **Cloner dans un chemin court** (ex. `C:\dev\sp` au lieu de `C:\Users\...\Documents\...`).
+
+3. **Nettoyer les artefacts de build locaux** avant de pull/checkout :
+   ```bash
+   # Supprimer bin et obj (ne pas committer)
+   Remove-Item -Recurse -Force src\*\bin, src\*\obj -ErrorAction SilentlyContinue
+   ```
+
+4. **Si le problème persiste**, désactiver temporairement la protection NTFS :
+   ```bash
+   git config core.protectNTFS false
+   ```
+
 ---
 
 ## Testing
