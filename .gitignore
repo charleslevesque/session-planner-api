@@ -1,6 +1,11 @@
 # Build outputs
 **/bin/
 **/obj/
+**/Debug/
+**/Release/
+*.dll
+*.exe
+*.pdb
 
 # User-specific files
 *.user
