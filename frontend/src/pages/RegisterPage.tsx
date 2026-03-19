@@ -4,11 +4,18 @@ import { useAuth } from '../contexts/AuthContext';
 import { getErrorMessage } from '../lib/api';
 import type { RegisterRequest } from '../types/auth';
 
+const ROLE_OPTIONS = [
+  { value: 'Professor', label: 'Professeur(e)' },
+  { value: 'LabInstructor', label: 'Chargé(e) de laboratoire' },
+  { value: 'CourseInstructor', label: 'Chargé(e) de cours' },
+] as const;
+
 const initialForm: RegisterRequest = {
   email: '',
   password: '',
   firstName: '',
   lastName: '',
+  role: 'Professor',
 };
 
 export function RegisterPage() {
@@ -107,6 +114,20 @@ export function RegisterPage() {
                   minLength={8}
                   required
                 />
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-stone-700">Rôle</span>
+                <select
+                  value={form.role}
+                  onChange={(event) => setForm((current) => ({ ...current, role: event.target.value }))}
+                  className="input-field"
+                  required
+                >
+                  {ROLE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
               </label>
 
               <button type="submit" className="primary-button w-full" disabled={isSubmitting}>

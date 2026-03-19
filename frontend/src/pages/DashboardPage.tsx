@@ -217,7 +217,7 @@ export function DashboardPage() {
       {canCreateSessions ? (
         <section className="surface-card p-6 sm:p-8">
           <h2 className="text-base font-semibold text-stone-950">Créer une session</h2>
-          <p className="mt-1 text-sm text-stone-600">Disponible uniquement pour l&apos;admin.</p>
+          <p className="mt-1 text-sm text-stone-600">Disponible uniquement pour l&apos;administrateur.</p>
 
           {createError ? (
             <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{createError}</div>
