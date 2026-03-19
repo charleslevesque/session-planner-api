@@ -21,11 +21,12 @@ public class AuthService : IAuthService
         _passwordService = passwordService;
     }
 
-    private static readonly HashSet<string> AllowedSelfRegisterRoles = new(StringComparer.OrdinalIgnoreCase)
+    private static string MapRoleToDbName(string? role) => role?.Trim()?.ToLowerInvariant() switch
     {
-        Roles.Professor,
-        Roles.LabInstructor,
-        Roles.CourseInstructor,
+        "labinstructor" or "lab_instructor" => Roles.LabInstructor,
+        "courseinstructor" or "course_instructor" => Roles.CourseInstructor,
+        "professor" => Roles.Professor,
+        _ => Roles.Professor,
     };
 
     public async Task<LoginTokenResponse> RegisterAsync(string email, string password, string firstName, string lastName, string? role = null)
@@ -50,9 +51,7 @@ public class AuthService : IAuthService
             await _db.SaveChangesAsync();
         }
 
-        var resolvedRole = role is not null && AllowedSelfRegisterRoles.Contains(role)
-            ? role
-            : Roles.Professor;
+        var resolvedRole = MapRoleToDbName(role);
 
         var dbRole = await _db.Roles.FirstAsync(r => r.Name == resolvedRole);
 

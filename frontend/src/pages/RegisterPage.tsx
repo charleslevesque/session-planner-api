@@ -15,7 +15,7 @@ const initialForm: RegisterRequest = {
   password: '',
   firstName: '',
   lastName: '',
-  role: 'Professor',
+  role: '',
 };
 
 export function RegisterPage() {
@@ -124,6 +124,7 @@ export function RegisterPage() {
                   className="input-field"
                   required
                 >
+                  <option value="">Sélectionnez votre rôle</option>
                   {ROLE_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
