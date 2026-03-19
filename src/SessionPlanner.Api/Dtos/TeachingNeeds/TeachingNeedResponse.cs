@@ -15,4 +15,10 @@ public record TeachingNeedResponse(
     int? ReviewedByUserId,
     string? RejectionReason,
     string? Notes,
+    int? ExpectedStudents,
+    bool? HasTechNeeds,
+    bool? FoundAllCourses,
+    string? DesiredModifications,
+    bool? AllowsUpdates,
+    string? AdditionalComments,
     IEnumerable<TeachingNeedItemResponse> Items);

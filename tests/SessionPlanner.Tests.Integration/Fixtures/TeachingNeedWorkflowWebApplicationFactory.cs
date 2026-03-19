@@ -30,16 +30,16 @@ public class TeachingNeedWorkflowAuthHandler : AuthenticationHandler<Authenticat
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
         var requestedRole = Request.Headers["x-test-role"].ToString().Trim().ToLowerInvariant();
-        var isTeacher = requestedRole == Roles.Teacher;
+        var isTeacher = requestedRole == Roles.Professor;
 
         var userId = isTeacher ? 1 : 2;
-        var userName = isTeacher ? "WorkflowTeacher" : "WorkflowAdmin";
+        var userName = isTeacher ? "WorkflowProfessor" : "WorkflowAdmin";
 
         var claims = new List<Claim>
         {
             new(ClaimTypes.NameIdentifier, userId.ToString()),
             new(ClaimTypes.Name, userName),
-            new(ClaimTypes.Role, isTeacher ? Roles.Teacher : Roles.Admin),
+            new(ClaimTypes.Role, isTeacher ? Roles.Professor : Roles.Admin),
 
             new("perm", Permissions.Sessions.Read),
             new("perm", Permissions.Sessions.Create),
@@ -64,7 +64,7 @@ public class TeachingNeedWorkflowAuthHandler : AuthenticationHandler<Authenticat
 
         if (!isTeacher)
         {
-            claims.Add(new Claim(ClaimTypes.Role, Roles.Technician));
+            claims.Add(new Claim(ClaimTypes.Role, Roles.LabInstructor));
         }
 
         var identity = new ClaimsIdentity(claims, SchemeName);

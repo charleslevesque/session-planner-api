@@ -7,6 +7,7 @@ public static class TeachingNeedMappings
 {
     public static TeachingNeedItemResponse ToResponse(this TeachingNeedItem item) => new(
         item.Id,
+        item.ItemType,
         item.SoftwareId,
         item.Software?.Name,
         item.SoftwareVersionId,
@@ -14,6 +15,7 @@ public static class TeachingNeedMappings
         item.OSId,
         item.OS?.Name,
         item.Quantity,
+        item.Description,
         item.Notes);
 
     public static TeachingNeedResponse ToResponse(this TeachingNeed need) => new(
@@ -31,5 +33,11 @@ public static class TeachingNeedMappings
         need.ReviewedByUserId,
         need.RejectionReason,
         need.Notes,
+        need.ExpectedStudents,
+        need.HasTechNeeds,
+        need.FoundAllCourses,
+        need.DesiredModifications,
+        need.AllowsUpdates,
+        need.AdditionalComments,
         need.Items.Select(i => i.ToResponse()));
 }

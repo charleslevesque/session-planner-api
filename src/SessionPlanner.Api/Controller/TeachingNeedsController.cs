@@ -31,11 +31,14 @@ public class TeachingNeedsController : ControllerBase
     {
         int? filterByPersonnelId = null;
 
-        if (User.IsInRole(Roles.Teacher))
+        if (IsTeachingRole())
         {
             var userId = GetCurrentUserId();
             if (userId is null) return Unauthorized();
-            filterByPersonnelId = await _needService.GetPersonnelIdForUserAsync(userId.Value);
+
+            filterByPersonnelId = await _needService.GetOrCreatePersonnelIdForUserAsync(userId.Value);
+            if (filterByPersonnelId is null)
+                return Ok(Array.Empty<TeachingNeedResponse>());
         }
 
         var needs = await _needService.GetAllBySessionAsync(sessionId, filterByPersonnelId);
@@ -51,8 +54,7 @@ public class TeachingNeedsController : ControllerBase
         var need = await _needService.GetByIdAsync(sessionId, id);
         if (need is null) return NotFound();
 
-        // Teacher can only view their own need
-        if (User.IsInRole(Roles.Teacher) && !await IsOwner(need.PersonnelId))
+        if (IsTeachingRole() && !await IsOwner(need.PersonnelId))
             return Forbid();
 
         return Ok(need.ToResponse());
@@ -69,9 +71,9 @@ public class TeachingNeedsController : ControllerBase
 
         int personnelId;
 
-        if (User.IsInRole(Roles.Teacher))
+        if (IsTeachingRole())
         {
-            var ownPersonnelId = await _needService.GetPersonnelIdForUserAsync(userId.Value);
+            var ownPersonnelId = await _needService.GetOrCreatePersonnelIdForUserAsync(userId.Value);
             if (ownPersonnelId is null)
                 return BadRequest(new { error = "Your account is not linked to any personnel record." });
             personnelId = ownPersonnelId.Value;
@@ -79,13 +81,15 @@ public class TeachingNeedsController : ControllerBase
         else
         {
             if (request.PersonnelId is null)
-                return BadRequest(new { error = "personnelId is required for non-Teacher users." });
+                return BadRequest(new { error = "personnelId is required for non-teaching-role users." });
             personnelId = request.PersonnelId.Value;
         }
 
         try
         {
-            var need = await _needService.CreateAsync(sessionId, personnelId, request.CourseId, request.Notes);
+            var need = await _needService.CreateAsync(sessionId, personnelId, request.CourseId, request.Notes,
+                request.ExpectedStudents, request.HasTechNeeds, request.FoundAllCourses,
+                request.DesiredModifications, request.AllowsUpdates, request.AdditionalComments);
             return CreatedAtAction(nameof(GetById), new { sessionId, id = need.Id }, need.ToResponse());
         }
         catch (InvalidOperationException ex)
@@ -107,7 +111,9 @@ public class TeachingNeedsController : ControllerBase
 
         try
         {
-            var updated = await _needService.UpdateAsync(sessionId, id, request.CourseId, request.Notes);
+            var updated = await _needService.UpdateAsync(sessionId, id, request.CourseId, request.Notes,
+                request.ExpectedStudents, request.HasTechNeeds, request.FoundAllCourses,
+                request.DesiredModifications, request.AllowsUpdates, request.AdditionalComments);
             if (updated is null) return NotFound();
             return Ok(updated.ToResponse());
         }
@@ -155,8 +161,9 @@ public class TeachingNeedsController : ControllerBase
         {
             var item = await _needService.AddItemAsync(
                 sessionId, id,
+                request.ItemType ?? "software",
                 request.SoftwareId, request.SoftwareVersionId, request.OSId,
-                request.Quantity, request.Notes);
+                request.Quantity, request.Description, request.Notes);
 
             if (item is null) return NotFound();
             return StatusCode(StatusCodes.Status201Created, item.ToResponse());
@@ -196,7 +203,7 @@ public class TeachingNeedsController : ControllerBase
     [HasPermission(Permissions.TeachingNeeds.Update)]
     public async Task<ActionResult<TeachingNeedResponse>> Submit(int sessionId, int id)
     {
-        if (!User.IsInRole(Roles.Teacher)) return Forbid();
+        if (!IsTeachingRole()) return Forbid();
 
         var need = await _needService.GetByIdAsync(sessionId, id);
         if (need is null) return NotFound();
@@ -220,7 +227,7 @@ public class TeachingNeedsController : ControllerBase
     [HasPermission(Permissions.TeachingNeeds.Update)]
     public async Task<ActionResult<TeachingNeedResponse>> Review(int sessionId, int id)
     {
-        if (!IsAdminOrTechnician()) return Forbid();
+        if (!IsAdminOrLabInstructor()) return Forbid();
 
         try
         {
@@ -240,7 +247,7 @@ public class TeachingNeedsController : ControllerBase
     [HasPermission(Permissions.TeachingNeeds.Update)]
     public async Task<ActionResult<TeachingNeedResponse>> Approve(int sessionId, int id)
     {
-        if (!IsAdminOrTechnician()) return Forbid();
+        if (!IsAdminOrLabInstructor()) return Forbid();
 
         var currentUserId = GetCurrentUserId();
 
@@ -262,7 +269,7 @@ public class TeachingNeedsController : ControllerBase
     [HasPermission(Permissions.TeachingNeeds.Update)]
     public async Task<ActionResult<TeachingNeedResponse>> Reject(int sessionId, int id, RejectTeachingNeedRequest request)
     {
-        if (!IsAdminOrTechnician()) return Forbid();
+        if (!IsAdminOrLabInstructor()) return Forbid();
 
         if (string.IsNullOrWhiteSpace(request.Reason))
             return BadRequest(new { error = "reason is required." });
@@ -287,7 +294,7 @@ public class TeachingNeedsController : ControllerBase
     [HasPermission(Permissions.TeachingNeeds.Update)]
     public async Task<ActionResult<TeachingNeedResponse>> Revise(int sessionId, int id)
     {
-        if (!User.IsInRole(Roles.Teacher)) return Forbid();
+        if (!IsTeachingRole()) return Forbid();
 
         var need = await _needService.GetByIdAsync(sessionId, id);
         if (need is null) return NotFound();
@@ -318,6 +325,9 @@ public class TeachingNeedsController : ControllerBase
         return personnelId == needPersonnelId;
     }
 
-    private bool IsAdminOrTechnician() =>
-        User.IsInRole(Roles.Admin) || User.IsInRole(Roles.Technician);
+    private bool IsTeachingRole() =>
+        User.IsInRole(Roles.Professor) || User.IsInRole(Roles.CourseInstructor);
+
+    private bool IsAdminOrLabInstructor() =>
+        User.IsInRole(Roles.Admin) || User.IsInRole(Roles.LabInstructor);
 }

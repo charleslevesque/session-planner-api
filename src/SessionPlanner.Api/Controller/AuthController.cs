@@ -31,7 +31,7 @@ public class AuthController : ControllerBase
         try
         {
             var result = await _authService.RegisterAsync(
-                request.Email, request.Password, request.FirstName, request.LastName);
+                request.Email, request.Password, request.FirstName, request.LastName, request.Role);
 
             return Created(string.Empty, new AuthResponse(result.AccessToken, result.RefreshToken, result.ExpiresAtUtc));
         }
@@ -96,6 +96,30 @@ public class AuthController : ControllerBase
             return Unauthorized();
 
         return Ok(new AuthResponse(result.AccessToken, result.RefreshToken, result.ExpiresAtUtc));
+    }
+
+    /// <summary>
+    /// Changes the authenticated user's password.
+    /// </summary>
+    [Authorize]
+    [HttpPost("change-password")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> ChangePassword(ChangePasswordRequest request)
+    {
+        if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
+            return Unauthorized();
+
+        var status = await _authService.ChangePasswordAsync(userId, request.CurrentPassword, request.NewPassword);
+
+        if (status == ChangePasswordStatus.UserNotFound)
+            return Unauthorized();
+
+        if (status == ChangePasswordStatus.InvalidCurrentPassword)
+            return BadRequest(new { error = "Current password is incorrect." });
+
+        return NoContent();
     }
 
     /// <summary>

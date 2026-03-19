@@ -63,6 +63,60 @@ The API will start locally.
 
 ---
 
+## Frontend
+
+The workspace now includes a React frontend in [frontend](c:/PFEcode/session-planner-api/frontend).
+
+### Frontend Prerequisites
+
+- Node.js
+- npm
+
+### Run the Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The Vite dev server proxies `/api/*` requests to `http://localhost:5290` through [frontend/vite.config.ts](c:/PFEcode/session-planner-api/frontend/vite.config.ts), so the frontend can call the API without additional browser-side CORS setup in development.
+
+### Build the Frontend
+
+```bash
+cd frontend
+npm run build
+```
+
+### Logo ÉTS
+
+Pour afficher le logo de l'École de technologie supérieure dans la barre latérale, placez le fichier `ets-logo.png` dans le dossier `frontend/public/`. Si le fichier est absent, un badge « ÉTS » sera affiché à la place.
+
+### Dépannage Windows (Git: invalid path)
+
+Si vous rencontrez l'erreur « Git: invalid path » sous Windows (notamment avec Visual Studio Code) lors du checkout ou du pull :
+
+1. **Activer les chemins longs dans Git :**
+   ```bash
+   git config core.longpaths true
+   ```
+
+2. **Cloner dans un chemin court** (ex. `C:\dev\sp` au lieu de `C:\Users\...\Documents\...`).
+
+3. **Nettoyer les artefacts de build locaux** avant de pull/checkout :
+   ```bash
+   # Supprimer bin et obj (ne pas committer)
+   Remove-Item -Recurse -Force src\*\bin, src\*\obj -ErrorAction SilentlyContinue
+   ```
+
+4. **Si le problème persiste**, désactiver temporairement la protection NTFS :
+   ```bash
+   git config core.protectNTFS false
+   ```
+
+---
+
 ## Testing
 
 The project includes comprehensive unit and integration tests using **xUnit** and **FluentAssertions**.

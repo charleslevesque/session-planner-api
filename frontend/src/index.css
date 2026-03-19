@@ -1,0 +1,110 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import 'tailwindcss';
+
+:root {
+  color-scheme: light;
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  /* ÉTS palette - https://www.etsmtl.ca/ */
+  --ets-primary: #dc042c;
+  --ets-primary-dark: #682a36;
+  --ets-primary-hover: #b80324;
+  --ets-neutral-dark: #413f49;
+  --ets-neutral-muted: #635d61;
+  --ets-neutral-warm: #887d80;
+  --ets-slate: #6d7782;
+  --ets-sage: #97b2b8;
+  --ets-rose-muted: #e6a0ac;
+  --ets-bg: #f5f5f6;
+  --ets-bg-warm: #f8f7f6;
+  --ets-card: rgba(255, 255, 255, 0.88);
+  --ets-text: #333334;
+  --ets-text-muted: #6a6b79;
+  background:
+    radial-gradient(circle at top left, rgba(220, 4, 44, 0.06), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(97, 178, 184, 0.08), transparent 24%),
+    linear-gradient(180deg, var(--ets-bg-warm) 0%, var(--ets-bg) 50%, #eef0f2 100%);
+  color: var(--ets-text);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  color: var(--ets-text);
+  background: transparent;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.5) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.4) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.04), transparent 85%);
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+@layer components {
+  .surface-card {
+    @apply rounded-[2rem] border border-white/80 bg-white/90 shadow-[0_20px_50px_rgba(65,63,73,0.08)] backdrop-blur;
+  }
+
+  .input-field {
+    @apply w-full rounded-2xl border border-stone-200 bg-white px-4 py-3 text-stone-950 outline-none transition placeholder:text-stone-400 focus:border-[var(--ets-primary)] focus:ring-4 focus:ring-[rgba(220,4,44,0.12)];
+  }
+
+  .primary-button {
+    @apply inline-flex items-center justify-center rounded-2xl bg-[var(--ets-primary)] px-5 py-3 text-sm font-medium text-white transition hover:bg-[var(--ets-primary-hover)] disabled:cursor-not-allowed disabled:bg-stone-400;
+  }
+}
+
+.auth-shell {
+  min-height: 100vh;
+  display: grid;
+  align-items: center;
+}
+
+.auth-hero {
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.12), transparent 24%),
+    linear-gradient(145deg, var(--ets-primary-dark) 0%, var(--ets-primary) 55%, #c00328 100%);
+}
+
+.auth-panel {
+  background:
+    radial-gradient(circle at top right, rgba(220, 4, 44, 0.04), transparent 20%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 247, 246, 0.9) 100%);
+}
+
+a {
+  color: inherit;
+}
+
+::selection {
+  background: rgba(220, 4, 44, 0.15);
+  color: var(--ets-text);
+}

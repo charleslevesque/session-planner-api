@@ -650,11 +650,29 @@ namespace SessionPlanner.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("AdditionalComments")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool?>("AllowsUpdates")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("CourseId")
                         .HasColumnType("INTEGER");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
+
+                    b.Property<string>("DesiredModifications")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("ExpectedStudents")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool?>("FoundAllCourses")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool?>("HasTechNeeds")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("Notes")
                         .HasColumnType("TEXT");
@@ -698,6 +716,14 @@ namespace SessionPlanner.Infrastructure.Migrations
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ItemType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Notes")
                         .HasColumnType("TEXT");
