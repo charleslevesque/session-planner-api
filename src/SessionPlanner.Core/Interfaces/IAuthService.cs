@@ -12,7 +12,7 @@ public enum ChangePasswordStatus
 
 public interface IAuthService
 {
-    Task<LoginTokenResponse> RegisterAsync(string email, string password, string firstName, string lastName);
+    Task<LoginTokenResponse> RegisterAsync(string email, string password, string firstName, string lastName, string? role = null);
     Task<LoginTokenResponse?> LoginAsync(string username, string password);
     Task<User?> GetCurrentUserAsync(int userId);
     Task<LoginTokenResponse?> RefreshTokenAsync(string refreshToken);

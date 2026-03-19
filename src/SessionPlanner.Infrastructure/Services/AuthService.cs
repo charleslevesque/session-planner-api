@@ -21,13 +21,40 @@ public class AuthService : IAuthService
         _passwordService = passwordService;
     }
 
-    public async Task<LoginTokenResponse> RegisterAsync(string email, string password, string firstName, string lastName)
+    private static readonly HashSet<string> AllowedSelfRegisterRoles = new(StringComparer.OrdinalIgnoreCase)
     {
-        var exists = await _db.Users.AnyAsync(u => u.Username == email);
-        if (exists)
-            throw new InvalidOperationException("A user with this email already exists.");
+        Roles.Professor,
+        Roles.LabInstructor,
+        Roles.CourseInstructor,
+    };
 
-        var teacherRole = await _db.Roles.FirstAsync(r => r.Name == Roles.Professor);
+    public async Task<LoginTokenResponse> RegisterAsync(string email, string password, string firstName, string lastName, string? role = null)
+    {
+        var existingUser = await _db.Users
+            .Include(u => u.UserRoles)
+            .FirstOrDefaultAsync(u => u.Username == email);
+
+        if (existingUser is not null)
+        {
+            if (existingUser.IsActive)
+                throw new InvalidOperationException("Un utilisateur avec ce courriel existe déjà.");
+
+            _db.UserRoles.RemoveRange(existingUser.UserRoles);
+
+            var oldPermissions = await _db.UserPermissions
+                .Where(up => up.UserId == existingUser.Id)
+                .ToListAsync();
+            _db.UserPermissions.RemoveRange(oldPermissions);
+
+            _db.Users.Remove(existingUser);
+            await _db.SaveChangesAsync();
+        }
+
+        var resolvedRole = role is not null && AllowedSelfRegisterRoles.Contains(role)
+            ? role
+            : Roles.Professor;
+
+        var dbRole = await _db.Roles.FirstAsync(r => r.Name == resolvedRole);
 
         var user = new User
         {
@@ -39,7 +66,14 @@ public class AuthService : IAuthService
         _db.Users.Add(user);
         await _db.SaveChangesAsync();
 
-        _db.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = teacherRole.Id });
+        _db.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = dbRole.Id });
+
+        var personnelFunction = resolvedRole switch
+        {
+            Roles.LabInstructor => PersonnelFunction.LabInstructor,
+            Roles.CourseInstructor => PersonnelFunction.CourseInstructor,
+            _ => PersonnelFunction.Professor,
+        };
 
         var personnel = await _db.Personnel
             .FirstOrDefaultAsync(p => p.Email == email);
@@ -51,10 +85,16 @@ public class AuthService : IAuthService
                 FirstName = firstName,
                 LastName = lastName,
                 Email = email,
-                Function = PersonnelFunction.Professor,
+                Function = personnelFunction,
             };
             _db.Personnel.Add(personnel);
             await _db.SaveChangesAsync();
+        }
+        else
+        {
+            personnel.FirstName = firstName;
+            personnel.LastName = lastName;
+            personnel.Function = personnelFunction;
         }
 
         user.PersonnelId = personnel.Id;
@@ -66,7 +106,7 @@ public class AuthService : IAuthService
     public async Task<LoginTokenResponse?> LoginAsync(string username, string password)
     {
         var user = await UsersWithRolesAndPermissions()
-            .FirstOrDefaultAsync(u => u.Username == username);
+            .FirstOrDefaultAsync(u => u.Username == username && u.IsActive);
 
         if (user is null)
             return null;

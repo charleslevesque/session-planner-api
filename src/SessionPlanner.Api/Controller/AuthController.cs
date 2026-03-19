@@ -31,7 +31,7 @@ public class AuthController : ControllerBase
         try
         {
             var result = await _authService.RegisterAsync(
-                request.Email, request.Password, request.FirstName, request.LastName);
+                request.Email, request.Password, request.FirstName, request.LastName, request.Role);
 
             return Created(string.Empty, new AuthResponse(result.AccessToken, result.RefreshToken, result.ExpiresAtUtc));
         }

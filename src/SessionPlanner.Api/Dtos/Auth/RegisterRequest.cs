@@ -13,5 +13,8 @@ public record RegisterRequest(
     string FirstName,
 
     [Required, MaxLength(100)]
-    string LastName
+    string LastName,
+
+    [MaxLength(30)]
+    string? Role = null
 );
