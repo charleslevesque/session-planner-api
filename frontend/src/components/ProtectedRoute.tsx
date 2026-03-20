@@ -8,9 +8,9 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const location = useLocation();
-  const { isAuthenticated, isBusy } = useAuth();
+  const { isAuthenticated, isBusy, isInitializing } = useAuth();
 
-  if (isBusy) {
+  if (isInitializing || isBusy) {
     return (
       <div className="flex min-h-screen items-center justify-center px-6 text-center">
         <div className="surface-card max-w-md p-8">

@@ -23,6 +23,7 @@ interface AuthContextValue {
   refreshToken: string | null;
   expiresAt: string | null;
   isAuthenticated: boolean;
+  isInitializing: boolean;
   isBusy: boolean;
   login: (payload: LoginRequest) => Promise<void>;
   register: (payload: RegisterRequest) => Promise<void>;
@@ -34,9 +35,87 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+const AUTH_TOKEN_KEY = 'auth_token';
+const AUTH_USER_KEY = 'auth_user';
+const AUTH_REFRESH_TOKEN_KEY = 'auth_refresh_token';
+const AUTH_EXPIRES_AT_KEY = 'auth_expires_at';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isStoredUser(value: unknown): value is MeResponse {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.id === 'number' &&
+    Number.isFinite(value.id) &&
+    typeof value.email === 'string' &&
+    typeof value.name === 'string' &&
+    typeof value.role === 'string'
+  );
+}
+
+function safeReadStorage(key: string): string | null {
+  try {
+    return window.sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeWriteStorage(key: string, value: string) {
+  try {
+    window.sessionStorage.setItem(key, value);
+  } catch {
+    // Ignore storage errors (quota/private mode) to keep auth functional in-memory.
+  }
+}
+
+function safeRemoveStorage(key: string) {
+  try {
+    window.sessionStorage.removeItem(key);
+  } catch {
+    // Ignore storage errors.
+  }
+}
+
+function readStoredAuth(): { session: AuthResponse; user: MeResponse } | null {
+  const token = safeReadStorage(AUTH_TOKEN_KEY);
+  const refreshToken = safeReadStorage(AUTH_REFRESH_TOKEN_KEY);
+  const expiresAt = safeReadStorage(AUTH_EXPIRES_AT_KEY);
+  const rawUser = safeReadStorage(AUTH_USER_KEY);
+
+  if (!token || !refreshToken || !expiresAt || !rawUser) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(rawUser) as unknown;
+
+    if (!isStoredUser(parsed)) {
+      return null;
+    }
+
+    return {
+      session: {
+        token,
+        refreshToken,
+        expiresAt,
+      },
+      user: parsed,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<AuthResponse | null>(null);
   const [user, setUser] = useState<MeResponse | null>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
   const [isBusy, setIsBusy] = useState(false);
   const sessionRef = useRef<AuthResponse | null>(null);
 
@@ -44,17 +123,40 @@ export function AuthProvider({ children }: PropsWithChildren) {
     sessionRef.current = session;
   }, [session]);
 
+  const persistAuth = useCallback((nextSession: AuthResponse, nextUser: MeResponse) => {
+    safeWriteStorage(AUTH_TOKEN_KEY, nextSession.token);
+    safeWriteStorage(AUTH_REFRESH_TOKEN_KEY, nextSession.refreshToken);
+    safeWriteStorage(AUTH_EXPIRES_AT_KEY, nextSession.expiresAt);
+    safeWriteStorage(AUTH_USER_KEY, JSON.stringify(nextUser));
+  }, []);
+
+  const clearStoredAuth = useCallback(() => {
+    safeRemoveStorage(AUTH_TOKEN_KEY);
+    safeRemoveStorage(AUTH_REFRESH_TOKEN_KEY);
+    safeRemoveStorage(AUTH_EXPIRES_AT_KEY);
+    safeRemoveStorage(AUTH_USER_KEY);
+  }, []);
+
+  const applyAuthState = useCallback(
+    (nextSession: AuthResponse, nextUser: MeResponse) => {
+      setSession(nextSession);
+      setUser(nextUser);
+      sessionRef.current = nextSession;
+      persistAuth(nextSession, nextUser);
+    },
+    [persistAuth],
+  );
+
   const clearSession = useCallback(() => {
     setSession(null);
     setUser(null);
     sessionRef.current = null;
+    clearStoredAuth();
     setIsBusy(false);
-  }, []);
+  }, [clearStoredAuth]);
 
   const loadCurrentUser = useCallback(async (accessToken: string) => {
-    const profile = await apiGet<MeResponse>('/auth/me', accessToken);
-    setUser(profile);
-    return profile;
+    return apiGet<MeResponse>('/auth/me', accessToken);
   }, []);
 
   const login = useCallback(
@@ -63,9 +165,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
       try {
         const nextSession = await apiPost<LoginRequest, AuthResponse>('/auth/login', payload);
-        setSession(nextSession);
-        sessionRef.current = nextSession;
-        await loadCurrentUser(nextSession.token);
+        const profile = await loadCurrentUser(nextSession.token);
+        applyAuthState(nextSession, profile);
       } catch (error) {
         clearSession();
         throw error;
@@ -73,7 +174,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         setIsBusy(false);
       }
     },
-    [clearSession, loadCurrentUser],
+    [applyAuthState, clearSession, loadCurrentUser],
   );
 
   const register = useCallback(async (payload: RegisterRequest) => {
@@ -96,9 +197,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
         refreshToken: currentSession.refreshToken,
       });
 
-      setSession(nextSession);
-      sessionRef.current = nextSession;
-      await loadCurrentUser(nextSession.token);
+      const profile = await loadCurrentUser(nextSession.token);
+      applyAuthState(nextSession, profile);
       return true;
     } catch {
       clearSession();
@@ -106,7 +206,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     } finally {
       setIsBusy(false);
     }
-  }, [clearSession, loadCurrentUser]);
+  }, [applyAuthState, clearSession, loadCurrentUser]);
 
   const refreshCurrentUser = useCallback(async () => {
     const currentSession = sessionRef.current;
@@ -117,7 +217,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
 
     try {
-      await loadCurrentUser(currentSession.token);
+      const profile = await loadCurrentUser(currentSession.token);
+      setUser(profile);
+      safeWriteStorage(AUTH_USER_KEY, JSON.stringify(profile));
       return true;
     } catch {
       clearSession();
@@ -169,6 +271,54 @@ export function AuthProvider({ children }: PropsWithChildren) {
   );
 
   useEffect(() => {
+    let isActive = true;
+
+    const restoreAuth = async () => {
+      const restored = readStoredAuth();
+
+      if (!restored) {
+        clearSession();
+
+        if (isActive) {
+          setIsInitializing(false);
+        }
+
+        return;
+      }
+
+      sessionRef.current = restored.session;
+      setSession(restored.session);
+      setUser(restored.user);
+
+      try {
+        const profile = await loadCurrentUser(restored.session.token);
+
+        if (!isActive) {
+          return;
+        }
+
+        applyAuthState(restored.session, profile);
+      } catch {
+        if (!isActive) {
+          return;
+        }
+
+        clearSession();
+      } finally {
+        if (isActive) {
+          setIsInitializing(false);
+        }
+      }
+    };
+
+    void restoreAuth();
+
+    return () => {
+      isActive = false;
+    };
+  }, [applyAuthState, clearSession, loadCurrentUser]);
+
+  useEffect(() => {
     if (!session?.expiresAt) {
       return undefined;
     }
@@ -194,6 +344,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       refreshToken: session?.refreshToken ?? null,
       expiresAt: session?.expiresAt ?? null,
       isAuthenticated: Boolean(session?.token && user),
+      isInitializing,
       isBusy,
       login,
       register,
@@ -204,6 +355,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }),
     [
       apiFetch,
+      isInitializing,
       isBusy,
       login,
       logout,
