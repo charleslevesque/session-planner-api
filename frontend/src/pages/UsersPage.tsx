@@ -200,7 +200,7 @@ export function UsersPage() {
               const isPasswordUpdating = passwordUpdating[user.id] ?? false;
               const pendingPassword = passwordEdits[user.id] ?? '';
               const isDeleting = deleting[user.id] ?? false;
-              const isProtectedAdmin = user.username.toLowerCase() === 'admin@local.dev';
+              const isProtectedAdmin = user.roles === 'admin';
               const passwordSuccess = passwordResetSuccess[user.id];
 
               return (

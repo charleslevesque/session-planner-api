@@ -28,6 +28,7 @@ interface AuthContextValue {
   register: (payload: RegisterRequest) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<boolean>;
+  refreshCurrentUser: () => Promise<boolean>;
   apiFetch: <T>(path: string, init?: RequestInit) => Promise<T>;
 }
 
@@ -107,6 +108,23 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
   }, [clearSession, loadCurrentUser]);
 
+  const refreshCurrentUser = useCallback(async () => {
+    const currentSession = sessionRef.current;
+
+    if (!currentSession?.token) {
+      clearSession();
+      return false;
+    }
+
+    try {
+      await loadCurrentUser(currentSession.token);
+      return true;
+    } catch {
+      clearSession();
+      return false;
+    }
+  }, [clearSession, loadCurrentUser]);
+
   const logout = useCallback(async () => {
     const currentSession = sessionRef.current;
 
@@ -181,9 +199,22 @@ export function AuthProvider({ children }: PropsWithChildren) {
       register,
       logout,
       refresh,
+      refreshCurrentUser,
       apiFetch,
     }),
-    [apiFetch, isBusy, login, logout, refresh, register, session?.expiresAt, session?.refreshToken, session?.token, user],
+    [
+      apiFetch,
+      isBusy,
+      login,
+      logout,
+      refresh,
+      refreshCurrentUser,
+      register,
+      session?.expiresAt,
+      session?.refreshToken,
+      session?.token,
+      user,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

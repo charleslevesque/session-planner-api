@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { getErrorMessage } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
+import type { UpdateCurrentUserEmailRequest } from '../types/auth';
 
 interface ChangePasswordPayload {
   currentPassword: string;
@@ -13,25 +14,32 @@ const initialPayload: ChangePasswordPayload = {
 };
 
 export function SecurityPage() {
-  const { apiFetch } = useAuth();
+  const { apiFetch, user, refreshCurrentUser } = useAuth();
   const [payload, setPayload] = useState<ChangePasswordPayload>(initialPayload);
   const [confirmPassword, setConfirmPassword] = useState('');
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [currentEmailPassword, setCurrentEmailPassword] = useState('');
+  const [emailSaving, setEmailSaving] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  const [emailSuccess, setEmailSuccess] = useState('');
+
+  const canManageEmail = user?.role === 'admin';
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError('');
-    setSuccess('');
+    setPasswordError('');
+    setPasswordSuccess('');
 
     if (payload.newPassword !== confirmPassword) {
-      setError('La confirmation du nouveau mot de passe ne correspond pas.');
+      setPasswordError('La confirmation du nouveau mot de passe ne correspond pas.');
       return;
     }
 
     if (payload.newPassword.length < 8) {
-      setError('Le nouveau mot de passe doit contenir au moins 8 caractères.');
+      setPasswordError('Le nouveau mot de passe doit contenir au moins 8 caractères.');
       return;
     }
 
@@ -45,11 +53,69 @@ export function SecurityPage() {
 
       setPayload(initialPayload);
       setConfirmPassword('');
-      setSuccess('Mot de passe mis à jour avec succès.');
+      setPasswordSuccess('Mot de passe mis à jour avec succès.');
     } catch (submitError) {
-      setError(getErrorMessage(submitError, 'Impossible de changer le mot de passe.'));
+      setPasswordError(getErrorMessage(submitError, 'Impossible de changer le mot de passe.'));
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleEmailSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setEmailError('');
+    setEmailSuccess('');
+
+    const normalizedNewEmail = newEmail.trim().toLowerCase();
+    const normalizedCurrentEmail = (user?.email ?? '').trim().toLowerCase();
+
+    if (!normalizedNewEmail) {
+      setEmailError('Le nouveau courriel est requis.');
+      return;
+    }
+
+    const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedNewEmail);
+    if (!isValidEmail) {
+      setEmailError('Veuillez saisir un courriel valide.');
+      return;
+    }
+
+    if (normalizedNewEmail === normalizedCurrentEmail) {
+      setEmailError('Le nouveau courriel doit être différent du courriel actuel.');
+      return;
+    }
+
+    if (!currentEmailPassword.trim()) {
+      setEmailError('Le mot de passe actuel est requis.');
+      return;
+    }
+
+    setEmailSaving(true);
+
+    try {
+      const body: UpdateCurrentUserEmailRequest = {
+        newEmail: normalizedNewEmail,
+        currentPassword: currentEmailPassword,
+      };
+
+      await apiFetch('/users/me/email', {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      });
+
+      const didRefreshProfile = await refreshCurrentUser();
+
+      if (!didRefreshProfile) {
+        throw new Error('Votre profil n\'a pas pu être rafraîchi.');
+      }
+
+      setCurrentEmailPassword('');
+      setNewEmail('');
+      setEmailSuccess('Courriel mis à jour avec succès.');
+    } catch (submitError) {
+      setEmailError(getErrorMessage(submitError, 'Impossible de changer le courriel.'));
+    } finally {
+      setEmailSaving(false);
     }
   }
 
@@ -64,15 +130,15 @@ export function SecurityPage() {
       </section>
 
       <section className="surface-card p-6 sm:p-8">
-        {error ? (
+        {passwordError ? (
           <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-            {error}
+            {passwordError}
           </div>
         ) : null}
 
-        {success ? (
+        {passwordSuccess ? (
           <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-            {success}
+            {passwordSuccess}
           </div>
         ) : null}
 
@@ -122,6 +188,66 @@ export function SecurityPage() {
           </button>
         </form>
       </section>
+
+      {canManageEmail ? (
+        <section className="surface-card p-6 sm:p-8">
+          <h2 className="text-xl font-semibold text-stone-950">Changer le courriel</h2>
+          <p className="mt-2 text-sm leading-7 text-stone-600 sm:text-base">
+            Mettez à jour l&apos;adresse courriel associée à votre compte administrateur.
+          </p>
+
+          {emailError ? (
+            <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              {emailError}
+            </div>
+          ) : null}
+
+          {emailSuccess ? (
+            <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+              {emailSuccess}
+            </div>
+          ) : null}
+
+          <form className="mt-6 grid gap-5 sm:max-w-xl" onSubmit={handleEmailSubmit}>
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium text-stone-700">Courriel actuel</span>
+              <input
+                type="email"
+                value={user?.email ?? ''}
+                className="input-field"
+                readOnly
+              />
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium text-stone-700">Nouveau courriel</span>
+              <input
+                type="email"
+                value={newEmail}
+                onChange={(event) => setNewEmail(event.target.value)}
+                className="input-field"
+                required
+              />
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium text-stone-700">Mot de passe actuel</span>
+              <input
+                type="password"
+                value={currentEmailPassword}
+                onChange={(event) => setCurrentEmailPassword(event.target.value)}
+                className="input-field"
+                minLength={8}
+                required
+              />
+            </label>
+
+            <button type="submit" className="primary-button w-full sm:w-auto" disabled={emailSaving}>
+              {emailSaving ? 'Mise à jour...' : 'Mettre à jour le courriel'}
+            </button>
+          </form>
+        </section>
+      ) : null}
     </div>
   );
 }
