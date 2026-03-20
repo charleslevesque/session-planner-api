@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { getErrorMessage } from '../lib/api';
 import type {
-  CourseBasic,
   LaboratoryBasic,
   LaboratorySoftwareEntry,
   OSBasic,
@@ -53,7 +52,6 @@ export function MatrixPage() {
   const [softwares, setSoftwares] = useState<SoftwareForMatrix[]>([]);
   const [entries, setEntries] = useState<LaboratorySoftwareEntry[]>([]);
   const [osList, setOsList] = useState<OSBasic[]>([]);
-  const [courses, setCourses] = useState<CourseBasic[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -62,26 +60,22 @@ export function MatrixPage() {
   const [search, setSearch] = useState('');
   const [filterLab, setFilterLab] = useState('');
   const [filterOS, setFilterOS] = useState('');
-  const [filterCourse, setFilterCourse] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
   const [selectedLabId, setSelectedLabId] = useState<number | ''>('');
 
   const loadData = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const [labsData, softwaresData, entriesData, osData, coursesData] = await Promise.all([
+      const [labsData, softwaresData, entriesData, osData] = await Promise.all([
         apiFetch<LaboratoryBasic[]>('/laboratories'),
         apiFetch<SoftwareForMatrix[]>('/softwares'),
         apiFetch<LaboratorySoftwareEntry[]>('/laboratorysoftwares'),
         apiFetch<OSBasic[]>('/operatingsystems'),
-        apiFetch<CourseBasic[]>('/courses'),
       ]);
       setLaboratories(labsData);
       setSoftwares(softwaresData);
       setEntries(entriesData);
       setOsList(osData);
-      setCourses(coursesData);
     } catch (err) {
       setError(getErrorMessage(err, 'Impossible de charger les données de la matrice.'));
     } finally {
@@ -98,12 +92,6 @@ export function MatrixPage() {
     for (const os of osList) map.set(os.id, os.name);
     return map;
   }, [osList]);
-
-  const courseMap = useMemo(() => {
-    const map = new Map<number, string>();
-    for (const c of courses) map.set(c.id, c.code);
-    return map;
-  }, [courses]);
 
   const entryMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -162,14 +150,6 @@ export function MatrixPage() {
       );
     }
 
-    if (filterStatus) {
-      result = result.filter((sw) => {
-        return entries.some(
-          (e) => e.softwareId === sw.id && e.status.split(',').map((s) => s.trim()).includes(filterStatus),
-        );
-      });
-    }
-
     if (filterLab) {
       const labId = Number(filterLab);
       result = result.filter((sw) =>
@@ -178,7 +158,7 @@ export function MatrixPage() {
     }
 
     return result;
-  }, [softwares, search, filterOS, filterStatus, filterLab, entries]);
+  }, [softwares, search, filterOS, filterLab, entries]);
 
   const filteredLabs = useMemo(() => {
     if (filterLab) {
@@ -191,11 +171,9 @@ export function MatrixPage() {
     setSearch('');
     setFilterLab('');
     setFilterOS('');
-    setFilterCourse('');
-    setFilterStatus('');
   }
 
-  const hasFilters = search || filterLab || filterOS || filterCourse || filterStatus;
+  const hasFilters = search || filterLab || filterOS;
 
   const labSoftwares = useMemo(() => {
     if (selectedLabId === '') return [];
@@ -213,10 +191,9 @@ export function MatrixPage() {
       })
       .filter((e) => {
         if (search && !e.softwareName.toLowerCase().includes(search.toLowerCase())) return false;
-        if (filterStatus && !e.status.split(',').map((s) => s.trim()).includes(filterStatus)) return false;
         return true;
       });
-  }, [selectedLabId, entries, softwares, softwareVersionStr, softwareOsNames, softwareNotes, search, filterStatus]);
+  }, [selectedLabId, entries, softwares, softwareVersionStr, softwareOsNames, softwareNotes, search]);
 
   return (
     <div className="space-y-6">
@@ -277,33 +254,7 @@ export function MatrixPage() {
             </select>
           </label>
 
-          <label className="block min-w-[140px]">
-            <span className="mb-1.5 block text-xs font-medium text-stone-600">Cours</span>
-            <select
-              value={filterCourse}
-              onChange={(e) => setFilterCourse(e.target.value)}
-              className="input-field"
-            >
-              <option value="">Tous</option>
-              {courses.map((c) => (
-                <option key={c.id} value={c.id}>{c.code}</option>
-              ))}
-            </select>
-          </label>
 
-          <label className="block min-w-[120px]">
-            <span className="mb-1.5 block text-xs font-medium text-stone-600">Statut</span>
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="input-field"
-            >
-              <option value="">Tous</option>
-              <option value="W">W — Working</option>
-              <option value="M">M — Missing</option>
-              <option value="L">L — Limited</option>
-            </select>
-          </label>
 
           {hasFilters ? (
             <button
