@@ -13,4 +13,5 @@ public class Laboratory
     //Joins 
     public ICollection<CourseLaboratory> CourseLaboratories { get; set; } = new List<CourseLaboratory>();
     public ICollection<LaboratoryConfiguration> LaboratoryConfigurations { get; set; } = new List<LaboratoryConfiguration>();
+    public ICollection<LaboratorySoftware> LaboratorySoftwares { get; set; } = new List<LaboratorySoftware>();
 }
