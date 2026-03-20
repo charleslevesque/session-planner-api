@@ -21,6 +21,11 @@ export interface RefreshTokenRequest {
   refreshToken: string;
 }
 
+export interface UpdateCurrentUserEmailRequest {
+  newEmail: string;
+  currentPassword: string;
+}
+
 export const APP_ROLES = ['admin', 'professor', 'lab_instructor', 'course_instructor'] as const;
 export type RoleName = (typeof APP_ROLES)[number];
 

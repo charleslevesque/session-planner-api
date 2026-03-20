@@ -71,7 +71,27 @@ public static class InitializeData
         const string adminUsername = "admin@local.dev";
         const string adminPassword = "Password123!";
 
-        var adminUser = await db.Users
+        var adminRole = await db.Roles
+            .SingleOrDefaultAsync(r => r.Name == Roles.Admin);
+
+        if (adminRole is null)
+            throw new InvalidOperationException("Admin role was not found during seeding.");
+
+        var existingAdminUserId = await db.UserRoles
+            .Where(ur => ur.RoleId == adminRole.Id)
+            .Select(ur => (int?)ur.UserId)
+            .FirstOrDefaultAsync();
+
+        User? adminUser = null;
+
+        if (existingAdminUserId.HasValue)
+        {
+            adminUser = await db.Users
+                .Include(u => u.UserRoles)
+                .SingleOrDefaultAsync(u => u.Id == existingAdminUserId.Value);
+        }
+
+        adminUser ??= await db.Users
             .Include(u => u.UserRoles)
             .SingleOrDefaultAsync(u => u.Username == adminUsername);
 
@@ -88,12 +108,6 @@ public static class InitializeData
             db.Users.Add(adminUser);
             await db.SaveChangesAsync();
         }
-
-        var adminRole = await db.Roles
-            .SingleOrDefaultAsync(r => r.Name == Roles.Admin);
-
-        if (adminRole is null)
-            throw new InvalidOperationException("Admin role was not found during seeding.");
 
         var alreadyLinked = await db.UserRoles.AnyAsync(ur =>
             ur.UserId == adminUser.Id && ur.RoleId == adminRole.Id);

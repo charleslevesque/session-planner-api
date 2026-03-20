@@ -17,7 +17,19 @@ import { SecurityPage } from './pages/SecurityPage';
 import { UsersPage } from './pages/UsersPage';
 
 function RootRedirect() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isInitializing } = useAuth();
+
+  if (isInitializing) {
+    return (
+      <div className="flex min-h-screen items-center justify-center px-6 text-center">
+        <div className="surface-card max-w-md p-8">
+          <p className="text-sm uppercase tracking-[0.3em] text-stone-500">Authentification</p>
+          <h1 className="mt-3 text-2xl font-semibold text-stone-900">Connexion en cours</h1>
+          <p className="mt-3 text-sm text-stone-600">Restauration de votre session.</p>
+        </div>
+      </div>
+    );
+  }
 
   return <Navigate to={isAuthenticated ? '/dashboard' : '/login'} replace />;
 }

@@ -181,13 +181,58 @@ public class UserService : IUserService
         return UpdateUserPasswordStatus.Success;
     }
 
+    public async Task<UpdateCurrentUserEmailStatus> UpdateCurrentUserEmailAsync(int userId, string newEmail, string currentPassword)
+    {
+        var normalizedEmail = (newEmail ?? string.Empty).Trim().ToLowerInvariant();
+
+        var user = await _db.Users
+            .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
+            .FirstOrDefaultAsync(u => u.Id == userId && u.IsActive);
+
+        if (user is null)
+            return UpdateCurrentUserEmailStatus.UserNotFound;
+
+        var isAdmin = user.UserRoles.Any(ur => ur.Role.Name == Roles.Admin);
+        if (!isAdmin)
+            return UpdateCurrentUserEmailStatus.ForbiddenForNonAdmin;
+
+        if (!_passwordService.VerifyPassword(user, user.PasswordHash, currentPassword))
+            return UpdateCurrentUserEmailStatus.InvalidCurrentPassword;
+
+        var emailAlreadyExists = await _db.Users
+            .AnyAsync(u => u.Id != userId && u.Username.ToLower() == normalizedEmail);
+
+        if (emailAlreadyExists)
+            return UpdateCurrentUserEmailStatus.EmailAlreadyExists;
+
+        user.Username = normalizedEmail;
+
+        if (user.PersonnelId.HasValue)
+        {
+            var personnel = await _db.Personnel.FirstOrDefaultAsync(p => p.Id == user.PersonnelId.Value);
+            if (personnel is not null)
+            {
+                personnel.Email = normalizedEmail;
+            }
+        }
+
+        await _db.SaveChangesAsync();
+        return UpdateCurrentUserEmailStatus.Success;
+    }
+
     public async Task<bool> DeleteAsync(int id)
     {
         var user = await _db.Users
             .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
             .FirstOrDefaultAsync(u => u.Id == id);
 
         if (user is null)
+            return false;
+
+        var isAdmin = user.UserRoles.Any(ur => ur.Role.Name == Roles.Admin);
+        if (isAdmin)
             return false;
 
         var personnelId = user.PersonnelId;

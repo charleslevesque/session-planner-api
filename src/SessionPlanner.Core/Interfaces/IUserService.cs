@@ -23,6 +23,15 @@ public enum UpdateUserPasswordStatus
     UserNotFound
 }
 
+public enum UpdateCurrentUserEmailStatus
+{
+    Success,
+    UserNotFound,
+    InvalidCurrentPassword,
+    EmailAlreadyExists,
+    ForbiddenForNonAdmin
+}
+
 public interface IUserService
 {
     Task<List<User>> GetAllActiveWithRolesAsync();
@@ -31,5 +40,6 @@ public interface IUserService
     Task<CreateUserResult> CreateAsync(string username, string password, string? roleName);
     Task<UpdateUserRoleStatus> UpdateRoleAsync(int id, string roleName);
     Task<UpdateUserPasswordStatus> UpdatePasswordAsync(int id, string newPassword);
+    Task<UpdateCurrentUserEmailStatus> UpdateCurrentUserEmailAsync(int userId, string newEmail, string currentPassword);
     Task<bool> DeleteAsync(int id);
 }

@@ -104,6 +104,34 @@ public class UsersController : ControllerBase
         return NoContent();
     }
 
+    [HttpPut("me/email")]
+    public async Task<IActionResult> UpdateCurrentUserEmail(UpdateCurrentUserEmailRequest request)
+    {
+        if (!User.IsInRole(Roles.Admin))
+            return Forbid();
+
+        var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (!int.TryParse(userIdValue, out var userId))
+            return Unauthorized();
+
+        var status = await _userService.UpdateCurrentUserEmailAsync(userId, request.NewEmail, request.CurrentPassword);
+
+        if (status == UpdateCurrentUserEmailStatus.UserNotFound)
+            return Unauthorized();
+
+        if (status == UpdateCurrentUserEmailStatus.ForbiddenForNonAdmin)
+            return Forbid();
+
+        if (status == UpdateCurrentUserEmailStatus.InvalidCurrentPassword)
+            return BadRequest(new { error = "Current password is incorrect." });
+
+        if (status == UpdateCurrentUserEmailStatus.EmailAlreadyExists)
+            return BadRequest(new { error = "Email is already in use." });
+
+        return NoContent();
+    }
+
     [HttpDelete("{id:int}")]
     [HasPermission(Permissions.Users.Delete)]
     public async Task<IActionResult> Delete(int id)
