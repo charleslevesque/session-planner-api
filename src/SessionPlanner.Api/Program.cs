@@ -8,10 +8,43 @@ using SessionPlanner.Core.Interfaces;
 using SessionPlanner.Infrastructure.Auth;
 using SessionPlanner.Infrastructure.Data;
 using SessionPlanner.Infrastructure.Services;
+using System.Reflection;
+using Microsoft.OpenApi;
+using Swashbuckle.AspNetCore.Filters;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddOpenApi();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "SessionPlanner API",
+        Version = "v1"
+    });
+
+    options.ExampleFilters();
+
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        Description = "Enter your JWT token"
+    });
+
+    options.AddSecurityRequirement(document =>
+    {
+        return new OpenApiSecurityRequirement
+        {
+            [new OpenApiSecuritySchemeReference("Bearer", document)] = new List<string>()
+        };
+    });
+});
+
+builder.Services.AddSwaggerExamplesFromAssemblyOf<Program>();
 
 builder.Services.AddApiVersioning(options =>
 {
@@ -90,9 +123,18 @@ using (var scope = app.Services.CreateScope())
     await InitializeData.InitializeAsync(services);
 }
 
-if (app.Environment.IsDevelopment())
+var swaggerEnabled = app.Configuration.GetValue<bool>("Swagger:Enabled");
+
+if (swaggerEnabled)
 {
-    app.MapOpenApi();
+    app.UseSwagger();
+
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "SessionPlanner API v1");
+        options.RoutePrefix = "swagger";
+        options.DisplayRequestDuration();
+    });
 }
 
 app.UseHttpsRedirection();

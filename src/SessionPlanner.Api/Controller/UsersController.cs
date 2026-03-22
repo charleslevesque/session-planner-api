@@ -31,22 +31,6 @@ public class UsersController : ControllerBase
         return Ok(users.Select(u => u.ToResponse()));
     }
 
-    [HttpGet("me")]
-    public async Task<ActionResult<UserResponse>> Me()
-    {
-        var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-        if (!int.TryParse(userIdValue, out var userId))
-            return Unauthorized();
-
-        var user = await _userService.GetByIdWithRolesAsync(userId);
-
-        if (user is null)
-            return NotFound();
-
-        return Ok(user.ToResponse());
-    }
-
     [HttpGet("{id:int}")]
     [HasPermission(Permissions.Users.Read)]
     public async Task<ActionResult<UserResponse>> GetById(int id)
