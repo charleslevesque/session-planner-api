@@ -61,6 +61,9 @@ export function MatrixPage() {
   const [filterLab, setFilterLab] = useState('');
   const [filterOS, setFilterOS] = useState('');
   const [selectedLabId, setSelectedLabId] = useState<number | ''>('');
+  const [pageSize, setPageSize] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedSoftware, setSelectedSoftware] = useState<SoftwareForMatrix | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -175,6 +178,17 @@ export function MatrixPage() {
 
   const hasFilters = search || filterLab || filterOS;
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, filterLab, filterOS, pageSize]);
+
+  const totalPages = Math.ceil(filteredSoftwares.length / pageSize) || 1;
+
+  const paginatedSoftwares = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredSoftwares.slice(start, start + pageSize);
+  }, [filteredSoftwares, currentPage, pageSize]);
+
   const labSoftwares = useMemo(() => {
     if (selectedLabId === '') return [];
     return entries
@@ -254,7 +268,18 @@ export function MatrixPage() {
             </select>
           </label>
 
-
+          <label className="block min-w-[100px]">
+            <span className="mb-1.5 block text-xs font-medium text-stone-600">Par page</span>
+            <select
+              value={pageSize}
+              onChange={(e) => setPageSize(Number(e.target.value))}
+              className="input-field"
+            >
+              {[10, 25, 50, 100].map((n) => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </select>
+          </label>
 
           {hasFilters ? (
             <button
@@ -301,12 +326,17 @@ export function MatrixPage() {
         <div className="px-6 py-10 text-center text-sm text-stone-500">Chargement...</div>
       ) : viewMode === 'matrix' ? (
         <MatrixView
-          softwares={filteredSoftwares}
+          softwares={paginatedSoftwares}
           laboratories={filteredLabs}
           entryMap={entryMap}
           softwareVersionStr={softwareVersionStr}
           softwareOsNames={softwareOsNames}
           softwareNotes={softwareNotes}
+          totalFiltered={filteredSoftwares.length}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          onSoftwareClick={setSelectedSoftware}
           onRefresh={() => void loadData()}
         />
       ) : (
@@ -316,6 +346,16 @@ export function MatrixPage() {
           onSelectLab={setSelectedLabId}
           labSoftwares={labSoftwares}
           onRefresh={() => void loadData()}
+        />
+      )}
+
+      {selectedSoftware && (
+        <SoftwareDetailModal
+          software={selectedSoftware}
+          versionStr={softwareVersionStr.get(selectedSoftware.id)}
+          osNames={softwareOsNames.get(selectedSoftware.id)}
+          notes={softwareNotes.get(selectedSoftware.id)}
+          onClose={() => setSelectedSoftware(null)}
         />
       )}
     </div>
@@ -329,6 +369,11 @@ interface MatrixViewProps {
   softwareVersionStr: Map<number, string>;
   softwareOsNames: Map<number, string>;
   softwareNotes: Map<number, string>;
+  totalFiltered: number;
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+  onSoftwareClick: (sw: SoftwareForMatrix) => void;
   onRefresh: () => void;
 }
 
@@ -339,6 +384,11 @@ function MatrixView({
   softwareVersionStr,
   softwareOsNames,
   softwareNotes,
+  totalFiltered,
+  currentPage,
+  totalPages,
+  onPageChange,
+  onSoftwareClick,
   onRefresh,
 }: MatrixViewProps) {
   return (
@@ -347,7 +397,7 @@ function MatrixView({
         <h2 className="text-base font-semibold text-stone-950">
           Matrice logiciels / laboratoires
           <span className="ml-2 text-xs font-normal text-stone-500">
-            {softwares.length} logiciel(s) × {laboratories.length} lab(s)
+            {totalFiltered} logiciel(s) × {laboratories.length} lab(s)
           </span>
         </h2>
         <button
@@ -386,7 +436,8 @@ function MatrixView({
               {softwares.map((sw, idx) => (
                 <tr
                   key={sw.id}
-                  className={idx % 2 === 0 ? 'bg-white/60' : 'bg-stone-50/40'}
+                  className={`cursor-pointer transition-colors hover:bg-[rgba(220,4,44,0.04)] ${idx % 2 === 0 ? 'bg-white/60' : 'bg-stone-50/40'}`}
+                  onClick={() => onSoftwareClick(sw)}
                 >
                   <td className="sticky left-0 z-10 border-b border-stone-100 px-4 py-3 font-medium text-stone-900 whitespace-nowrap"
                     style={{ backgroundColor: idx % 2 === 0 ? 'rgba(255,255,255,0.95)' : 'rgba(250,250,249,0.95)' }}
@@ -422,8 +473,65 @@ function MatrixView({
           </table>
         </div>
       )}
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between border-t border-stone-200 px-6 py-4">
+          <span className="text-xs text-stone-500">
+            Page {currentPage} sur {totalPages}
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              disabled={currentPage <= 1}
+              onClick={() => onPageChange(currentPage - 1)}
+              className="rounded-xl border border-stone-200 px-3 py-1.5 text-xs text-stone-600 transition hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              ‹ Précédent
+            </button>
+            {generatePageNumbers(currentPage, totalPages).map((p, i) =>
+              p === '...' ? (
+                <span key={`ellipsis-${i}`} className="px-1 text-xs text-stone-400">…</span>
+              ) : (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => onPageChange(p as number)}
+                  className={[
+                    'min-w-[32px] rounded-xl border px-2 py-1.5 text-xs font-medium transition',
+                    p === currentPage
+                      ? 'border-[var(--ets-primary)]/40 bg-[rgba(220,4,44,0.08)] text-[var(--ets-primary)]'
+                      : 'border-stone-200 text-stone-600 hover:bg-stone-50',
+                  ].join(' ')}
+                >
+                  {p}
+                </button>
+              ),
+            )}
+            <button
+              type="button"
+              disabled={currentPage >= totalPages}
+              onClick={() => onPageChange(currentPage + 1)}
+              className="rounded-xl border border-stone-200 px-3 py-1.5 text-xs text-stone-600 transition hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Suivant ›
+            </button>
+          </div>
+        </div>
+      )}
     </section>
   );
+}
+
+function generatePageNumbers(current: number, total: number): (number | '...')[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages: (number | '...')[] = [1];
+  if (current > 3) pages.push('...');
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+  for (let i = start; i <= end; i++) pages.push(i);
+  if (current < total - 2) pages.push('...');
+  pages.push(total);
+  return pages;
 }
 
 interface LabDetailEntry {
@@ -517,5 +625,63 @@ function LabDetailView({
         </div>
       )}
     </section>
+  );
+}
+
+interface SoftwareDetailModalProps {
+  software: SoftwareForMatrix;
+  versionStr?: string;
+  osNames?: string;
+  notes?: string;
+  onClose: () => void;
+}
+
+function SoftwareDetailModal({ software, versionStr, osNames, notes, onClose }: SoftwareDetailModalProps) {
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleEsc);
+    return () => document.removeEventListener('keydown', handleEsc);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="relative w-full max-w-lg rounded-[2rem] border border-white/80 bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-stone-200 px-6 py-4">
+          <h3 className="text-base font-semibold text-stone-950">Détails du logiciel</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl p-1.5 text-stone-400 transition hover:bg-stone-100 hover:text-stone-600"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+          </button>
+        </div>
+        <dl className="space-y-4 px-6 py-5">
+          <DetailRow label="Logiciel" value={software.name} />
+          <DetailRow label="Version" value={versionStr} />
+          <DetailRow label="OS" value={osNames} />
+          <DetailRow label="Paquets" value={software.installCommand} />
+          <DetailRow label="Notes" value={notes} />
+        </dl>
+      </div>
+    </div>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <div>
+      <dt className="text-xs font-medium uppercase tracking-wide text-stone-500">{label}</dt>
+      <dd className="mt-1 text-sm text-stone-900">{value || '—'}</dd>
+    </div>
   );
 }
