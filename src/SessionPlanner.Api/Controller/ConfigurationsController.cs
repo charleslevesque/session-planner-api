@@ -48,8 +48,10 @@ public class ConfigurationsController : ControllerBase
     [SwaggerRequestExample(typeof(CreateConfigurationRequest), typeof(CreateConfigurationRequestExample))]
     [SwaggerResponseExample(StatusCodes.Status201Created, typeof(ConfigurationResponseExample))]
     [SwaggerResponseExample(StatusCodes.Status401Unauthorized, typeof(UnauthorizedErrorExample))]
+    [SwaggerResponseExample(StatusCodes.Status403Forbidden, typeof(ForbiddenErrorExample))]
     [ProducesResponseType(typeof(ConfigurationResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<ConfigurationResponse>> Create(CreateConfigurationRequest request)
     {
         var configuration = await _configurationService.CreateAsync(request.Title, request.Notes);
@@ -74,8 +76,10 @@ public class ConfigurationsController : ControllerBase
     )]
     [SwaggerResponseExample(StatusCodes.Status200OK, typeof(ConfigurationListResponseExample))]
     [SwaggerResponseExample(StatusCodes.Status401Unauthorized, typeof(UnauthorizedErrorExample))]
+    [SwaggerResponseExample(StatusCodes.Status403Forbidden, typeof(ForbiddenErrorExample))]
     [ProducesResponseType(typeof(IEnumerable<ConfigurationResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<IEnumerable<ConfigurationResponse>>> GetAll()
     {
         var configurations = await _configurationService.GetAllAsync();
@@ -99,9 +103,11 @@ public class ConfigurationsController : ControllerBase
     [SwaggerResponseExample(StatusCodes.Status200OK, typeof(ConfigurationResponseExample))]
     [SwaggerResponseExample(StatusCodes.Status401Unauthorized, typeof(UnauthorizedErrorExample))]
     [SwaggerResponseExample(StatusCodes.Status404NotFound, typeof(NotFoundErrorExample))]
+    [SwaggerResponseExample(StatusCodes.Status403Forbidden, typeof(ForbiddenErrorExample))]
     [ProducesResponseType(typeof(ConfigurationResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<ConfigurationResponse>> GetById(int id)
     {
         var configuration = await _configurationService.GetByIdAsync(id);
@@ -131,9 +137,11 @@ public class ConfigurationsController : ControllerBase
     [SwaggerRequestExample(typeof(UpdateConfigurationRequest), typeof(UpdateConfigurationRequestExample))]
     [SwaggerResponseExample(StatusCodes.Status401Unauthorized, typeof(UnauthorizedErrorExample))]
     [SwaggerResponseExample(StatusCodes.Status404NotFound, typeof(NotFoundErrorExample))]
+    [SwaggerResponseExample(StatusCodes.Status403Forbidden, typeof(ForbiddenErrorExample))]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Update(int id, UpdateConfigurationRequest request)
     {
         var updated = await _configurationService.UpdateAsync(id, request.Title, request.Notes);
@@ -163,9 +171,11 @@ public class ConfigurationsController : ControllerBase
     )]
     [SwaggerResponseExample(StatusCodes.Status401Unauthorized, typeof(UnauthorizedErrorExample))]
     [SwaggerResponseExample(StatusCodes.Status404NotFound, typeof(NotFoundErrorExample))]
+    [SwaggerResponseExample(StatusCodes.Status403Forbidden, typeof(ForbiddenErrorExample))]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Delete(int id)
     {
         var deleted = await _configurationService.DeleteAsync(id);

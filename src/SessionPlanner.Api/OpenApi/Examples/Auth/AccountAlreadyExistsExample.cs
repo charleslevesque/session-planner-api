@@ -10,7 +10,7 @@ public sealed class AccountAlreadyExistsExample : IExamplesProvider<ApiErrorResp
     {
         return new ApiErrorResponse(
             Error: "An account with this email already exists.",
-            Code: ErrorCodes.AccountAlreadyExists
+            Code: ErrorCodes.Conflict
         );
     }
 }

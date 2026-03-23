@@ -58,7 +58,7 @@ public class AuthController : ControllerBase
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(new ApiErrorResponse(ex.Message, ErrorCodes.AccountAlreadyExists));
+            return BadRequest(new ApiErrorResponse(ex.Message, ErrorCodes.Conflict));
         }
     }
 
@@ -116,7 +116,7 @@ public class AuthController : ControllerBase
         if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
             return Unauthorized(new ApiErrorResponse(
                 Error: "The current user could not be found.",
-                Code: ErrorCodes.CurrentUserNotFound
+                Code: ErrorCodes.NotFound
             ));
 
         var user = await _authService.GetCurrentUserAsync(userId);
@@ -124,7 +124,7 @@ public class AuthController : ControllerBase
         if (user is null)
             return Unauthorized(new ApiErrorResponse(
                 Error: "The current user could not be found.",
-                Code: ErrorCodes.CurrentUserNotFound
+                Code: ErrorCodes.NotFound
         ));
 
         var role = user.UserRoles.Select(ur => ur.Role.Name).FirstOrDefault() ?? string.Empty;
