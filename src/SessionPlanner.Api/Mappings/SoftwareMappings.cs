@@ -10,6 +10,7 @@ public static class SoftwareMappings
         return new SoftwareResponse(
             software.Id,
             software.Name,
+            software.InstallCommand,
             software.SoftwareVersions.Select(v => v.ToResponse())
         );
     }
