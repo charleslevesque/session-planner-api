@@ -87,7 +87,7 @@ public class AuthController : ControllerBase
         var result = await _authService.LoginAsync(request.Email, request.Password);
 
         if (result is null)
-            return Unauthorized(new ApiErrorResponse("Invalid email or password.", ErrorCodes.Unauthorized));
+            return Unauthorized(new ApiErrorResponse("Invalid email or password.", ErrorCodes.InvalidCredentials));
 
         return Ok(new AuthResponse(result.AccessToken, result.RefreshToken, result.ExpiresAtUtc));
     }
@@ -116,7 +116,7 @@ public class AuthController : ControllerBase
         if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
             return Unauthorized(new ApiErrorResponse(
                 Error: "The current user could not be found.",
-                Code: ErrorCodes.NotFound
+                Code: ErrorCodes.InvalidCredentials
             ));
 
         var user = await _authService.GetCurrentUserAsync(userId);
@@ -124,7 +124,7 @@ public class AuthController : ControllerBase
         if (user is null)
             return Unauthorized(new ApiErrorResponse(
                 Error: "The current user could not be found.",
-                Code: ErrorCodes.NotFound
+                Code: ErrorCodes.InvalidCredentials
         ));
 
         var role = user.UserRoles.Select(ur => ur.Role.Name).FirstOrDefault() ?? string.Empty;
@@ -160,7 +160,11 @@ public class AuthController : ControllerBase
         var result = await _authService.RefreshTokenAsync(request.RefreshToken);
 
         if (result is null)
-            return Unauthorized();
+
+            return Unauthorized(new ApiErrorResponse(
+                Error: "The user could not be found.",
+                Code: ErrorCodes.Unauthorized)
+        );
 
         return Ok(new AuthResponse(result.AccessToken, result.RefreshToken, result.ExpiresAtUtc));
     }

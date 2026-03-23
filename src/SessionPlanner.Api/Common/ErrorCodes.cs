@@ -24,7 +24,6 @@ public static class ErrorCodes
     public const string SessionDeleteNotAllowed = "SESSION_DELETE_NOT_ALLOWED";
 
     // TeachingNeedsController Errors
-    public const string ItemNotFound = "ITEM_NOT_FOUND";
     public const string RejectionReasonRequired = "REJECTION_REASON_REQUIRED";
     public const string InvalidTeachingNeedTransition = "INVALID_TEACHING_NEED_TRANSITION";
 }

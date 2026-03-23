@@ -10,7 +10,7 @@ public sealed class CurrentUserNotFoundExample : IExamplesProvider<ApiErrorRespo
     {
         return new ApiErrorResponse(
             Error: "The current user could not be found.",
-            Code: ErrorCodes.CurrentUserNotFound,
+            Code: ErrorCodes.NotFound,
             Details: "The user associated with the provided token no longer exists."
         );
     }

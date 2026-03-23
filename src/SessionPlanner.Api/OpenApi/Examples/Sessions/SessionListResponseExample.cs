@@ -17,9 +17,9 @@ public sealed class SessionListResponseExample : IExamplesProvider<IEnumerable<S
                 EndDate: new DateTime(2026, 4, 26),
                 Status: SessionStatus.Draft,
                 CreatedAt: DateTime.Now,
-                OpenedAt: DateTime.Now.AddDays(3),
-                ClosedAt: DateTime.Now.AddDays(6),
-                ArchivedAt: DateTime.Now.AddMonths(1),
+                OpenedAt: null,
+                ClosedAt: null,
+                ArchivedAt: null,
                 CreatedByUserId: 2
             ),
             new SessionResponse(
@@ -30,8 +30,8 @@ public sealed class SessionListResponseExample : IExamplesProvider<IEnumerable<S
                 Status: SessionStatus.Open,
                 CreatedAt: DateTime.Now,
                 OpenedAt: DateTime.Now.AddDays(2),
-                ClosedAt: DateTime.Now.AddDays(15),
-                ArchivedAt: DateTime.Now.AddMonths(2),
+                ClosedAt: null,
+                ArchivedAt: null,
                 CreatedByUserId: 1
             )
         ];
