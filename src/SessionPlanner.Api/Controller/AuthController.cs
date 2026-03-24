@@ -170,9 +170,7 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-<<<<<<< feature/add-documentation-elements
     /// Revokes a refresh token.
-=======
     /// Changes the authenticated user's password.
     /// </summary>
     [Authorize]
@@ -198,7 +196,6 @@ public class AuthController : ControllerBase
 
     /// <summary>
     /// Revokes a refresh token (logout).
->>>>>>> main
     /// </summary>
     /// <remarks>
     /// Invalidates the supplied refresh token to log the current user out.
