@@ -28,7 +28,7 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// Creates a new account (teacher account by default).
+    /// Creates a new account.
     /// </summary>
     /// <remarks>
     /// Registers a new user account and immediately returns JWT authentication tokens.
@@ -40,7 +40,7 @@ public class AuthController : ControllerBase
     [HttpPost("register")]
     [SwaggerOperation(
         Summary = "Register a new account",
-        Description = "Creates a new teacher account and returns an access token and refresh token."
+        Description = "Creates a new account and returns an access token and refresh token."
     )]
     [SwaggerRequestExample(typeof(RegisterRequest), typeof(RegisterRequestExample))]
     [SwaggerResponseExample(StatusCodes.Status201Created, typeof(AuthResponseExample))]

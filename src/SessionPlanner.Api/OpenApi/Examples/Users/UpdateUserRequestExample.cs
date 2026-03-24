@@ -9,7 +9,7 @@ public sealed class UpdateUserRequestExample : IExamplesProvider<UpdateUserReque
     public UpdateUserRequest GetExamples()
     {
         return new UpdateUserRequest(
-            RoleName: Roles.Technician
+            RoleName: Roles.CourseInstructor
         );
     }
 }

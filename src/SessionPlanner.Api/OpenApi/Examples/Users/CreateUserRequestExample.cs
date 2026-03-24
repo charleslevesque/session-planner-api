@@ -12,7 +12,7 @@ public sealed class CreateUserRequestExample : IExamplesProvider<CreateUserReque
         return new CreateUserRequest(
             Username: "teacher01",
             Password: "P@ssw0rd123!",
-            RoleName: Roles.Teacher
+            RoleName: Roles.Professor
         );
     }
 }

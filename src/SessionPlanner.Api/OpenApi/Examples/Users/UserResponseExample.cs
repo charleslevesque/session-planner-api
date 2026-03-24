@@ -11,7 +11,7 @@ public sealed class UserResponseExample : IExamplesProvider<UserResponse>
         return new UserResponse(
             Id: 1,
             Username: "teacher01",
-            Roles: Roles.Teacher
+            Roles: Roles.Professor
         );
     }
 }
