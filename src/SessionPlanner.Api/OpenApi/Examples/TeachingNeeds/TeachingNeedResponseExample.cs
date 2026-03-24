@@ -21,19 +21,27 @@ public sealed class TeachingNeedResponseExample : IExamplesProvider<TeachingNeed
             ReviewedAt: null,
             ReviewedByUserId: null,
             RejectionReason: null,
+            ExpectedStudents: 40,
+            HasTechNeeds: false,
+            FoundAllCourses: false,
+            DesiredModifications: "I need the Pro License this semester",
+            AdditionalComments: "",
+            AllowsUpdates: false,
             Notes: "Need software for API testing",
             Items: new List<TeachingNeedItemResponse>
             {
                 new TeachingNeedItemResponse(
                     Id: 1,
-                    SoftwareId: 3,
-                    SoftwareName: "Postman",
+                    ItemType: "Item type example",
+                    Description: "License pour la session",
+                    SoftwareId: 10,
                     SoftwareVersionId: 25,
-                    SoftwareVersionNumber: "10.2.19",
+                    SoftwareVersionNumber: "2022.1.4",
+                    SoftwareName: "Photoshop CC",
                     OSId: 2,
-                    OSName: "Linux",
+                    OSName: "Windows",
                     Quantity: 30,
-                    Notes: "Installed on all lab machines"
+                    Notes: "Installed on all machines"
                 )
             }
         );

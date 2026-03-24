@@ -9,7 +9,13 @@ public sealed class UpdateTeachingNeedRequestExample : IExamplesProvider<UpdateT
     {
         return new UpdateTeachingNeedRequest(
             CourseId: 3,
-            Notes: "Updated: added Visual Studio 2022"
+            ExpectedStudents: 50,
+            HasTechNeeds: false,
+            FoundAllCourses: false,
+            DesiredModifications: "I need the regular license",
+            AdditionalComments: "I need more licenses, more students than expected",
+            AllowsUpdates: false,
+            Notes: ""
         );
     }
 }

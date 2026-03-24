@@ -12,6 +12,7 @@ using SessionPlanner.Api.OpenApi.Examples.Users;
 using SessionPlanner.Api.OpenApi.Examples.Common;
 using Swashbuckle.AspNetCore.Annotations;
 using Swashbuckle.AspNetCore.Filters;
+using System.Security.Claims;
 namespace SessionPlanner.Api.Controllers;
 
 [ApiController]
@@ -190,17 +191,6 @@ public class UsersController : ControllerBase
         return NoContent();
     }
 
-<<<<<<< feature/add-documentation-elements
-    /// <summary>
-    /// Deletes a user.
-    /// </summary>
-    /// <param name="id">The user identifier.</param>
-    /// <returns>No content.</returns>
-    /// <response code="204">The user was deleted successfully.</response>
-    /// <response code="401">The caller is not authenticated.</response>
-    /// <response code="403">The caller is not allowed to delete users.</response>
-    /// <response code="404">No user exists with the supplied identifier.</response>
-=======
     [HttpPut("{id:int}/password")]
     [HasPermission(Permissions.Users.Update)]
     public async Task<IActionResult> UpdatePassword(int id, UpdateUserPasswordRequest request)
@@ -241,7 +231,6 @@ public class UsersController : ControllerBase
         return NoContent();
     }
 
->>>>>>> main
     [HttpDelete("{id:int}")]
     [HasPermission(Permissions.Users.Delete)]
     [SwaggerOperation(

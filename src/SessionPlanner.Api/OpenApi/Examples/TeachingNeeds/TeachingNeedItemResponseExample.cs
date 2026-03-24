@@ -9,6 +9,8 @@ public sealed class TeachingNeedItemExample : IExamplesProvider<TeachingNeedItem
     {
         return new TeachingNeedItemResponse(
             Id: 1,
+            ItemType: "Item type example",
+            Description: "License pour la session",
             SoftwareId: 10,
             SoftwareVersionId: 25,
             SoftwareVersionNumber: "2022.1.4",

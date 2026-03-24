@@ -57,7 +57,6 @@ public class TeachingNeedsController : ControllerBase
         if (IsTeachingRole())
         {
             var userId = GetCurrentUserId();
-<<<<<<< feature/add-documentation-elements
             if (userId is null)
             {
                 return Unauthorized(new ApiErrorResponse(
@@ -66,14 +65,9 @@ public class TeachingNeedsController : ControllerBase
                 ));
             }
 
-            filterByPersonnelId = await _needService.GetPersonnelIdForUserAsync(userId.Value);
-=======
-            if (userId is null) return Unauthorized();
-
             filterByPersonnelId = await _needService.GetOrCreatePersonnelIdForUserAsync(userId.Value);
             if (filterByPersonnelId is null)
                 return Ok(Array.Empty<TeachingNeedResponse>());
->>>>>>> main
         }
 
         var needs = await _needService.GetAllBySessionAsync(sessionId, filterByPersonnelId);
@@ -110,19 +104,10 @@ public class TeachingNeedsController : ControllerBase
     {
         var need = await _needService.GetByIdAsync(sessionId, id);
 
-<<<<<<< feature/add-documentation-elements
         if (need is null)
-        {
-            return NotFound(new ApiErrorResponse(
-                Error: "Teaching need not found.",
-                Code: ErrorCodes.NotFound
-            ));
-        }
+            return NotFound(new ApiErrorResponse("Teaching need not found.", ErrorCodes.NotFound));
 
-        if (User.IsInRole(Roles.Teacher) && !await IsOwner(need.PersonnelId))
-=======
         if (IsTeachingRole() && !await IsOwner(need.PersonnelId))
->>>>>>> main
             return Forbid();
 
         return Ok(need.ToResponse());
@@ -173,12 +158,7 @@ public class TeachingNeedsController : ControllerBase
 
         if (IsTeachingRole())
         {
-<<<<<<< feature/add-documentation-elements
-            var ownPersonnelId = await _needService.GetPersonnelIdForUserAsync(userId.Value);
-
-=======
             var ownPersonnelId = await _needService.GetOrCreatePersonnelIdForUserAsync(userId.Value);
->>>>>>> main
             if (ownPersonnelId is null)
             {
                 return BadRequest(new ApiErrorResponse(
@@ -192,17 +172,13 @@ public class TeachingNeedsController : ControllerBase
         else
         {
             if (request.PersonnelId is null)
-<<<<<<< feature/add-documentation-elements
             {
                 return BadRequest(new ApiErrorResponse(
-                    Error: "personnelId is required.",
+                    Error: "personnelId is required for non-teaching-role users.",
                     Code: ErrorCodes.BadRequest
                 ));
             }
 
-=======
-                return BadRequest(new { error = "personnelId is required for non-teaching-role users." });
->>>>>>> main
             personnelId = request.PersonnelId.Value;
         }
 
@@ -270,9 +246,9 @@ public class TeachingNeedsController : ControllerBase
 
         try
         {
-<<<<<<< feature/add-documentation-elements
-            var updated = await _needService.UpdateAsync(sessionId, id, request.CourseId, request.Notes);
-
+            var updated = await _needService.UpdateAsync(sessionId, id, request.CourseId, request.Notes,
+                request.ExpectedStudents, request.HasTechNeeds, request.FoundAllCourses,
+                request.DesiredModifications, request.AllowsUpdates, request.AdditionalComments);
             if (updated is null)
             {
                 return NotFound(new ApiErrorResponse(
@@ -280,13 +256,6 @@ public class TeachingNeedsController : ControllerBase
                     Code: ErrorCodes.NotFound
                 ));
             }
-
-=======
-            var updated = await _needService.UpdateAsync(sessionId, id, request.CourseId, request.Notes,
-                request.ExpectedStudents, request.HasTechNeeds, request.FoundAllCourses,
-                request.DesiredModifications, request.AllowsUpdates, request.AdditionalComments);
-            if (updated is null) return NotFound();
->>>>>>> main
             return Ok(updated.ToResponse());
         }
         catch (InvalidOperationException ex)
@@ -831,61 +800,9 @@ public class TeachingNeedsController : ControllerBase
         return personnelId == needPersonnelId;
     }
 
-<<<<<<< feature/add-documentation-elements
-    private bool IsAdminOrTechnician() =>
-        User.IsInRole(Roles.Admin) || User.IsInRole(Roles.Technician);
-
-    private async Task<ActionResult<TeachingNeedResponse>> HandleTransition(
-        int sessionId,
-        int id,
-        Func<Task<Core.Entities.TeachingNeed?>> action,
-        bool teacherOnly = false,
-        bool adminOnly = false)
-    {
-        if (teacherOnly && !User.IsInRole(Roles.Teacher)) return Forbid();
-        if (adminOnly && !IsAdminOrTechnician()) return Forbid();
-
-        var need = await _needService.GetByIdAsync(sessionId, id);
-
-        if (need is null)
-        {
-            return NotFound(new ApiErrorResponse(
-                Error: "Teaching need not found.",
-                Code: ErrorCodes.NotFound
-            ));
-        }
-
-        if (teacherOnly && !await IsOwner(need.PersonnelId))
-            return Forbid();
-
-        try
-        {
-            var result = await action();
-
-            if (result is null)
-            {
-                return NotFound(new ApiErrorResponse(
-                    Error: "Teaching need not found.",
-                    Code: ErrorCodes.NotFound
-                ));
-            }
-
-            return Ok(result.ToResponse());
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new ApiErrorResponse(
-                Error: ex.Message,
-                Code: ErrorCodes.InvalidTeachingNeedTransition
-            ));
-        }
-    }
-}
-=======
     private bool IsTeachingRole() =>
         User.IsInRole(Roles.Professor) || User.IsInRole(Roles.CourseInstructor);
 
     private bool IsAdminOrLabInstructor() =>
         User.IsInRole(Roles.Admin) || User.IsInRole(Roles.LabInstructor);
 }
->>>>>>> main

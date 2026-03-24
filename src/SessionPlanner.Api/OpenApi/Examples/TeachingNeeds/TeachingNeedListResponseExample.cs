@@ -24,6 +24,12 @@ public sealed class TeachingNeedListExample : IExamplesProvider<IEnumerable<Teac
                 ReviewedAt: null,
                 ReviewedByUserId: null,
                 RejectionReason: null,
+                ExpectedStudents: 40,
+                HasTechNeeds: false,
+                FoundAllCourses: false,
+                DesiredModifications: "I need the Pro License this semester",
+                AdditionalComments: "",
+                AllowsUpdates: false,
                 Notes: "Need software for API testing",
                 Items: new List<TeachingNeedItemResponse>()
             ),
@@ -41,6 +47,12 @@ public sealed class TeachingNeedListExample : IExamplesProvider<IEnumerable<Teac
                 ReviewedAt: null,
                 ReviewedByUserId: null,
                 RejectionReason: null,
+                ExpectedStudents: 30,
+                HasTechNeeds: false,
+                FoundAllCourses: false,
+                DesiredModifications: "",
+                AdditionalComments: "Has to be available before the first week of the semester",
+                AllowsUpdates: false,
                 Notes: "Need software for programming",
                 Items: new List<TeachingNeedItemResponse>()
             )

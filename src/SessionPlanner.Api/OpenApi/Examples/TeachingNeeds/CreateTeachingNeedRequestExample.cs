@@ -10,6 +10,12 @@ public sealed class CreateTeachingNeedRequestExample : IExamplesProvider<CreateT
         return new CreateTeachingNeedRequest(
             PersonnelId: 12,
             CourseId: 3,
+            ExpectedStudents: 40,
+            HasTechNeeds: false,
+            FoundAllCourses: false,
+            DesiredModifications: "I need the Pro License this semester",
+            AdditionalComments: "",
+            AllowsUpdates: false,
             Notes: "Need software for API testing"
         );
     }

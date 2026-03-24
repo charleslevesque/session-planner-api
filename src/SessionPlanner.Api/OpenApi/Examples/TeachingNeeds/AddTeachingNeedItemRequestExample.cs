@@ -8,6 +8,8 @@ public sealed class AddTeachingNeedItemRequestExample : IExamplesProvider<AddNee
     public AddNeedItemRequest GetExamples()
     {
         return new AddNeedItemRequest(
+            ItemType: "Item type example",
+            Description: "License pour la session",
             SoftwareId: 10,
             SoftwareVersionId: 25,
             OSId: 2,
