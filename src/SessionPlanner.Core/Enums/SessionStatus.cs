@@ -1,5 +1,8 @@
+using System.Text.Json.Serialization;
+
 namespace SessionPlanner.Core.Enums;
 
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum SessionStatus
 {
     Draft = 1,

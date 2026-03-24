@@ -49,7 +49,7 @@ public class TeachingNeedsControllerTests : IClassFixture<TeachingNeedWebApplica
     {
         var response = await _client.PostAsJsonAsync(
             $"/api/v1/sessions/{sessionId}/needs",
-            new CreateTeachingNeedRequest(courseId, TeachingNeedWebApplicationFactory.SeededPersonnelId, null));
+            new CreateTeachingNeedRequest(courseId, TeachingNeedWebApplicationFactory.SeededPersonnelId, null, null, null, null, null, null, null));
         response.StatusCode.Should().Be(HttpStatusCode.Created);
         return (await response.Content.ReadFromJsonAsync<TeachingNeedResponse>())!;
     }
@@ -138,7 +138,7 @@ public class TeachingNeedsControllerTests : IClassFixture<TeachingNeedWebApplica
 
         var response = await _client.PostAsJsonAsync(
             NeedsUrl(99999),
-            new CreateTeachingNeedRequest(courseId, TeachingNeedWebApplicationFactory.SeededPersonnelId, null));
+            new CreateTeachingNeedRequest(courseId, TeachingNeedWebApplicationFactory.SeededPersonnelId, null, null, null, null, null, null, null));
 
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
@@ -151,7 +151,7 @@ public class TeachingNeedsControllerTests : IClassFixture<TeachingNeedWebApplica
 
         var response = await _client.PostAsJsonAsync(
             NeedsUrl(sessionId),
-            new CreateTeachingNeedRequest(courseId, TeachingNeedWebApplicationFactory.SeededPersonnelId, null));
+            new CreateTeachingNeedRequest(courseId, TeachingNeedWebApplicationFactory.SeededPersonnelId, null, null, null, null, null, null, null));
 
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
@@ -164,7 +164,7 @@ public class TeachingNeedsControllerTests : IClassFixture<TeachingNeedWebApplica
 
         var response = await _client.PostAsJsonAsync(
             NeedsUrl(sessionId),
-            new CreateTeachingNeedRequest(courseId, TeachingNeedWebApplicationFactory.SeededPersonnelId, "Besoin de Java 21"));
+            new CreateTeachingNeedRequest(courseId, TeachingNeedWebApplicationFactory.SeededPersonnelId, "Besoin de Java 21", null, null, null, null, null, null));
 
         response.StatusCode.Should().Be(HttpStatusCode.Created);
         var need = await response.Content.ReadFromJsonAsync<TeachingNeedResponse>();
@@ -186,7 +186,7 @@ public class TeachingNeedsControllerTests : IClassFixture<TeachingNeedWebApplica
 
         var response = await _client.PostAsJsonAsync(
             NeedsUrl(sessionId),
-            new CreateTeachingNeedRequest(courseId, TeachingNeedWebApplicationFactory.SeededPersonnelId, null));
+            new CreateTeachingNeedRequest(courseId, TeachingNeedWebApplicationFactory.SeededPersonnelId, null, null, null, null, null, null, null));
 
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
@@ -200,7 +200,7 @@ public class TeachingNeedsControllerTests : IClassFixture<TeachingNeedWebApplica
         // Admin path requires PersonnelId — omit it
         var response = await _client.PostAsJsonAsync(
             NeedsUrl(sessionId),
-            new CreateTeachingNeedRequest(courseId, null, null));
+            new CreateTeachingNeedRequest(courseId, null, null, null, null, null, null, null, null));
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -219,7 +219,7 @@ public class TeachingNeedsControllerTests : IClassFixture<TeachingNeedWebApplica
 
         var response = await _client.PutAsJsonAsync(
             NeedUrl(sessionId, 9999),
-            new UpdateTeachingNeedRequest(courseId, null));
+            new UpdateTeachingNeedRequest(courseId, null, null, null, null, null, null, null));
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
@@ -234,7 +234,7 @@ public class TeachingNeedsControllerTests : IClassFixture<TeachingNeedWebApplica
 
         var response = await _client.PutAsJsonAsync(
             NeedUrl(sessionId, created.Id),
-            new UpdateTeachingNeedRequest(courseId2, "Commentaire modifié"));
+            new UpdateTeachingNeedRequest(courseId2, "Commentaire modifié", null, null, null, null, null, null));
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var updated = await response.Content.ReadFromJsonAsync<TeachingNeedResponse>();
@@ -296,7 +296,7 @@ public class TeachingNeedsControllerTests : IClassFixture<TeachingNeedWebApplica
 
         var response = await _client.PostAsJsonAsync(
             ItemsUrl(sessionId, 9999),
-            new AddNeedItemRequest(null, null, null, 30, "Notes"));
+            new AddNeedItemRequest(null, null, null, null, 30, null, "Notes"));
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
@@ -310,7 +310,7 @@ public class TeachingNeedsControllerTests : IClassFixture<TeachingNeedWebApplica
 
         var response = await _client.PostAsJsonAsync(
             ItemsUrl(sessionId, need.Id),
-            new AddNeedItemRequest(null, null, null, 25, "Poste supplémentaire"));
+            new AddNeedItemRequest(null, null, null, null, 25, null, "Poste supplémentaire"));
 
         response.StatusCode.Should().Be(HttpStatusCode.Created);
         var item = await response.Content.ReadFromJsonAsync<TeachingNeedItemResponse>();
@@ -328,7 +328,7 @@ public class TeachingNeedsControllerTests : IClassFixture<TeachingNeedWebApplica
 
         await _client.PostAsJsonAsync(
             ItemsUrl(sessionId, need.Id),
-            new AddNeedItemRequest(null, null, null, 10, "item test"));
+            new AddNeedItemRequest(null, null, null, null, 10, null, "item test"));
 
         var response = await _client.GetAsync(NeedUrl(sessionId, need.Id));
         var updated = await response.Content.ReadFromJsonAsync<TeachingNeedResponse>();
@@ -373,7 +373,7 @@ public class TeachingNeedsControllerTests : IClassFixture<TeachingNeedWebApplica
 
         var addResponse = await _client.PostAsJsonAsync(
             ItemsUrl(sessionId, need.Id),
-            new AddNeedItemRequest(null, null, null, 5, null));
+            new AddNeedItemRequest(null, null, null, null, 5, null, null));
         addResponse.StatusCode.Should().Be(HttpStatusCode.Created);
         var item = await addResponse.Content.ReadFromJsonAsync<TeachingNeedItemResponse>();
 
@@ -391,7 +391,7 @@ public class TeachingNeedsControllerTests : IClassFixture<TeachingNeedWebApplica
 
         var addResponse = await _client.PostAsJsonAsync(
             ItemsUrl(sessionId, need.Id),
-            new AddNeedItemRequest(null, null, null, 8, null));
+            new AddNeedItemRequest(null, null, null, null, 8, null, null));
         var item = await addResponse.Content.ReadFromJsonAsync<TeachingNeedItemResponse>();
 
         await _client.DeleteAsync(ItemUrl(sessionId, need.Id, item!.Id));

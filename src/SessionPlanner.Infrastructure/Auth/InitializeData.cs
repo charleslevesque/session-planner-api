@@ -18,6 +18,7 @@ public static class InitializeData
         
         await SeedRolesAsync(db);
         await SeedAdminUserAsync(db, passwordService);
+        await BackfillUserPersonnelLinksAsync(db);
     }
 
     private static async Task SeedRolesAsync(AppDbContext db)
@@ -67,10 +68,30 @@ public static class InitializeData
 
     private static async Task SeedAdminUserAsync(AppDbContext db, IPasswordService passwordService)
     {
-        const string adminUsername = "admin";
+        const string adminUsername = "admin@local.dev";
         const string adminPassword = "Password123!";
 
-        var adminUser = await db.Users
+        var adminRole = await db.Roles
+            .SingleOrDefaultAsync(r => r.Name == Roles.Admin);
+
+        if (adminRole is null)
+            throw new InvalidOperationException("Admin role was not found during seeding.");
+
+        var existingAdminUserId = await db.UserRoles
+            .Where(ur => ur.RoleId == adminRole.Id)
+            .Select(ur => (int?)ur.UserId)
+            .FirstOrDefaultAsync();
+
+        User? adminUser = null;
+
+        if (existingAdminUserId.HasValue)
+        {
+            adminUser = await db.Users
+                .Include(u => u.UserRoles)
+                .SingleOrDefaultAsync(u => u.Id == existingAdminUserId.Value);
+        }
+
+        adminUser ??= await db.Users
             .Include(u => u.UserRoles)
             .SingleOrDefaultAsync(u => u.Username == adminUsername);
 
@@ -88,12 +109,6 @@ public static class InitializeData
             await db.SaveChangesAsync();
         }
 
-        var adminRole = await db.Roles
-            .SingleOrDefaultAsync(r => r.Name == Roles.Admin);
-
-        if (adminRole is null)
-            throw new InvalidOperationException("Admin role was not found during seeding.");
-
         var alreadyLinked = await db.UserRoles.AnyAsync(ur =>
             ur.UserId == adminUser.Id && ur.RoleId == adminRole.Id);
 
@@ -107,5 +122,77 @@ public static class InitializeData
 
             await db.SaveChangesAsync();
         }
+    }
+
+    private static async Task BackfillUserPersonnelLinksAsync(AppDbContext db)
+    {
+        var usersWithoutPersonnel = await db.Users
+            .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
+            .Where(u => u.IsActive && u.PersonnelId == null)
+            .ToListAsync();
+
+        if (usersWithoutPersonnel.Count == 0)
+            return;
+
+        foreach (var user in usersWithoutPersonnel)
+        {
+            var normalizedEmail = NormalizeEmail(user.Username, user.Id);
+
+            var personnel = await db.Personnel
+                .FirstOrDefaultAsync(p => p.Email == normalizedEmail);
+
+            if (personnel is null)
+            {
+                var localPart = normalizedEmail.Split('@')[0];
+                var nameParts = localPart
+                    .Split(new[] { '.', '_', '-', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+
+                personnel = new Personnel
+                {
+                    FirstName = nameParts.Length > 0 ? ToTitle(nameParts[0]) : "User",
+                    LastName = nameParts.Length > 1 ? ToTitle(nameParts[1]) : "Account",
+                    Email = normalizedEmail,
+                    Function = MapRoleToPersonnelFunction(user.UserRoles.Select(ur => ur.Role.Name).FirstOrDefault()),
+                };
+
+                db.Personnel.Add(personnel);
+                await db.SaveChangesAsync();
+            }
+
+            user.PersonnelId = personnel.Id;
+        }
+
+        await db.SaveChangesAsync();
+    }
+
+    private static PersonnelFunction MapRoleToPersonnelFunction(string? roleName)
+    {
+        return roleName switch
+        {
+            Roles.Professor => PersonnelFunction.Professor,
+            Roles.LabInstructor => PersonnelFunction.LabInstructor,
+            Roles.CourseInstructor => PersonnelFunction.CourseInstructor,
+            _ => PersonnelFunction.Professor,
+        };
+    }
+
+    private static string NormalizeEmail(string username, int userId)
+    {
+        var value = (username ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(value))
+            return $"user.{userId}@local.dev";
+
+        return value.Contains('@')
+            ? value
+            : $"{value}.{userId}@local.dev";
+    }
+
+    private static string ToTitle(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return "User";
+
+        return char.ToUpperInvariant(value[0]) + value[1..].ToLowerInvariant();
     }
 }

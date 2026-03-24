@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SessionPlanner — Documentation</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#0d1117;font-family:'Inter',sans-serif;padding:0;color:#e6edf3;min-height:100vh;}
+a{color:inherit;text-decoration:none;}
+.topbar{display:flex;align-items:center;gap:24px;padding:0 28px;height:48px;background:#161b22;border-bottom:1px solid #21262d;}
+.topbar-title{font-size:.72rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#e6edf3;white-space:nowrap;}
+.topbar-divider{width:1px;height:16px;background:#21262d;}
+.topbar a{font-size:.72rem;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:#484f58;padding:4px 10px;border-radius:4px;transition:color .15s,background .15s;}
+.topbar a:hover{color:#8b949e;background:#21262d;}
+.topbar a.active{color:#e6edf3;}
+.hero{padding:72px 28px 56px;border-bottom:1px solid #21262d;}
+.hero-label{font-size:.7rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#484f58;margin-bottom:16px;}
+.hero h1{font-size:2rem;font-weight:700;letter-spacing:-.02em;color:#e6edf3;margin-bottom:12px;line-height:1.2;}
+.hero p{font-size:1rem;color:#8b949e;max-width:580px;line-height:1.75;}
+.stats-row{display:flex;gap:40px;margin-top:36px;flex-wrap:wrap;}
+.stat-item{text-align:left;}
+.stat-num{font-family:'JetBrains Mono',monospace;font-size:1.6rem;font-weight:600;color:#e6edf3;}
+.stat-label{font-size:.72rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#484f58;margin-top:2px;}
+.content{padding:40px 28px;max-width:1100px;}
+.section-label{font-size:.7rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#484f58;margin-bottom:16px;}
+.doc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-bottom:48px;}
+.doc-card{background:#161b22;border:1px solid #21262d;border-radius:6px;padding:20px 24px;transition:border-color .2s,box-shadow .2s;}
+.doc-card:hover{border-color:#30363d;box-shadow:0 0 18px 4px rgba(99,130,190,.2),0 0 36px 8px rgba(56,97,168,.1);}
+.doc-card-type{font-size:.66rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px;}
+.doc-card h3{font-size:1rem;font-weight:600;color:#e6edf3;margin-bottom:6px;}
+.doc-card p{font-size:.875rem;color:#8b949e;line-height:1.7;margin-bottom:16px;}
+.doc-card-link{font-family:'JetBrains Mono',monospace;font-size:.76rem;color:#484f58;display:flex;align-items:center;gap:6px;transition:color .15s;}
+.doc-card:hover .doc-card-link{color:#8b949e;}
+.domain-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin-bottom:48px;}
+.domain-card{background:#161b22;border:1px solid #21262d;border-radius:6px;padding:16px 18px;transition:border-color .2s,box-shadow .2s;}
+.domain-card:hover{border-color:#30363d;box-shadow:0 0 18px 4px rgba(99,130,190,.2),0 0 36px 8px rgba(56,97,168,.1);}
+.domain-card-label{font-size:.66rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.domain-card ul{list-style:none;font-family:'JetBrains Mono',monospace;font-size:.74rem;color:#8b949e;line-height:2.1;}
+.domain-card li::before{content:'— ';color:#21262d;}
+.flow-section{margin-bottom:48px;}
+.flow-wrap{background:#161b22;border:1px solid #21262d;border-radius:6px;padding:20px 24px;}
+.flow-label{font-size:.68rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#484f58;margin-bottom:14px;}
+.flow-row{display:flex;align-items:center;gap:0;flex-wrap:wrap;font-family:'JetBrains Mono',monospace;font-size:.84rem;}
+.flow-step{padding:5px 12px;border-radius:3px;border:1px solid;}
+.flow-arr{color:#30363d;padding:0 8px;font-size:.9rem;}
+.flow-note{font-size:.76rem;color:#484f58;font-family:'JetBrains Mono',monospace;margin-top:8px;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="topbar-title">SessionPlanner API</span>
+  <div class="topbar-divider"></div>
+  <a href="index.html" class="active">Overview</a>
+  <a href="erd.html">ER Diagram</a>
+  <a href="classes.html">Class Diagram</a>
+  <a href="sequences.html">Sequence Diagrams</a>
+</div>
+
+<div class="hero">
+  <div class="hero-label">Technical Documentation</div>
+  <h1>SessionPlanner API</h1>
+  <p>A RESTful .NET API for managing laboratory sessions, teaching needs, infrastructure resources, and personnel in an educational environment. Built with a layered architecture: Controllers → Services → DbContext.</p>
+  <div class="stats-row">
+    <div class="stat-item"><div class="stat-num">13</div><div class="stat-label">Controllers</div></div>
+    <div class="stat-item"><div class="stat-num">20+</div><div class="stat-label">Entities</div></div>
+    <div class="stat-item"><div class="stat-num">4</div><div class="stat-label">User Roles</div></div>
+    <div class="stat-item"><div class="stat-num">2</div><div class="stat-label">State Machines</div></div>
+    <div class="stat-item"><div class="stat-num">24+</div><div class="stat-label">Use Cases</div></div>
+  </div>
+</div>
+
+<div class="content">
+
+  <div class="section-label">Documentation</div>
+  <div class="doc-grid">
+    <a class="doc-card" href="erd.html">
+      <div class="doc-card-type" style="color:#38bdf8">Entity Relationship</div>
+      <h3>ER Diagram</h3>
+      <p>Full database schema across two views: Resources (Course, Lab, Software, VM, Server) and Core Domain (User, Session, TeachingNeed).</p>
+      <div class="doc-card-link">View diagram →</div>
+    </a>
+    <a class="doc-card" href="classes.html">
+      <div class="doc-card-type" style="color:#a78bfa">Object Model</div>
+      <h3>Class Diagram</h3>
+      <p>Entity classes, their attributes and methods, enumerations (SessionStatus, NeedStatus, PersonnelFunction), and service interfaces.</p>
+      <div class="doc-card-link">View diagram →</div>
+    </a>
+    <a class="doc-card" href="sequences.html">
+      <div class="doc-card-type" style="color:#6ee7b7">Interaction Flows</div>
+      <h3>Sequence Diagrams</h3>
+      <p>24 use-case diagrams — one per operation. Authentication, session lifecycle, teaching need approval workflow, user management, and infrastructure.</p>
+      <div class="doc-card-link">View diagrams →</div>
+    </a>
+  </div>
+
+  <div class="section-label">Domain Areas</div>
+  <div class="domain-grid">
+    <div class="domain-card">
+      <div class="domain-card-label"><div class="dot" style="background:#3b82f6"></div><span style="color:#93c5fd;">Users / Auth</span></div>
+      <ul>
+        <li>JWT + Refresh Tokens</li>
+        <li>Role-Based Access Control</li>
+        <li>Granular Permissions</li>
+        <li>4 Roles</li>
+      </ul>
+    </div>
+    <div class="domain-card">
+      <div class="domain-card-label"><div class="dot" style="background:#10b981"></div><span style="color:#6ee7b7;">Sessions</span></div>
+      <ul>
+        <li>Draft → Open → Closed → Archived</li>
+        <li>Timestamp per transition</li>
+        <li>Owns Teaching Needs</li>
+      </ul>
+    </div>
+    <div class="domain-card">
+      <div class="domain-card-label"><div class="dot" style="background:#0e7490"></div><span style="color:#67e8f9;">Teaching Needs</span></div>
+      <ul>
+        <li>5-step approval workflow</li>
+        <li>Per-course, per-personnel</li>
+        <li>Software / OS line items</li>
+        <li>Rejection + revision path</li>
+      </ul>
+    </div>
+    <div class="domain-card">
+      <div class="domain-card-label"><div class="dot" style="background:#f59e0b"></div><span style="color:#fcd34d;">Catalog</span></div>
+      <ul>
+        <li>SaaS Products</li>
+        <li>Equipment Models</li>
+        <li>Course catalogue</li>
+      </ul>
+    </div>
+    <div class="domain-card">
+      <div class="domain-card-label"><div class="dot" style="background:#0e7490"></div><span style="color:#67e8f9;">Infrastructure</span></div>
+      <ul>
+        <li>Physical Servers</li>
+        <li>Virtual Machines</li>
+        <li>Laboratories / Workstations</li>
+        <li>Software + OS versioning</li>
+      </ul>
+    </div>
+    <div class="domain-card">
+      <div class="domain-card-label"><div class="dot" style="background:#8b5cf6"></div><span style="color:#c4b5fd;">People</span></div>
+      <ul>
+        <li>Personnel (Prof / Instructor)</li>
+        <li>Linked to User accounts</li>
+        <li>Course assignments</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="section-label">State Machines</div>
+  <div class="flow-section">
+    <div class="flow-wrap" style="margin-bottom:10px;">
+      <div class="flow-label">Session lifecycle</div>
+      <div class="flow-row">
+        <div class="flow-step" style="border-color:#30363d;color:#8b949e;">Draft</div>
+        <span class="flow-arr">— open →</span>
+        <div class="flow-step" style="border-color:#065f46;color:#6ee7b7;">Open</div>
+        <span class="flow-arr">— close →</span>
+        <div class="flow-step" style="border-color:#92400e;color:#fcd34d;">Closed</div>
+        <span class="flow-arr">— archive →</span>
+        <div class="flow-step" style="border-color:#1d4ed8;color:#93c5fd;">Archived</div>
+      </div>
+      <div class="flow-note">Teaching Needs can only be created while session status = Open. Delete is only allowed in Draft.</div>
+    </div>
+    <div class="flow-wrap">
+      <div class="flow-label">Teaching Need workflow</div>
+      <div class="flow-row">
+        <div class="flow-step" style="border-color:#30363d;color:#8b949e;">Draft</div>
+        <span class="flow-arr">— submit →</span>
+        <div class="flow-step" style="border-color:#065f46;color:#6ee7b7;">Submitted</div>
+        <span class="flow-arr">— review →</span>
+        <div class="flow-step" style="border-color:#92400e;color:#fcd34d;">Under Review</div>
+        <span class="flow-arr">— approve →</span>
+        <div class="flow-step" style="border-color:#1d4ed8;color:#93c5fd;">Approved</div>
+      </div>
+      <div class="flow-note">Rejection path: Under Review — reject → Rejected — revise → Draft. Only Admin / LabInstructor can review, approve, or reject.</div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

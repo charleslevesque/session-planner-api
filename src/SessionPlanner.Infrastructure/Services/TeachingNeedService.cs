@@ -21,6 +21,62 @@ public class TeachingNeedService : ITeachingNeedService
         return user?.PersonnelId;
     }
 
+    public async Task<int?> GetOrCreatePersonnelIdForUserAsync(int userId)
+    {
+        var user = await _db.Users
+            .FirstOrDefaultAsync(u => u.Id == userId && u.IsActive);
+
+        if (user is null)
+            return null;
+
+        if (user.PersonnelId is not null)
+            return user.PersonnelId;
+
+        var rawUsername = (user.Username ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(rawUsername))
+            return null;
+
+        // Reuse existing Personnel by email when present to avoid duplicates.
+        var existingPersonnel = await _db.Personnel
+            .FirstOrDefaultAsync(p => p.Email == rawUsername);
+
+        if (existingPersonnel is not null)
+        {
+            user.PersonnelId = existingPersonnel.Id;
+            await _db.SaveChangesAsync();
+            return existingPersonnel.Id;
+        }
+
+        var localPart = rawUsername.Split('@')[0];
+        var nameParts = localPart
+            .Split(new[] { '.', '_', '-', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+
+        var firstName = nameParts.Length > 0 ? ToTitle(nameParts[0]) : "Teacher";
+        var lastName = nameParts.Length > 1 ? ToTitle(nameParts[1]) : "User";
+
+        var personnel = new Personnel
+        {
+            FirstName = firstName,
+            LastName = lastName,
+            Email = rawUsername,
+            Function = PersonnelFunction.Professor,
+        };
+
+        _db.Personnel.Add(personnel);
+        await _db.SaveChangesAsync();
+
+        user.PersonnelId = personnel.Id;
+        await _db.SaveChangesAsync();
+
+        return personnel.Id;
+    }
+
+    private static string ToTitle(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "User";
+        return char.ToUpperInvariant(value[0]) + value[1..].ToLowerInvariant();
+    }
+
     public async Task<List<TeachingNeed>> GetAllBySessionAsync(int sessionId, int? filterByPersonnelId = null)
     {
         var query = _db.TeachingNeeds
@@ -48,7 +104,9 @@ public class TeachingNeedService : ITeachingNeedService
             .FirstOrDefaultAsync(n => n.SessionId == sessionId && n.Id == id);
     }
 
-    public async Task<TeachingNeed> CreateAsync(int sessionId, int personnelId, int courseId, string? notes)
+    public async Task<TeachingNeed> CreateAsync(int sessionId, int personnelId, int courseId, string? notes,
+        int? expectedStudents = null, bool? hasTechNeeds = null, bool? foundAllCourses = null,
+        string? desiredModifications = null, bool? allowsUpdates = null, string? additionalComments = null)
     {
         var session = await _db.Sessions.FindAsync(sessionId)
             ?? throw new InvalidOperationException("Session not found.");
@@ -61,7 +119,13 @@ public class TeachingNeedService : ITeachingNeedService
             SessionId = sessionId,
             PersonnelId = personnelId,
             CourseId = courseId,
-            Notes = notes
+            Notes = notes,
+            ExpectedStudents = expectedStudents,
+            HasTechNeeds = hasTechNeeds,
+            FoundAllCourses = foundAllCourses,
+            DesiredModifications = desiredModifications,
+            AllowsUpdates = allowsUpdates,
+            AdditionalComments = additionalComments
         };
 
         _db.TeachingNeeds.Add(need);
@@ -71,21 +135,26 @@ public class TeachingNeedService : ITeachingNeedService
             ?? throw new InvalidOperationException("Failed to reload created teaching need.");
     }
 
-    public async Task<TeachingNeed?> UpdateAsync(int sessionId, int id, int courseId, string? notes)
+    public async Task<TeachingNeed?> UpdateAsync(int sessionId, int id, int courseId, string? notes,
+        int? expectedStudents = null, bool? hasTechNeeds = null, bool? foundAllCourses = null,
+        string? desiredModifications = null, bool? allowsUpdates = null, string? additionalComments = null)
     {
         var need = await _db.TeachingNeeds
             .FirstOrDefaultAsync(n => n.SessionId == sessionId && n.Id == id);
 
         if (need is null) return null;
 
-        if (need.Status == NeedStatus.Approved)
-            throw new InvalidOperationException("Cannot modify an approved need.");
-
-        if (need.Status != NeedStatus.Draft && need.Status != NeedStatus.Rejected)
-            throw new InvalidOperationException("Need can only be modified when in Draft or Rejected status.");
+        if (need.Status != NeedStatus.Draft && need.Status != NeedStatus.Submitted && need.Status != NeedStatus.Rejected)
+            throw new InvalidOperationException("Need can only be modified when in Draft, Submitted, or Rejected status.");
 
         need.CourseId = courseId;
         need.Notes = notes;
+        need.ExpectedStudents = expectedStudents;
+        need.HasTechNeeds = hasTechNeeds;
+        need.FoundAllCourses = foundAllCourses;
+        need.DesiredModifications = desiredModifications;
+        need.AllowsUpdates = allowsUpdates;
+        need.AdditionalComments = additionalComments;
 
         await _db.SaveChangesAsync();
 
@@ -107,23 +176,25 @@ public class TeachingNeedService : ITeachingNeedService
         return true;
     }
 
-    public async Task<TeachingNeedItem?> AddItemAsync(int sessionId, int needId, int? softwareId, int? softwareVersionId, int? osId, int? quantity, string? notes)
+    public async Task<TeachingNeedItem?> AddItemAsync(int sessionId, int needId, string itemType, int? softwareId, int? softwareVersionId, int? osId, int? quantity, string? description, string? notes)
     {
         var need = await _db.TeachingNeeds
             .FirstOrDefaultAsync(n => n.SessionId == sessionId && n.Id == needId);
 
         if (need is null) return null;
 
-        if (need.Status != NeedStatus.Draft)
-            throw new InvalidOperationException("Items can only be added to Draft needs.");
+        if (need.Status != NeedStatus.Draft && need.Status != NeedStatus.Submitted)
+            throw new InvalidOperationException("Items can only be added to Draft or Submitted needs.");
 
         var item = new TeachingNeedItem
         {
             TeachingNeedId = needId,
+            ItemType = itemType,
             SoftwareId = softwareId,
             SoftwareVersionId = softwareVersionId,
             OSId = osId,
             Quantity = quantity,
+            Description = description,
             Notes = notes
         };
 
@@ -144,8 +215,8 @@ public class TeachingNeedService : ITeachingNeedService
 
         if (need is null) return false;
 
-        if (need.Status != NeedStatus.Draft)
-            throw new InvalidOperationException("Items can only be removed from Draft needs.");
+        if (need.Status != NeedStatus.Draft && need.Status != NeedStatus.Submitted)
+            throw new InvalidOperationException("Items can only be removed from Draft or Submitted needs.");
 
         var item = await _db.TeachingNeedItems
             .FirstOrDefaultAsync(i => i.Id == itemId && i.TeachingNeedId == needId);

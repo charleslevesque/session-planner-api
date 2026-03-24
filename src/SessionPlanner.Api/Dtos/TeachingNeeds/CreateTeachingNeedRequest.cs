@@ -8,4 +8,10 @@ public record CreateTeachingNeedRequest(
     /// Required when the caller is Admin or Technician. Ignored for Teacher role (uses own personnel).
     /// </summary>
     int? PersonnelId,
-    string? Notes);
+    string? Notes,
+    int? ExpectedStudents,
+    bool? HasTechNeeds,
+    bool? FoundAllCourses,
+    string? DesiredModifications,
+    bool? AllowsUpdates,
+    string? AdditionalComments);

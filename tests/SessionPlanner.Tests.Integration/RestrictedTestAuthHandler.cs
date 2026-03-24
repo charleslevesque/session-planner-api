@@ -26,8 +26,8 @@ public class RestrictedTestAuthHandler : AuthenticationHandler<AuthenticationSch
     {
         var claims = new List<Claim>
         {
-            new Claim(ClaimTypes.Name, "TeacherUser"),
-            new Claim(ClaimTypes.Role, Roles.Teacher),
+            new Claim(ClaimTypes.Name, "ProfessorUser"),
+            new Claim(ClaimTypes.Role, Roles.Professor),
 
             new Claim("perm", Permissions.Sessions.Read),
             new Claim("perm", Permissions.Courses.Read),

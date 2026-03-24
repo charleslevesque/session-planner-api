@@ -227,6 +227,25 @@ namespace SessionPlanner.Infrastructure.Migrations
                     b.ToTable("LaboratoryConfiguration");
                 });
 
+            modelBuilder.Entity("SessionPlanner.Core.Entities.Joins.LaboratorySoftware", b =>
+                {
+                    b.Property<int>("LaboratoryId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("SoftwareId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("LaboratoryId", "SoftwareId");
+
+                    b.HasIndex("SoftwareId");
+
+                    b.ToTable("LaboratorySoftwares");
+                });
+
             modelBuilder.Entity("SessionPlanner.Core.Entities.Joins.PhysicalServerConfiguration", b =>
                 {
                     b.Property<int>("PhysicalServerId")
@@ -650,11 +669,29 @@ namespace SessionPlanner.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("AdditionalComments")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool?>("AllowsUpdates")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("CourseId")
                         .HasColumnType("INTEGER");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
+
+                    b.Property<string>("DesiredModifications")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("ExpectedStudents")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool?>("FoundAllCourses")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool?>("HasTechNeeds")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("Notes")
                         .HasColumnType("TEXT");
@@ -698,6 +735,14 @@ namespace SessionPlanner.Infrastructure.Migrations
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ItemType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Notes")
                         .HasColumnType("TEXT");
@@ -1015,6 +1060,25 @@ namespace SessionPlanner.Infrastructure.Migrations
                     b.Navigation("Configuration");
 
                     b.Navigation("Laboratory");
+                });
+
+            modelBuilder.Entity("SessionPlanner.Core.Entities.Joins.LaboratorySoftware", b =>
+                {
+                    b.HasOne("SessionPlanner.Core.Entities.Laboratory", "Laboratory")
+                        .WithMany("LaboratorySoftwares")
+                        .HasForeignKey("LaboratoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SessionPlanner.Core.Entities.Software", "Software")
+                        .WithMany("LaboratorySoftwares")
+                        .HasForeignKey("SoftwareId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Laboratory");
+
+                    b.Navigation("Software");
                 });
 
             modelBuilder.Entity("SessionPlanner.Core.Entities.Joins.PhysicalServerConfiguration", b =>
@@ -1384,6 +1448,8 @@ namespace SessionPlanner.Infrastructure.Migrations
 
                     b.Navigation("LaboratoryConfigurations");
 
+                    b.Navigation("LaboratorySoftwares");
+
                     b.Navigation("Workstations");
                 });
 
@@ -1447,6 +1513,8 @@ namespace SessionPlanner.Infrastructure.Migrations
             modelBuilder.Entity("SessionPlanner.Core.Entities.Software", b =>
                 {
                     b.Navigation("CourseSoftwares");
+
+                    b.Navigation("LaboratorySoftwares");
 
                     b.Navigation("PhysicalServerSoftwares");
 

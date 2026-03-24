@@ -54,9 +54,10 @@ public class TeachingNeedsController : ControllerBase
     {
         int? filterByPersonnelId = null;
 
-        if (User.IsInRole(Roles.Teacher))
+        if (IsTeachingRole())
         {
             var userId = GetCurrentUserId();
+<<<<<<< feature/add-documentation-elements
             if (userId is null)
             {
                 return Unauthorized(new ApiErrorResponse(
@@ -66,6 +67,13 @@ public class TeachingNeedsController : ControllerBase
             }
 
             filterByPersonnelId = await _needService.GetPersonnelIdForUserAsync(userId.Value);
+=======
+            if (userId is null) return Unauthorized();
+
+            filterByPersonnelId = await _needService.GetOrCreatePersonnelIdForUserAsync(userId.Value);
+            if (filterByPersonnelId is null)
+                return Ok(Array.Empty<TeachingNeedResponse>());
+>>>>>>> main
         }
 
         var needs = await _needService.GetAllBySessionAsync(sessionId, filterByPersonnelId);
@@ -102,6 +110,7 @@ public class TeachingNeedsController : ControllerBase
     {
         var need = await _needService.GetByIdAsync(sessionId, id);
 
+<<<<<<< feature/add-documentation-elements
         if (need is null)
         {
             return NotFound(new ApiErrorResponse(
@@ -111,6 +120,9 @@ public class TeachingNeedsController : ControllerBase
         }
 
         if (User.IsInRole(Roles.Teacher) && !await IsOwner(need.PersonnelId))
+=======
+        if (IsTeachingRole() && !await IsOwner(need.PersonnelId))
+>>>>>>> main
             return Forbid();
 
         return Ok(need.ToResponse());
@@ -159,10 +171,14 @@ public class TeachingNeedsController : ControllerBase
 
         int personnelId;
 
-        if (User.IsInRole(Roles.Teacher))
+        if (IsTeachingRole())
         {
+<<<<<<< feature/add-documentation-elements
             var ownPersonnelId = await _needService.GetPersonnelIdForUserAsync(userId.Value);
 
+=======
+            var ownPersonnelId = await _needService.GetOrCreatePersonnelIdForUserAsync(userId.Value);
+>>>>>>> main
             if (ownPersonnelId is null)
             {
                 return BadRequest(new ApiErrorResponse(
@@ -176,6 +192,7 @@ public class TeachingNeedsController : ControllerBase
         else
         {
             if (request.PersonnelId is null)
+<<<<<<< feature/add-documentation-elements
             {
                 return BadRequest(new ApiErrorResponse(
                     Error: "personnelId is required.",
@@ -183,12 +200,17 @@ public class TeachingNeedsController : ControllerBase
                 ));
             }
 
+=======
+                return BadRequest(new { error = "personnelId is required for non-teaching-role users." });
+>>>>>>> main
             personnelId = request.PersonnelId.Value;
         }
 
         try
         {
-            var need = await _needService.CreateAsync(sessionId, personnelId, request.CourseId, request.Notes);
+            var need = await _needService.CreateAsync(sessionId, personnelId, request.CourseId, request.Notes,
+                request.ExpectedStudents, request.HasTechNeeds, request.FoundAllCourses,
+                request.DesiredModifications, request.AllowsUpdates, request.AdditionalComments);
             return CreatedAtAction(nameof(GetById), new { sessionId, id = need.Id }, need.ToResponse());
         }
         catch (InvalidOperationException ex)
@@ -248,6 +270,7 @@ public class TeachingNeedsController : ControllerBase
 
         try
         {
+<<<<<<< feature/add-documentation-elements
             var updated = await _needService.UpdateAsync(sessionId, id, request.CourseId, request.Notes);
 
             if (updated is null)
@@ -258,6 +281,12 @@ public class TeachingNeedsController : ControllerBase
                 ));
             }
 
+=======
+            var updated = await _needService.UpdateAsync(sessionId, id, request.CourseId, request.Notes,
+                request.ExpectedStudents, request.HasTechNeeds, request.FoundAllCourses,
+                request.DesiredModifications, request.AllowsUpdates, request.AdditionalComments);
+            if (updated is null) return NotFound();
+>>>>>>> main
             return Ok(updated.ToResponse());
         }
         catch (InvalidOperationException ex)
@@ -385,8 +414,9 @@ public class TeachingNeedsController : ControllerBase
         {
             var item = await _needService.AddItemAsync(
                 sessionId, id,
+                request.ItemType ?? "software",
                 request.SoftwareId, request.SoftwareVersionId, request.OSId,
-                request.Quantity, request.Notes);
+                request.Quantity, request.Description, request.Notes);
 
             if (item is null)
             {
@@ -505,7 +535,7 @@ public class TeachingNeedsController : ControllerBase
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<TeachingNeedResponse>> Submit(int sessionId, int id)
     {
-        if (!User.IsInRole(Roles.Teacher)) return Forbid();
+        if (!IsTeachingRole()) return Forbid();
 
         var need = await _needService.GetByIdAsync(sessionId, id);
         if (need is null)
@@ -571,7 +601,7 @@ public class TeachingNeedsController : ControllerBase
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<TeachingNeedResponse>> Review(int sessionId, int id)
     {
-        if (!IsAdminOrTechnician()) return Forbid();
+        if (!IsAdminOrLabInstructor()) return Forbid();
 
         try
         {
@@ -626,7 +656,7 @@ public class TeachingNeedsController : ControllerBase
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<TeachingNeedResponse>> Approve(int sessionId, int id)
     {
-        if (!IsAdminOrTechnician()) return Forbid();
+        if (!IsAdminOrLabInstructor()) return Forbid();
 
         var currentUserId = GetCurrentUserId();
 
@@ -687,7 +717,7 @@ public class TeachingNeedsController : ControllerBase
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<TeachingNeedResponse>> Reject(int sessionId, int id, [FromBody] RejectTeachingNeedRequest request)
     {
-        if (!IsAdminOrTechnician()) return Forbid();
+        if (!IsAdminOrLabInstructor()) return Forbid();
 
         if (string.IsNullOrWhiteSpace(request.Reason))
         {
@@ -752,7 +782,7 @@ public class TeachingNeedsController : ControllerBase
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<TeachingNeedResponse>> Revise(int sessionId, int id)
     {
-        if (!User.IsInRole(Roles.Teacher)) return Forbid();
+        if (!IsTeachingRole()) return Forbid();
 
         var need = await _needService.GetByIdAsync(sessionId, id);
         if (need is null)
@@ -801,6 +831,7 @@ public class TeachingNeedsController : ControllerBase
         return personnelId == needPersonnelId;
     }
 
+<<<<<<< feature/add-documentation-elements
     private bool IsAdminOrTechnician() =>
         User.IsInRole(Roles.Admin) || User.IsInRole(Roles.Technician);
 
@@ -850,3 +881,11 @@ public class TeachingNeedsController : ControllerBase
         }
     }
 }
+=======
+    private bool IsTeachingRole() =>
+        User.IsInRole(Roles.Professor) || User.IsInRole(Roles.CourseInstructor);
+
+    private bool IsAdminOrLabInstructor() =>
+        User.IsInRole(Roles.Admin) || User.IsInRole(Roles.LabInstructor);
+}
+>>>>>>> main

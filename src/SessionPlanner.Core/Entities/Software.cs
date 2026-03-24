@@ -14,4 +14,5 @@ public class Software
     public ICollection<VirtualMachineSoftware> VirtualMachineSoftwares { get; set; } =new List<VirtualMachineSoftware>();
     public ICollection<PhysicalServerSoftware> PhysicalServerSoftwares { get; set; } =new List<PhysicalServerSoftware>();
     public ICollection<SoftwareOS> SoftwareOSes { get; set; } = new List<SoftwareOS>();
+    public ICollection<LaboratorySoftware> LaboratorySoftwares { get; set; } = new List<LaboratorySoftware>();
 }

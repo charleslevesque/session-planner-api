@@ -1,0 +1,376 @@
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { getErrorMessage } from '../lib/api';
+import {
+  ALL_ROLES,
+  ROLE_LABELS,
+  type CreateUserRequest,
+  type RoleName,
+  type UpdateUserPasswordRequest,
+  type UserResponse,
+} from '../types/users';
+
+const initialForm: CreateUserRequest = {
+  username: '',
+  password: '',
+  roleName: 'professor',
+};
+
+function RoleBadge({ role }: { role: string }) {
+  const colors: Record<string, string> = {
+    admin: 'bg-rose-100 text-rose-700 border-rose-200',
+    professor: 'bg-amber-100 text-amber-700 border-amber-200',
+    lab_instructor: 'bg-blue-100 text-blue-700 border-blue-200',
+    course_instructor: 'bg-violet-100 text-violet-700 border-violet-200',
+  };
+
+  const label = ROLE_LABELS[role as RoleName] ?? role;
+  const cls = colors[role] ?? 'bg-stone-100 text-stone-600 border-stone-200';
+
+  return (
+    <span className={`inline-flex items-center rounded-xl border px-2.5 py-0.5 text-xs font-medium ${cls}`}>
+      {label}
+    </span>
+  );
+}
+
+export function UsersPage() {
+  const { apiFetch } = useAuth();
+  const [users, setUsers] = useState<UserResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [pageError, setPageError] = useState('');
+
+  const [roleEdits, setRoleEdits] = useState<Record<number, string>>({});
+  const [roleUpdating, setRoleUpdating] = useState<Record<number, boolean>>({});
+  const [passwordEdits, setPasswordEdits] = useState<Record<number, string>>({});
+  const [passwordUpdating, setPasswordUpdating] = useState<Record<number, boolean>>({});
+
+  const [passwordResetSuccess, setPasswordResetSuccess] = useState<Record<number, string>>({});
+
+  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState<Record<number, boolean>>({});
+
+  const [form, setForm] = useState<CreateUserRequest>(initialForm);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState('');
+  const [createSuccess, setCreateSuccess] = useState('');
+
+  const loadUsers = useCallback(async () => {
+    setLoading(true);
+    setPageError('');
+    try {
+      const data = await apiFetch<UserResponse[]>('/users');
+      setUsers(data);
+      const edits: Record<number, string> = {};
+      for (const u of data) {
+        edits[u.id] = u.roles;
+      }
+      setRoleEdits(edits);
+    } catch (err) {
+      setPageError(getErrorMessage(err, 'Impossible de charger les utilisateurs.'));
+    } finally {
+      setLoading(false);
+    }
+  }, [apiFetch]);
+
+  useEffect(() => {
+    void loadUsers();
+  }, [loadUsers]);
+
+  async function handleRoleUpdate(userId: number) {
+    const roleName = roleEdits[userId];
+    setRoleUpdating((prev) => ({ ...prev, [userId]: true }));
+    try {
+      await apiFetch(`/users/${userId}/role`, {
+        method: 'PUT',
+        body: JSON.stringify({ roleName }),
+      });
+      setUsers((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, roles: roleName } : u)),
+      );
+    } catch (err) {
+      setPageError(getErrorMessage(err, 'Impossible de modifier le rôle.'));
+    } finally {
+      setRoleUpdating((prev) => ({ ...prev, [userId]: false }));
+    }
+  }
+
+  async function handleDelete(userId: number) {
+    setDeleting((prev) => ({ ...prev, [userId]: true }));
+    try {
+      await apiFetch(`/users/${userId}`, { method: 'DELETE' });
+      setUsers((prev) => prev.filter((u) => u.id !== userId));
+      setDeleteConfirm(null);
+    } catch (err) {
+      setPageError(getErrorMessage(err, 'Impossible de supprimer l\'utilisateur.'));
+    } finally {
+      setDeleting((prev) => ({ ...prev, [userId]: false }));
+    }
+  }
+
+  async function handlePasswordReset(userId: number) {
+    const newPassword = (passwordEdits[userId] ?? '').trim();
+    if (newPassword.length < 8) {
+      setPageError('Le mot de passe temporaire doit contenir au moins 8 caractères.');
+      return;
+    }
+
+    setPasswordUpdating((prev) => ({ ...prev, [userId]: true }));
+    setPasswordResetSuccess((prev) => ({ ...prev, [userId]: '' }));
+    setPageError('');
+
+    try {
+      const body: UpdateUserPasswordRequest = { newPassword };
+      await apiFetch(`/users/${userId}/password`, {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      });
+      setPasswordEdits((prev) => ({ ...prev, [userId]: '' }));
+      setPasswordResetSuccess((prev) => ({ ...prev, [userId]: 'Mot de passe réinitialisé.' }));
+      setTimeout(() => {
+        setPasswordResetSuccess((prev) => ({ ...prev, [userId]: '' }));
+      }, 4000);
+    } catch (err) {
+      setPageError(getErrorMessage(err, 'Impossible de réinitialiser le mot de passe.'));
+    } finally {
+      setPasswordUpdating((prev) => ({ ...prev, [userId]: false }));
+    }
+  }
+
+  async function handleCreate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setCreating(true);
+    setCreateError('');
+    setCreateSuccess('');
+    try {
+      await apiFetch<UserResponse>('/users', {
+        method: 'POST',
+        body: JSON.stringify(form),
+      });
+      setCreateSuccess(`Compte "${form.username}" créé avec le rôle ${ROLE_LABELS[form.roleName as RoleName] ?? form.roleName}.`);
+      setForm(initialForm);
+      await loadUsers();
+    } catch (err) {
+      setCreateError(getErrorMessage(err, 'Impossible de créer l\'utilisateur.'));
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  return (
+    <div className="space-y-8">
+      {/* Header */}
+      <section className="rounded-[2rem] bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.12),_transparent_28%),linear-gradient(135deg,_#682a36_0%,_#dc042c_50%,_#c00328_100%)] px-6 py-8 text-white sm:px-8">
+        <p className="text-xs uppercase tracking-[0.35em] text-white/90">ÉTS · Administration</p>
+        <h1 className="mt-4 text-3xl font-semibold sm:text-4xl">Gestion des utilisateurs</h1>
+        <p className="mt-3 text-sm leading-7 text-white/85">
+          Consultez, modifiez les rôles et désactivez les comptes. Créez de nouveaux utilisateurs avec le rôle de votre choix.
+        </p>
+      </section>
+
+      {pageError ? (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          {pageError}
+        </div>
+      ) : null}
+
+      {/* Users table */}
+      <section className="surface-card overflow-hidden p-0">
+        <div className="flex items-center justify-between border-b border-stone-200 px-6 py-4">
+          <h2 className="text-base font-semibold text-stone-950">Utilisateurs actifs</h2>
+          <button
+            type="button"
+            onClick={() => void loadUsers()}
+            className="rounded-xl border border-stone-200 px-3 py-1.5 text-xs text-stone-600 transition hover:bg-stone-50"
+          >
+            Rafraîchir
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="px-6 py-10 text-center text-sm text-stone-500">Chargement...</div>
+        ) : users.length === 0 ? (
+          <div className="px-6 py-10 text-center text-sm text-stone-500">Aucun utilisateur trouvé.</div>
+        ) : (
+          <div className="divide-y divide-stone-100">
+            {users.map((user) => {
+              const pendingRole = roleEdits[user.id] ?? user.roles;
+              const roleChanged = pendingRole !== user.roles;
+              const isUpdating = roleUpdating[user.id] ?? false;
+              const isPasswordUpdating = passwordUpdating[user.id] ?? false;
+              const pendingPassword = passwordEdits[user.id] ?? '';
+              const isDeleting = deleting[user.id] ?? false;
+              const isProtectedAdmin = user.roles === 'admin';
+              const passwordSuccess = passwordResetSuccess[user.id];
+
+              return (
+                <div key={user.id} className="px-5 py-5 transition hover:bg-stone-50/60 sm:px-6">
+                  {/* Row 1: email + role badge */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium text-stone-950 break-all">{user.username}</span>
+                    <RoleBadge role={user.roles} />
+                  </div>
+
+                  {/* Row 2: actions */}
+                  <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+                    {/* Role change */}
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={pendingRole}
+                        onChange={(e) =>
+                          setRoleEdits((prev) => ({ ...prev, [user.id]: e.target.value }))
+                        }
+                        className="min-w-0 flex-1 rounded-xl border border-stone-200 bg-white px-3 py-1.5 text-sm text-stone-700 outline-none focus:border-[var(--ets-primary)] focus:ring-2 focus:ring-[rgba(220,4,44,0.15)]"
+                      >
+                        {ALL_ROLES.map((r) => (
+                          <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                        ))}
+                      </select>
+                      {roleChanged && (
+                        <button
+                          type="button"
+                          onClick={() => void handleRoleUpdate(user.id)}
+                          disabled={isUpdating}
+                          className="shrink-0 rounded-xl bg-stone-950 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-stone-700 disabled:opacity-50"
+                        >
+                          {isUpdating ? '...' : 'Sauvegarder'}
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Password reset */}
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="password"
+                        value={pendingPassword}
+                        onChange={(event) =>
+                          setPasswordEdits((prev) => ({ ...prev, [user.id]: event.target.value }))
+                        }
+                        className="input-field min-w-0 flex-1"
+                        placeholder="Nouveau mot de passe"
+                        minLength={8}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => void handlePasswordReset(user.id)}
+                        disabled={isPasswordUpdating || pendingPassword.trim().length < 8}
+                        className="shrink-0 rounded-xl bg-[var(--ets-primary)] px-3 py-1.5 text-xs font-medium text-white transition hover:bg-[var(--ets-primary-hover)] disabled:opacity-50"
+                      >
+                        {isPasswordUpdating ? '...' : 'Reset'}
+                      </button>
+                    </div>
+
+                    {/* Delete / protected */}
+                    <div className="flex items-center">
+                      {isProtectedAdmin ? (
+                        <span className="text-xs text-stone-400">Compte protégé</span>
+                      ) : deleteConfirm === user.id ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-stone-600">Supprimer ?</span>
+                          <button
+                            type="button"
+                            onClick={() => void handleDelete(user.id)}
+                            disabled={isDeleting}
+                            className="rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-rose-700 disabled:opacity-50"
+                          >
+                            {isDeleting ? '...' : 'Oui'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeleteConfirm(null)}
+                            className="rounded-xl border border-stone-200 px-3 py-1.5 text-xs text-stone-600 hover:bg-stone-50"
+                          >
+                            Non
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setDeleteConfirm(user.id)}
+                          className="rounded-xl border border-rose-200 px-3 py-1.5 text-xs text-rose-600 transition hover:bg-rose-50"
+                        >
+                          Supprimer
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Password reset success feedback */}
+                  {passwordSuccess ? (
+                    <p className="mt-2 text-xs text-emerald-600">{passwordSuccess}</p>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* Create user form */}
+      <section className="surface-card p-6 sm:p-8">
+        <h2 className="text-base font-semibold text-stone-950">Créer un compte</h2>
+        <p className="mt-1 text-sm text-stone-600">
+          L&apos;email doit être unique. Le mot de passe doit faire au moins 8 caractères.
+        </p>
+
+        {createError ? (
+          <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            {createError}
+          </div>
+        ) : null}
+
+        {createSuccess ? (
+          <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+            {createSuccess}
+          </div>
+        ) : null}
+
+        <form className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4" onSubmit={handleCreate}>
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-stone-700">Email</span>
+            <input
+              type="email"
+              value={form.username}
+              onChange={(e) => setForm((prev) => ({ ...prev, username: e.target.value }))}
+              className="input-field"
+              placeholder="nom@organisation.com"
+              required
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-stone-700">Mot de passe</span>
+            <input
+              type="password"
+              value={form.password}
+              onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))}
+              className="input-field"
+              placeholder="Min. 8 caractères"
+              minLength={8}
+              required
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-stone-700">Rôle</span>
+            <select
+              value={form.roleName}
+              onChange={(e) => setForm((prev) => ({ ...prev, roleName: e.target.value as RoleName }))}
+              className="input-field"
+            >
+              {ALL_ROLES.map((r) => (
+                <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+              ))}
+            </select>
+          </label>
+
+          <div className="flex items-end">
+            <button type="submit" className="primary-button w-full" disabled={creating}>
+              {creating ? 'Création...' : 'Créer'}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+}

@@ -190,6 +190,7 @@ public class UsersController : ControllerBase
         return NoContent();
     }
 
+<<<<<<< feature/add-documentation-elements
     /// <summary>
     /// Deletes a user.
     /// </summary>
@@ -199,6 +200,48 @@ public class UsersController : ControllerBase
     /// <response code="401">The caller is not authenticated.</response>
     /// <response code="403">The caller is not allowed to delete users.</response>
     /// <response code="404">No user exists with the supplied identifier.</response>
+=======
+    [HttpPut("{id:int}/password")]
+    [HasPermission(Permissions.Users.Update)]
+    public async Task<IActionResult> UpdatePassword(int id, UpdateUserPasswordRequest request)
+    {
+        var status = await _userService.UpdatePasswordAsync(id, request.NewPassword);
+
+        if (status == UpdateUserPasswordStatus.UserNotFound)
+            return NotFound();
+
+        return NoContent();
+    }
+
+    [HttpPut("me/email")]
+    public async Task<IActionResult> UpdateCurrentUserEmail(UpdateCurrentUserEmailRequest request)
+    {
+        if (!User.IsInRole(Roles.Admin))
+            return Forbid();
+
+        var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (!int.TryParse(userIdValue, out var userId))
+            return Unauthorized();
+
+        var status = await _userService.UpdateCurrentUserEmailAsync(userId, request.NewEmail, request.CurrentPassword);
+
+        if (status == UpdateCurrentUserEmailStatus.UserNotFound)
+            return Unauthorized();
+
+        if (status == UpdateCurrentUserEmailStatus.ForbiddenForNonAdmin)
+            return Forbid();
+
+        if (status == UpdateCurrentUserEmailStatus.InvalidCurrentPassword)
+            return BadRequest(new { error = "Current password is incorrect." });
+
+        if (status == UpdateCurrentUserEmailStatus.EmailAlreadyExists)
+            return BadRequest(new { error = "Email is already in use." });
+
+        return NoContent();
+    }
+
+>>>>>>> main
     [HttpDelete("{id:int}")]
     [HasPermission(Permissions.Users.Delete)]
     [SwaggerOperation(
@@ -214,7 +257,7 @@ public class UsersController : ControllerBase
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(int id)
     {
-        var deleted = await _userService.DeactivateAsync(id);
+        var deleted = await _userService.DeleteAsync(id);
 
         if (!deleted)
         {

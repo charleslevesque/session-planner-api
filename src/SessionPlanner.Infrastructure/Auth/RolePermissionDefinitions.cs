@@ -10,28 +10,32 @@ public static class RolePermissionDefinitions
         {
             [Roles.Admin] = PermissionHelper.GetAllPermissions(typeof(Permissions)).ToList(),
 
-            [Roles.Planner] = new List<string>
+            [Roles.Professor] = new List<string>
             {
                 Permissions.Sessions.Read,
-                Permissions.Sessions.Create,
-                Permissions.Sessions.Update,
-                Permissions.Sessions.Delete,
+                Permissions.TeachingNeeds.Read,
+                Permissions.TeachingNeeds.Create,
+                Permissions.TeachingNeeds.Update,
+                Permissions.TeachingNeeds.Delete,
                 Permissions.Courses.Read,
-                Permissions.Courses.Create,
-                Permissions.Courses.Update,
-                Permissions.Courses.Delete,
+                Permissions.Laboratories.Read,
+                Permissions.Workstations.Read,
+                Permissions.Softwares.Read,
+                Permissions.Personnels.Read,
             },
 
-            [Roles.Technician] = new List<string>
+            [Roles.LabInstructor] = new List<string>
             {
+                Permissions.Sessions.Read,
+                Permissions.Sessions.Update,
                 Permissions.Laboratories.Read,
-                Permissions.Laboratories.Update,
                 Permissions.Laboratories.Create,
+                Permissions.Laboratories.Update,
                 Permissions.Laboratories.Delete,
-                Permissions.OperatingSystems.Read,
-                Permissions.OperatingSystems.Create,
-                Permissions.OperatingSystems.Update,
-                Permissions.OperatingSystems.Delete,
+                Permissions.Workstations.Read,
+                Permissions.Workstations.Create,
+                Permissions.Workstations.Update,
+                Permissions.Workstations.Delete,
                 Permissions.Softwares.Read,
                 Permissions.Softwares.Create,
                 Permissions.Softwares.Update,
@@ -40,10 +44,10 @@ public static class RolePermissionDefinitions
                 Permissions.SoftwareVersions.Create,
                 Permissions.SoftwareVersions.Update,
                 Permissions.SoftwareVersions.Delete,
-                Permissions.Workstations.Read,
-                Permissions.Workstations.Create,
-                Permissions.Workstations.Update,
-                Permissions.Workstations.Delete,
+                Permissions.OperatingSystems.Read,
+                Permissions.OperatingSystems.Create,
+                Permissions.OperatingSystems.Update,
+                Permissions.OperatingSystems.Delete,
                 Permissions.Configurations.Read,
                 Permissions.Configurations.Create,
                 Permissions.Configurations.Update,
@@ -58,35 +62,18 @@ public static class RolePermissionDefinitions
                 Permissions.Personnels.Delete,
             },
 
-            [Roles.Management] = new List<string>
+            [Roles.CourseInstructor] = new List<string>
             {
-                Permissions.Laboratories.Read,
-                Permissions.Workstations.Read,
-                Permissions.Softwares.Read,
-                Permissions.Courses.Read,
-                Permissions.OperatingSystems.Read,
-                Permissions.SoftwareVersions.Read,
-                Permissions.Laboratories.Read,
-                Permissions.Personnels.Read,
-                Permissions.Workstations.Read,
-                Permissions.Configurations.Read,
-            },
-
-            [Roles.Teacher] = new List<string>
-            {
-                Permissions.Laboratories.Read,
-                Permissions.Workstations.Read,
-                Permissions.Softwares.Read,
-                Permissions.Courses.Read,
-                Permissions.OperatingSystems.Read,
-                Permissions.SoftwareVersions.Read,
-                Permissions.Laboratories.Read,
-                Permissions.Personnels.Read,
-                Permissions.Workstations.Read,
+                Permissions.Sessions.Read,
                 Permissions.TeachingNeeds.Read,
                 Permissions.TeachingNeeds.Create,
                 Permissions.TeachingNeeds.Update,
                 Permissions.TeachingNeeds.Delete,
+                Permissions.Courses.Read,
+                Permissions.Laboratories.Read,
+                Permissions.Workstations.Read,
+                Permissions.Softwares.Read,
+                Permissions.Personnels.Read,
             }
         };
     }
