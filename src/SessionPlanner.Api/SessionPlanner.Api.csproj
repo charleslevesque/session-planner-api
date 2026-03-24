@@ -5,11 +5,18 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>59d8f9e6-6df7-43f9-8249-27f901dd7fc9</UserSecretsId>
+
+    <EnableApiXmlDocs>true</EnableApiXmlDocs>
+    <GenerateDocumentationFile>$(EnableApiXmlDocs)</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Asp.Versioning.Http" Version="8.1.1" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.2" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.*" />
+    <PackageReference Include="Swashbuckle.AspNetCore.Annotations" Version="10.*" />
+    <PackageReference Include="Swashbuckle.AspNetCore.Filters" Version="10.*" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.3">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
@@ -19,11 +26,6 @@
   <ItemGroup>
     <ProjectReference Include="..\SessionPlanner.Core\SessionPlanner.Core.csproj" />
     <ProjectReference Include="..\SessionPlanner.Infrastructure\SessionPlanner.Infrastructure.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Dtos\" />
-    <Folder Include="Dtos\Softwares\" />
   </ItemGroup>
 
 </Project>
