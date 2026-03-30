@@ -1,19 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { SessionStatusBadge } from '../components/SessionStatusBadge';
 import { getErrorMessage } from '../lib/api';
-import type { SessionResponse, SessionStatus } from '../types/sessions';
-
-function SessionStatusBadge({ status }: { status: SessionStatus }) {
-  const styles: Record<SessionStatus, string> = {
-    Draft: 'bg-slate-100 text-slate-700 border-slate-200',
-    Open: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-    Closed: 'bg-amber-100 text-amber-700 border-amber-200',
-    Archived: 'bg-stone-200 text-stone-700 border-stone-300',
-  };
-
-  return <span className={`inline-flex rounded-xl border px-2.5 py-0.5 text-xs font-medium ${styles[status]}`}>{status}</span>;
-}
+import type { SessionResponse } from '../types/sessions';
 
 export function NeedsPage() {
   const { apiFetch, user } = useAuth();
@@ -89,18 +79,27 @@ export function NeedsPage() {
                 <div className="mt-4">
                   {canAccessSessionNeeds ? (
                     <div className="flex flex-wrap gap-2">
-                      <Link
-                        to={`/sessions/${session.id}/needs`}
-                        className="inline-flex rounded-xl border-2 border-[var(--ets-primary)]/40 bg-[rgba(220,4,44,0.08)] px-3 py-1.5 text-xs font-medium text-[var(--ets-primary)] transition hover:bg-[rgba(220,4,44,0.14)]"
-                      >
-                        Ouvrir le workflow besoins
-                      </Link>
                       {isTeacher ? (
                         <Link
-                          to={`/sessions/${session.id}/needs?create=1`}
-                          className="inline-flex rounded-xl bg-[var(--ets-primary)] px-3 py-1.5 text-xs font-medium !text-white transition hover:bg-[var(--ets-primary-hover)] hover:!text-white"
+                          to={`/sessions/${session.id}/courses`}
+                          className="inline-flex rounded-xl border-2 border-[var(--ets-primary)]/40 bg-[rgba(220,4,44,0.08)] px-3 py-1.5 text-xs font-medium text-[var(--ets-primary)] transition hover:bg-[rgba(220,4,44,0.14)]"
                         >
-                          Créer un besoin
+                          Parcourir les cours
+                        </Link>
+                      ) : (
+                        <Link
+                          to={`/sessions/${session.id}/needs`}
+                          className="inline-flex rounded-xl border-2 border-[var(--ets-primary)]/40 bg-[rgba(220,4,44,0.08)] px-3 py-1.5 text-xs font-medium text-[var(--ets-primary)] transition hover:bg-[rgba(220,4,44,0.14)]"
+                        >
+                          Ouvrir le workflow besoins
+                        </Link>
+                      )}
+                      {isTeacher ? (
+                        <Link
+                          to={`/sessions/${session.id}/needs`}
+                          className="inline-flex rounded-xl border border-stone-200 px-3 py-1.5 text-xs font-medium text-stone-600 transition hover:bg-stone-50"
+                        >
+                          Mes demandes
                         </Link>
                       ) : null}
                     </div>

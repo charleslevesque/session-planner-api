@@ -13,6 +13,7 @@ const navigation = [
 
 const adminNavigation = [
   { to: '/admin/users', label: 'Utilisateurs', hint: 'Gestion des comptes', allowedRoles: PAGE_ACCESS.users },
+  { to: '/admin/courses-resources', label: 'Cours et ressources', hint: 'Catalogue et inventaire', allowedRoles: PAGE_ACCESS.adminCoursesResources },
 ];
 
 interface SidebarProps {

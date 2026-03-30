@@ -5,8 +5,12 @@ export const PAGE_ACCESS = {
   sessionsManage: ['admin', 'lab_instructor'],
   besoins: ['admin', 'lab_instructor', 'professor', 'course_instructor'],
   sessionNeeds: ['admin', 'lab_instructor', 'professor', 'course_instructor'],
+  sessionCourses: ['admin', 'lab_instructor', 'professor', 'course_instructor'],
+  courseResources: ['admin', 'lab_instructor', 'professor', 'course_instructor'],
+  createNeed: ['professor', 'course_instructor'],
   matrice: ['admin', 'lab_instructor'],
   users: ['admin'],
+  adminCoursesResources: ['admin'],
   security: ['admin', 'professor', 'lab_instructor', 'course_instructor'],
 } as const satisfies Record<string, readonly RoleName[]>;
 

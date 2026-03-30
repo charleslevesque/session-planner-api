@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getErrorMessage } from '../lib/api';
 import type {
@@ -1128,6 +1128,10 @@ export function SessionNeedsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const isTeacher = user?.role === 'professor' || user?.role === 'course_instructor';
+  const isReviewer = user?.role === 'lab_instructor' || user?.role === 'admin';
+  const openCreateForm = searchParams.get('create') === '1';
+
   useEffect(() => {
     if (!Number.isFinite(sessionId)) {
       setLoading(false);
@@ -1156,13 +1160,13 @@ export function SessionNeedsPage() {
     };
   }, [apiFetch, sessionId]);
 
-  const isTeacher = user?.role === 'professor' || user?.role === 'course_instructor';
-  const isReviewer = user?.role === 'lab_instructor' || user?.role === 'admin';
-  const openCreateForm = searchParams.get('create') === '1';
+  if (isTeacher && !openCreateForm) {
+    return <Navigate to={`/sessions/${sessionId}/courses`} replace />;
+  }
 
   return (
     <div className="space-y-6">
-      <Link to="/dashboard" className="inline-flex text-sm text-[var(--ets-primary)] hover:text-[var(--ets-primary-hover)]">&larr; Retour dashboard</Link>
+      <Link to="/besoins" className="inline-flex text-sm text-[var(--ets-primary)] hover:text-[var(--ets-primary-hover)]">&larr; Retour aux sessions</Link>
 
       {loading ? (
         <div className="rounded-2xl border border-stone-200 bg-white/70 px-4 py-6 text-sm text-stone-600">Chargement...</div>
