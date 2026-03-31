@@ -95,16 +95,22 @@ export interface SoftwareVersionRow {
 export interface ConfigurationResponse {
   id: number;
   title: string;
+  osIds: number[];
+  laboratoryIds: number[];
   notes: string | null;
 }
 
 export interface CreateConfigurationRequest {
   title: string;
+  osIds: number[];
+  laboratoryIds: number[];
   notes: string | null;
 }
 
 export interface UpdateConfigurationRequest {
   title: string;
+  osIds: number[];
+  laboratoryIds: number[];
   notes: string | null;
 }
 
@@ -211,6 +217,11 @@ export interface OSResponse {
   name: string;
 }
 
+export interface LaboratoryLookupResponse {
+  id: number;
+  name: string;
+}
+
 // ── Admin resource tabs ──
 
 export type AdminResourceTab = 'saas' | 'softwares' | 'configurations' | 'vms' | 'servers' | 'equipment';
@@ -239,6 +250,7 @@ export interface FieldDef {
   name: string;
   label: string;
   type: 'text' | 'number' | 'textarea' | 'select';
+  multiple?: boolean;
   required?: boolean;
   placeholder?: string;
   min?: number;

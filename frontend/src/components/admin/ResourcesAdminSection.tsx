@@ -16,6 +16,7 @@ import {
   type PhysicalServerResponse,
   type EquipmentModelResponse,
   type OSResponse,
+  type LaboratoryLookupResponse,
 } from '../../types/admin';
 import type { CourseResourcesResponse } from '../../types/courseResources';
 import { SoftwareAdminPanel } from './SoftwareAdminPanel';
@@ -25,11 +26,6 @@ import { SoftwareAdminPanel } from './SoftwareAdminPanel';
 const SAAS_COLUMNS: Column<SaaSProductResponse>[] = [
   { key: 'name', label: 'Nom', render: (item) => <span className="font-medium">{item.name}</span> },
   { key: 'accounts', label: 'Comptes', render: (item) => item.numberOfAccounts ?? '—' },
-  { key: 'notes', label: 'Notes', render: (item) => item.notes ?? '—', className: 'max-w-xs truncate' },
-];
-
-const CONFIG_COLUMNS: Column<ConfigurationResponse>[] = [
-  { key: 'title', label: 'Titre', render: (item) => <span className="font-medium">{item.title}</span> },
   { key: 'notes', label: 'Notes', render: (item) => item.notes ?? '—', className: 'max-w-xs truncate' },
 ];
 
@@ -77,10 +73,14 @@ const SAAS_FIELDS: FieldDef[] = [
   { name: 'notes', label: 'Notes', type: 'textarea' },
 ];
 
-const CONFIG_FIELDS: FieldDef[] = [
-  { name: 'title', label: 'Titre', type: 'text', required: true },
-  { name: 'notes', label: 'Notes', type: 'textarea' },
-];
+function getConfigFields(osOpts: SelectOption[], laboratoryOpts: SelectOption[]): FieldDef[] {
+  return [
+    { name: 'title', label: 'Titre', type: 'text', required: true },
+    { name: 'osIds', label: 'Systèmes d\'exploitation', type: 'select', multiple: true, required: true, options: osOpts },
+    { name: 'laboratoryIds', label: 'Laboratoires', type: 'select', multiple: true, required: true, options: laboratoryOpts },
+    { name: 'notes', label: 'Notes', type: 'textarea' },
+  ];
+}
 
 function getVmFields(osOpts: SelectOption[], serverOpts: SelectOption[]): FieldDef[] {
   return [
@@ -133,6 +133,18 @@ function nullableNum(v: string): number | null {
 
 function requiredNum(v: string): number {
   return Number(v) || 0;
+}
+
+function idsFromCsv(v: string): number[] {
+  return v
+    .split(',')
+    .map((part) => Number(part.trim()))
+    .filter((id) => Number.isFinite(id) && id > 0);
+}
+
+function csvFromIds(ids: number[] | null | undefined): string {
+  if (!ids || ids.length === 0) return '';
+  return ids.join(',');
 }
 
 // ── Generic Resource Panel ──
@@ -472,6 +484,7 @@ export function ResourcesAdminSection({ courseId }: ResourcesAdminSectionProps) 
   const [activeTab, setActiveTab] = useState<AdminResourceTab>('saas');
 
   const [osOptions, setOsOptions] = useState<SelectOption[]>([]);
+  const [laboratoryOptions, setLaboratoryOptions] = useState<SelectOption[]>([]);
   const [serverOptions, setServerOptions] = useState<SelectOption[]>([]);
 
   // Association data (when viewing a specific course)
@@ -488,11 +501,13 @@ export function ResourcesAdminSection({ courseId }: ResourcesAdminSectionProps) 
 
   const loadLookups = useCallback(async () => {
     try {
-      const [osList, serverList] = await Promise.all([
+      const [osList, laboratoryList, serverList] = await Promise.all([
         apiFetch<OSResponse[]>('/operatingsystems'),
+        apiFetch<LaboratoryLookupResponse[]>('/laboratories'),
         apiFetch<PhysicalServerResponse[]>('/physicalservers'),
       ]);
       setOsOptions(osList.map((os) => ({ value: String(os.id), label: os.name })));
+      setLaboratoryOptions(laboratoryList.map((lab) => ({ value: String(lab.id), label: lab.name })));
       setServerOptions(serverList.map((s) => ({ value: String(s.id), label: s.hostname })));
     } catch {
       /* Lookups are best-effort */
@@ -528,6 +543,39 @@ export function ResourcesAdminSection({ courseId }: ResourcesAdminSectionProps) 
 
   const vmFields = useMemo(() => getVmFields(osOptions, serverOptions), [osOptions, serverOptions]);
   const serverFields = useMemo(() => getServerFields(osOptions), [osOptions]);
+  const configFields = useMemo(() => getConfigFields(osOptions, laboratoryOptions), [osOptions, laboratoryOptions]);
+
+  const osNameById = useMemo(
+    () => new Map(osOptions.map((opt) => [Number(opt.value), opt.label])),
+    [osOptions],
+  );
+  const laboratoryNameById = useMemo(
+    () => new Map(laboratoryOptions.map((opt) => [Number(opt.value), opt.label])),
+    [laboratoryOptions],
+  );
+  const configColumns = useMemo<Column<ConfigurationResponse>[]>(
+    () => [
+      { key: 'title', label: 'Titre', render: (item) => <span className="font-medium">{item.title}</span> },
+      {
+        key: 'os',
+        label: 'OS',
+        render: (item) =>
+          item.osIds.length > 0
+            ? item.osIds.map((id) => osNameById.get(id) ?? `OS #${id}`).join(', ')
+            : '—',
+      },
+      {
+        key: 'laboratory',
+        label: 'Laboratoire',
+        render: (item) =>
+          item.laboratoryIds.length > 0
+            ? item.laboratoryIds.map((id) => laboratoryNameById.get(id) ?? `Lab #${id}`).join(', ')
+            : '—',
+      },
+      { key: 'notes', label: 'Notes', render: (item) => item.notes ?? '—', className: 'max-w-xs truncate' },
+    ],
+    [osNameById, laboratoryNameById],
+  );
 
   const currentAssociatedIds = courseId && associationsLoaded ? associationMap[activeTab] : undefined;
 
@@ -574,28 +622,33 @@ export function ResourcesAdminSection({ courseId }: ResourcesAdminSectionProps) 
 
       case 'configurations':
         return (
-          <>
-            <div className="mx-6 mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-700">
-              <strong>OS et Laboratoire</strong> — L&apos;association de configurations aux systèmes d&apos;exploitation
-              et laboratoires nécessite un ajout backend. Seuls le titre et les notes sont gérés actuellement.
-            </div>
-            <ResourcePanel<ConfigurationResponse>
-              key="configurations"
-              apiPath="/configurations"
-              singularLabel="Configuration"
-              dataColumns={CONFIG_COLUMNS}
-              fields={CONFIG_FIELDS}
-              defaultValues={{ title: '', notes: '' }}
-              itemToValues={(item) => ({ title: item.title, notes: item.notes ?? '' })}
-              valuesToBody={(v) => ({ title: v.title, notes: nullableStr(v.notes) })}
-              getLabel={(item) => item.title}
-              getSearchText={(item) => `${item.title} ${item.notes ?? ''}`}
-              associatedIds={currentAssociatedIds}
-              courseId={courseId}
-              courseResourcePath="configurations"
-              onAssociationChange={() => void loadAssociations()}
-            />
-          </>
+          <ResourcePanel<ConfigurationResponse>
+            key="configurations"
+            apiPath="/configurations"
+            singularLabel="Configuration"
+            dataColumns={configColumns}
+            fields={configFields}
+            defaultValues={{ title: '', osIds: '', laboratoryIds: '', notes: '' }}
+            itemToValues={(item) => ({
+              title: item.title,
+              osIds: csvFromIds(item.osIds),
+              laboratoryIds: csvFromIds(item.laboratoryIds),
+              notes: item.notes ?? '',
+            })}
+            valuesToBody={(v) => ({
+              title: v.title,
+              osIds: idsFromCsv(v.osIds),
+              laboratoryIds: idsFromCsv(v.laboratoryIds),
+              notes: nullableStr(v.notes),
+            })}
+            getLabel={(item) => item.title}
+            getSearchText={(item) =>
+              `${item.title} ${item.notes ?? ''} ${item.osIds.map((id) => osNameById.get(id) ?? '').join(' ')} ${item.laboratoryIds.map((id) => laboratoryNameById.get(id) ?? '').join(' ')}`}
+            associatedIds={currentAssociatedIds}
+            courseId={courseId}
+            courseResourcePath="configurations"
+            onAssociationChange={() => void loadAssociations()}
+          />
         );
 
       case 'vms':

@@ -14,6 +14,8 @@ export interface CourseSoftwareResponse {
 export interface CourseConfigurationResponse {
   id: number;
   title: string;
+  osIds?: number[];
+  laboratoryIds?: number[];
   notes?: string;
 }
 

@@ -35,6 +35,56 @@ function renderField(
       );
 
     case 'select':
+      if (field.multiple) {
+        const selectedValues = value ? value.split(',').filter(Boolean) : [];
+        const selectedSet = new Set(selectedValues);
+
+        function toggleValue(nextValue: string) {
+          const next = new Set(selectedSet);
+          if (next.has(nextValue)) {
+            next.delete(nextValue);
+          } else {
+            next.add(nextValue);
+          }
+          onChange(field.name, Array.from(next).join(','));
+        }
+
+        return (
+          <div className="space-y-2 rounded-2xl border border-stone-200 bg-white p-2">
+            <div className="max-h-44 space-y-1 overflow-y-auto">
+              {field.options?.map((opt) => {
+                const selected = selectedSet.has(opt.value);
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => toggleValue(opt.value)}
+                    className={[
+                      'flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition',
+                      selected
+                        ? 'bg-[rgba(220,4,44,0.08)] text-[var(--ets-primary)]'
+                        : 'text-stone-700 hover:bg-stone-50',
+                    ].join(' ')}
+                  >
+                    <span>{opt.label}</span>
+                    <span
+                      className={[
+                        'inline-flex h-5 w-5 items-center justify-center rounded border text-xs font-semibold',
+                        selected
+                          ? 'border-[var(--ets-primary)] bg-[var(--ets-primary)] text-white'
+                          : 'border-stone-300 bg-white text-transparent',
+                      ].join(' ')}
+                    >
+                      ✓
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      }
+
       return (
         <select
           value={value}
