@@ -12,6 +12,7 @@ using SessionPlanner.Api.OpenApi.Examples.Common;
 using Swashbuckle.AspNetCore.Annotations;
 using Swashbuckle.AspNetCore.Filters;
 using SessionPlanner.Api.Common;
+using SessionPlanner.Core.Entities;
 
 namespace SessionPlanner.Api.Controllers;
 
@@ -50,11 +51,27 @@ public class ConfigurationsController : ControllerBase
     [SwaggerResponseExample(StatusCodes.Status401Unauthorized, typeof(UnauthorizedErrorExample))]
     [SwaggerResponseExample(StatusCodes.Status403Forbidden, typeof(ForbiddenErrorExample))]
     [ProducesResponseType(typeof(ConfigurationResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<ConfigurationResponse>> Create(CreateConfigurationRequest request)
     {
-        var configuration = await _configurationService.CreateAsync(request.Title, request.Notes);
+        Configuration configuration;
+        try
+        {
+            configuration = await _configurationService.CreateAsync(
+                request.Title,
+                request.OSIds,
+                request.LaboratoryIds,
+                request.Notes);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new ApiErrorResponse(
+                Error: ex.Message,
+                Code: ErrorCodes.BadRequest
+            ));
+        }
 
         return CreatedAtAction(
             nameof(GetById),
@@ -139,12 +156,29 @@ public class ConfigurationsController : ControllerBase
     [SwaggerResponseExample(StatusCodes.Status404NotFound, typeof(NotFoundErrorExample))]
     [SwaggerResponseExample(StatusCodes.Status403Forbidden, typeof(ForbiddenErrorExample))]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Update(int id, UpdateConfigurationRequest request)
     {
-        var updated = await _configurationService.UpdateAsync(id, request.Title, request.Notes);
+        bool updated;
+        try
+        {
+            updated = await _configurationService.UpdateAsync(
+                id,
+                request.Title,
+                request.OSIds,
+                request.LaboratoryIds,
+                request.Notes);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new ApiErrorResponse(
+                Error: ex.Message,
+                Code: ErrorCodes.BadRequest
+            ));
+        }
 
         if (!updated)
             return NotFound(new ApiErrorResponse(

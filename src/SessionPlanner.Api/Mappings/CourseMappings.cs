@@ -27,7 +27,10 @@ public static class CourseMappings
 
     public static CourseConfigurationResponse ToCourseConfigurationResponse(this Configuration c)
     {
-        return new CourseConfigurationResponse(c.Id, c.Title, c.Notes);
+        var osIds = c.ConfigurationOSes.Select(x => x.OSId).Distinct().ToList();
+        var laboratoryIds = c.LaboratoryConfigurations.Select(x => x.LaboratoryId).Distinct().ToList();
+
+        return new CourseConfigurationResponse(c.Id, c.Title, osIds, laboratoryIds, c.Notes);
     }
 
     public static CourseVmResponse ToCourseVmResponse(this VirtualMachine vm)

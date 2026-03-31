@@ -89,10 +89,11 @@ public class CourseService : ICourseService
 
     public async Task<List<Configuration>> GetCourseConfigurationsAsync(int courseId)
     {
-        return await _db.Set<CourseConfiguration>()
+        return await _db.Configurations
             .AsNoTracking()
-            .Where(x => x.CourseId == courseId)
-            .Select(x => x.Configuration)
+            .Where(c => c.CourseConfigurations.Any(x => x.CourseId == courseId))
+            .Include(c => c.ConfigurationOSes)
+            .Include(c => c.LaboratoryConfigurations)
             .ToListAsync();
     }
 
