@@ -11,4 +11,5 @@ public record TeachingNeedItemResponse(
     string? OSName,
     int? Quantity,
     string? Description,
-    string? Notes);
+    string? Notes,
+    string? DetailsJson);

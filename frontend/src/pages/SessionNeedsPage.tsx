@@ -2,43 +2,17 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react
 import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getErrorMessage } from '../lib/api';
+import { NEED_ITEM_LABELS, summarizeNeedItem, type NeedItemLookups } from '../lib/needItemSchemas';
 import type {
   AddNeedItemRequest,
   CourseResponse,
   NeedItemType,
   SoftwareResponse,
-  TeachingNeedItemResponse,
   TeachingNeedResponse,
   TeachingNeedStatus,
 } from '../types/needs';
 import type { SessionResponse } from '../types/sessions';
-
-const ITEM_TYPE_LABELS: Record<string, string> = {
-  software: 'Logiciel',
-  virtual_machine: 'Machine virtuelle',
-  physical_server: 'Serveur physique',
-  equipment_loan: 'Prêt d\'équipement',
-  other: 'Autre besoin',
-};
-
-function effectiveItemType(item: TeachingNeedItemResponse): NeedItemType {
-  if (!item.itemType || (item.itemType as string) === '') return 'software';
-  return item.itemType;
-}
-
-function itemLabel(item: TeachingNeedItemResponse): string {
-  return ITEM_TYPE_LABELS[effectiveItemType(item)] ?? 'Autre';
-}
-
-function itemDisplayText(item: TeachingNeedItemResponse): string {
-  const type = effectiveItemType(item);
-  if (type === 'software') {
-    const name = item.softwareName ?? 'Logiciel inconnu';
-    return item.notes ? `${name} — ${item.notes}` : name;
-  }
-  const desc = item.description ?? ITEM_TYPE_LABELS[type] ?? type;
-  return item.notes ? `${desc} — ${item.notes}` : desc;
-}
+import type { LaboratoryLookupResponse, OSResponse, PhysicalServerResponse } from '../types/admin';
 
 interface LocalNeedItem {
   id: string;
@@ -78,110 +52,40 @@ function ChevronIcon({ expanded }: { expanded: boolean }) {
   );
 }
 
-function PencilButton({ onClick }: { onClick: () => void }) {
-  return (
-    <button type="button" onClick={onClick} className="ml-2 inline-flex items-center rounded-md p-0.5 text-stone-400 hover:text-[var(--ets-primary)] hover:bg-[rgba(220,4,44,0.08)] transition" title="Modifier">
-      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zM19.5 7.125L16.862 4.487M13.5 19.5h7" />
-      </svg>
-    </button>
-  );
-}
-
-function boolDisplay(val: boolean | null | undefined): string {
-  if (val == null) return '—';
-  return val ? 'Oui' : 'Non';
-}
 
 interface NeedDetailPanelProps {
   need: TeachingNeedResponse;
-  editable?: boolean;
-  editingField?: string | null;
-  onStartFieldEdit?: (field: string) => void;
-  onCancelFieldEdit?: () => void;
-  onSaveFieldEdit?: (field: string, value: unknown) => void;
-  fieldSaving?: boolean;
+  lookups: NeedItemLookups;
 }
 
-function NeedDetailPanel({ need, editable, editingField, onStartFieldEdit, onCancelFieldEdit, onSaveFieldEdit, fieldSaving }: NeedDetailPanelProps) {
-  const [tempStr, setTempStr] = useState('');
-  const [tempBool, setTempBool] = useState<boolean | null>(null);
-  const [tempNum, setTempNum] = useState('');
-
-  function startField(field: string, currentVal: unknown, kind: 'str' | 'bool' | 'num') {
-    if (kind === 'str') setTempStr((currentVal as string) ?? '');
-    if (kind === 'bool') setTempBool(currentVal as boolean | null);
-    if (kind === 'num') setTempNum(currentVal != null ? String(currentVal) : '');
-    onStartFieldEdit?.(field);
-  }
-
-  function renderRow(question: string, answer: string, field: string | null, currentVal: unknown, kind: 'str' | 'bool' | 'num') {
-    const isFieldEditing = editable && editingField === field;
-
-    return (
-      <div className="py-2.5 border-b border-stone-100 last:border-0">
-        <div className="flex items-start justify-between gap-2">
-          <p className="text-sm font-medium text-stone-700">{question}</p>
-          {editable && field && !editingField ? (
-            <PencilButton onClick={() => startField(field, currentVal, kind)} />
-          ) : null}
-        </div>
-        {isFieldEditing && field ? (
-          <div className="mt-2">
-            {kind === 'str' && (
-              <textarea value={tempStr} onChange={(e) => setTempStr(e.target.value)} rows={2} className="input-field w-full" autoFocus />
-            )}
-            {kind === 'num' && (
-              <input type="number" min={0} value={tempNum} onChange={(e) => setTempNum(e.target.value)} className="input-field max-w-xs" autoFocus />
-            )}
-            {kind === 'bool' && (
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 text-sm"><input type="radio" checked={tempBool === true} onChange={() => setTempBool(true)} /> Oui</label>
-                <label className="flex items-center gap-2 text-sm"><input type="radio" checked={tempBool === false} onChange={() => setTempBool(false)} /> Non</label>
-              </div>
-            )}
-            <div className="mt-2 flex gap-2">
-              <button type="button" disabled={fieldSaving} onClick={() => {
-                const v = kind === 'str' ? (tempStr.trim() || null) : kind === 'num' ? (tempNum ? Number(tempNum) : null) : tempBool;
-                onSaveFieldEdit?.(field, v);
-              }} className="rounded-lg bg-stone-950 px-3 py-1 text-xs font-medium text-white hover:bg-stone-800 disabled:opacity-50">{fieldSaving ? '...' : 'OK'}</button>
-              <button type="button" onClick={onCancelFieldEdit} className="rounded-lg border border-stone-300 px-3 py-1 text-xs text-stone-600 hover:bg-stone-100">Annuler</button>
-            </div>
-          </div>
-        ) : (
-          <p className="mt-0.5 text-sm text-stone-600">{answer}</p>
-        )}
-      </div>
-    );
-  }
-
+function NeedDetailPanel({ need, lookups }: NeedDetailPanelProps) {
   return (
-    <div className="mt-3 space-y-0">
-      {renderRow('Combien d\'étudiant·e·s attendez-vous pour ce cours ?', need.expectedStudents != null ? String(need.expectedStudents) : '—', 'expectedStudents', need.expectedStudents, 'num')}
-      {renderRow('Avez-vous des besoins technologiques pour cette session ?', boolDisplay(need.hasTechNeeds), 'hasTechNeeds', need.hasTechNeeds, 'bool')}
-      {renderRow('Est-ce que vous avez trouvé l\'ensemble de vos cours dans la liste ?', boolDisplay(need.foundAllCourses), 'foundAllCourses', need.foundAllCourses, 'bool')}
-      {renderRow('Souhaitez-vous apporter des modifications ?', need.desiredModifications || '—', 'desiredModifications', need.desiredModifications, 'str')}
-      {renderRow('Autorisez-vous l\'équipe technique à faire la mise à jour des logiciels et des systèmes d\'exploitation vers des versions subséquentes le cas échéant ?', boolDisplay(need.allowsUpdates), 'allowsUpdates', need.allowsUpdates, 'bool')}
-      {renderRow('Commentaires supplémentaires', [need.additionalComments, need.notes].filter(Boolean).join(' — ') || '—', 'additionalComments', [need.additionalComments, need.notes].filter(Boolean).join(' — '), 'str')}
-
-      <div className="pt-3">
-        <p className="text-sm font-semibold text-stone-800 mb-2">Besoins ({need.items.length})</p>
-        {need.items.length > 0 ? (
-          <ul className="space-y-1.5">
-            {need.items.map((item) => (
+    <div className="mt-3">
+      <p className="text-sm font-semibold text-stone-800 mb-2">
+        Besoins ({need.items.length})
+      </p>
+      {need.items.length > 0 ? (
+        <ul className="space-y-1.5">
+          {need.items.map((item) => {
+            const { label, summary } = summarizeNeedItem(item, lookups);
+            return (
               <li key={item.id} className="rounded-xl bg-stone-50 px-3 py-2 text-sm text-stone-700">
-                <span className="inline-flex rounded-md border border-stone-200 bg-stone-100 px-1.5 py-0.5 text-[10px] font-medium text-stone-500 mr-2">{itemLabel(item)}</span>
-                {itemDisplayText(item)}
+                <span className="inline-flex rounded-md border border-stone-200 bg-stone-100 px-1.5 py-0.5 text-[10px] font-medium text-stone-500 mr-2">
+                  {label}
+                </span>
+                {summary}
               </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-sm text-stone-500">Aucun besoin spécifique.</p>
-        )}
-      </div>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="text-sm text-stone-500">Aucun besoin spécifique.</p>
+      )}
 
       {need.rejectionReason ? (
-        <p className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">Motif de rejet: {need.rejectionReason}</p>
+        <p className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          Motif de rejet&nbsp;: {need.rejectionReason}
+        </p>
       ) : null}
     </div>
   );
@@ -203,6 +107,9 @@ function TeacherNeedsView({ sessionId, startInCreateMode = false }: { sessionId:
   const { apiFetch } = useAuth();
   const [courses, setCourses] = useState<CourseResponse[]>([]);
   const [softwares, setSoftwares] = useState<SoftwareResponse[]>([]);
+  const [osOptions, setOsOptions] = useState<{ value: string; label: string }[]>([]);
+  const [laboratoryOptions, setLaboratoryOptions] = useState<{ value: string; label: string }[]>([]);
+  const [serverOptions, setServerOptions] = useState<{ value: string; label: string }[]>([]);
   const [needs, setNeeds] = useState<TeachingNeedResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -228,20 +135,35 @@ function TeacherNeedsView({ sessionId, startInCreateMode = false }: { sessionId:
 
   const courseCodeSuggestions = useMemo(() => courses.map((course) => course.code), [courses]);
   const softwareSuggestions = useMemo(() => softwares.map((software) => software.name), [softwares]);
+  const needLookups = useMemo<NeedItemLookups>(
+    () => ({
+      softwareNames: softwareSuggestions,
+      osOptions,
+      laboratoryOptions,
+      serverOptions,
+    }),
+    [softwareSuggestions, osOptions, laboratoryOptions, serverOptions],
+  );
 
   const loadData = useCallback(async () => {
     setLoading(true);
     setError('');
 
     try {
-      const [coursesData, softwaresData, needsData] = await Promise.all([
+      const [coursesData, softwaresData, osData, laboratoriesData, serversData, needsData] = await Promise.all([
         apiFetch<CourseResponse[]>('/courses'),
         apiFetch<SoftwareResponse[]>('/softwares'),
+        apiFetch<OSResponse[]>('/operatingsystems'),
+        apiFetch<LaboratoryLookupResponse[]>('/laboratories'),
+        apiFetch<PhysicalServerResponse[]>('/physicalservers'),
         apiFetch<TeachingNeedResponse[]>(`/sessions/${sessionId}/needs`),
       ]);
 
       setCourses(coursesData);
       setSoftwares(softwaresData);
+      setOsOptions(osData.map((os) => ({ value: String(os.id), label: os.name })));
+      setLaboratoryOptions(laboratoriesData.map((lab) => ({ value: String(lab.id), label: lab.name })));
+      setServerOptions(serversData.map((server) => ({ value: String(server.id), label: server.hostname })));
       setNeeds(needsData);
     } catch (err) {
       setError(getErrorMessage(err, 'Impossible de charger la saisie des besoins.'));
@@ -503,47 +425,6 @@ function TeacherNeedsView({ sessionId, startInCreateMode = false }: { sessionId:
     });
   }
 
-  const [fieldEdit, setFieldEdit] = useState<{ needId: number; field: string } | null>(null);
-  const [fieldSaving, setFieldSaving] = useState(false);
-
-  function startFieldEdit(needId: number, field: string) {
-    setFieldEdit({ needId, field });
-  }
-
-  function cancelFieldEdit() {
-    setFieldEdit(null);
-  }
-
-  async function saveFieldEdit(need: TeachingNeedResponse, field: string, value: unknown) {
-    setFieldSaving(true);
-    setError('');
-
-    try {
-      const payload: Record<string, unknown> = {
-        courseId: need.courseId,
-        expectedStudents: need.expectedStudents,
-        hasTechNeeds: need.hasTechNeeds,
-        foundAllCourses: need.foundAllCourses,
-        desiredModifications: need.desiredModifications,
-        allowsUpdates: need.allowsUpdates,
-        additionalComments: need.additionalComments,
-      };
-      payload[field] = value;
-
-      await apiFetch(`/sessions/${sessionId}/needs/${need.id}`, {
-        method: 'PUT',
-        body: JSON.stringify(payload),
-      });
-
-      setFieldEdit(null);
-      await loadData();
-    } catch (err) {
-      setError(getErrorMessage(err, 'Erreur lors de la sauvegarde.'));
-    } finally {
-      setFieldSaving(false);
-    }
-  }
-
   if (loading) {
     return <div className="rounded-2xl border border-stone-200 bg-white/70 px-4 py-6 text-sm text-stone-600">Chargement...</div>;
   }
@@ -756,7 +637,7 @@ function TeacherNeedsView({ sessionId, startInCreateMode = false }: { sessionId:
                   {items.map((item) => (
                     <li key={item.id} className="flex items-center justify-between rounded-xl bg-white px-3 py-2 text-sm">
                       <span>
-                        <span className="inline-flex rounded-md border border-stone-200 bg-stone-100 px-1.5 py-0.5 text-[10px] font-medium text-stone-600 mr-2">{ITEM_TYPE_LABELS[item.itemType] ?? 'Logiciel'}</span>
+                        <span className="inline-flex rounded-md border border-stone-200 bg-stone-100 px-1.5 py-0.5 text-[10px] font-medium text-stone-600 mr-2">{NEED_ITEM_LABELS[item.itemType] ?? 'Logiciel'}</span>
                         {item.itemType === 'software'
                           ? <>{item.softwareName}{item.softwareVersion ? ` - ${item.softwareVersion}` : ''}</>
                           : item.description}
@@ -800,7 +681,7 @@ function TeacherNeedsView({ sessionId, startInCreateMode = false }: { sessionId:
           ) : (
             [...editableNeeds, ...lockedNeeds].map((need) => {
               const isEditable = need.status === 'Draft' || need.status === 'Submitted';
-              const isExpanded = expandedIds.has(need.id) || (fieldEdit?.needId === need.id);
+              const isExpanded = expandedIds.has(need.id);
 
               return (
                 <article key={need.id} className="rounded-2xl border border-stone-200 bg-white/80 overflow-hidden">
@@ -828,12 +709,7 @@ function TeacherNeedsView({ sessionId, startInCreateMode = false }: { sessionId:
 
                       <NeedDetailPanel
                         need={need}
-                        editable={isEditable}
-                        editingField={fieldEdit?.needId === need.id ? fieldEdit.field : null}
-                        onStartFieldEdit={(field) => startFieldEdit(need.id, field)}
-                        onCancelFieldEdit={cancelFieldEdit}
-                        onSaveFieldEdit={(field, value) => void saveFieldEdit(need, field, value)}
-                        fieldSaving={fieldSaving}
+                        lookups={needLookups}
                       />
 
                       {isEditable ? (
@@ -843,8 +719,15 @@ function TeacherNeedsView({ sessionId, startInCreateMode = false }: { sessionId:
                               {need.items.map((item) => (
                                 <li key={item.id} className="flex items-center justify-between rounded-xl bg-stone-50 px-3 py-2 text-sm">
                                   <span className="text-stone-700">
-                                    <span className="inline-flex rounded-md border border-stone-200 bg-stone-100 px-1.5 py-0.5 text-[10px] font-medium text-stone-500 mr-2">{itemLabel(item)}</span>
-                                    {itemDisplayText(item)}
+                                    {(() => {
+                                      const { label, summary } = summarizeNeedItem(item, needLookups);
+                                      return (
+                                        <>
+                                          <span className="inline-flex rounded-md border border-stone-200 bg-stone-100 px-1.5 py-0.5 text-[10px] font-medium text-stone-500 mr-2">{label}</span>
+                                          {summary}
+                                        </>
+                                      );
+                                    })()}
                                   </span>
                                   <button type="button" onClick={() => void removeItemFromNeed(need.id, item.id)} disabled={itemBusy} className="text-xs text-rose-600 hover:text-rose-700 disabled:opacity-50">Retirer</button>
                                 </li>
@@ -1093,7 +976,15 @@ function TechnicianReviewView({ sessionId }: { sessionId: number }) {
 
                 {isExpanded ? (
                   <div className="border-t border-stone-100 px-4 pb-4">
-                    <NeedDetailPanel need={need} />
+                    <NeedDetailPanel
+                      need={need}
+                      lookups={{
+                        softwareNames: [],
+                        osOptions: [],
+                        laboratoryOptions: [],
+                        serverOptions: [],
+                      }}
+                    />
 
                     {need.status === 'Submitted' ? (
                       <div className="mt-3">

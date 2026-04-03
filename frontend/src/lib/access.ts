@@ -8,6 +8,7 @@ export const PAGE_ACCESS = {
   sessionCourses: ['admin', 'lab_instructor', 'professor', 'course_instructor'],
   courseResources: ['admin', 'lab_instructor', 'professor', 'course_instructor'],
   createNeed: ['professor', 'course_instructor'],
+  mesDemandesPage: ['professor', 'course_instructor'],
   matrice: ['admin', 'lab_instructor'],
   users: ['admin'],
   adminCoursesResources: ['admin'],

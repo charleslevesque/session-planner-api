@@ -20,6 +20,7 @@ import { SecurityPage } from './pages/SecurityPage';
 import { UsersPage } from './pages/UsersPage';
 import { AdminCoursesResourcesPage } from './pages/AdminCoursesResourcesPage';
 import { AdminCourseDetailPage } from './pages/AdminCourseDetailPage';
+import { MyRequestsPage } from './pages/MyRequestsPage';
 
 function RootRedirect() {
   const { isAuthenticated, isInitializing } = useAuth();
@@ -81,6 +82,14 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: 'mes-demandes',
+        element: (
+          <RoleRoute allowedRoles={PAGE_ACCESS.mesDemandesPage}>
+            <MyRequestsPage />
+          </RoleRoute>
+        ),
+      },
+      {
         path: 'sessions/manage',
         element: (
           <RoleRoute allowedRoles={PAGE_ACCESS.sessionsManage}>
@@ -114,6 +123,14 @@ export const router = createBrowserRouter([
       },
       {
         path: 'sessions/:sessionId/courses/:courseId/create-need',
+        element: (
+          <RoleRoute allowedRoles={PAGE_ACCESS.createNeed}>
+            <CreateNeedPage />
+          </RoleRoute>
+        ),
+      },
+      {
+        path: 'sessions/:sessionId/courses/:courseId/needs/:needId/edit',
         element: (
           <RoleRoute allowedRoles={PAGE_ACCESS.createNeed}>
             <CreateNeedPage />

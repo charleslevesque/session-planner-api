@@ -21,6 +21,8 @@ public static class RolePermissionDefinitions
                 Permissions.Laboratories.Read,
                 Permissions.Workstations.Read,
                 Permissions.Softwares.Read,
+                Permissions.OperatingSystems.Read,
+                Permissions.PhysicalServers.Read,
                 Permissions.Personnels.Read,
             },
 
@@ -73,6 +75,8 @@ public static class RolePermissionDefinitions
                 Permissions.Laboratories.Read,
                 Permissions.Workstations.Read,
                 Permissions.Softwares.Read,
+                Permissions.OperatingSystems.Read,
+                Permissions.PhysicalServers.Read,
                 Permissions.Personnels.Read,
             }
         };

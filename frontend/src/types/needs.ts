@@ -21,7 +21,14 @@ export interface SoftwareResponse {
   softwareVersions?: SoftwareVersionResponse[];
 }
 
-export type NeedItemType = 'software' | 'virtual_machine' | 'physical_server' | 'equipment_loan' | 'other';
+export type NeedItemType =
+  | 'saas'
+  | 'software'
+  | 'configuration'
+  | 'virtual_machine'
+  | 'physical_server'
+  | 'equipment_loan'
+  | 'other';
 
 export interface TeachingNeedItemResponse {
   id: number;
@@ -35,6 +42,7 @@ export interface TeachingNeedItemResponse {
   quantity?: number;
   description?: string;
   notes?: string;
+  detailsJson?: string | null;
 }
 
 export interface TeachingNeedResponse {
@@ -80,5 +88,21 @@ export interface AddNeedItemRequest {
   osId?: number;
   quantity?: number;
   description?: string;
+  notes?: string;
+  detailsJson?: string | null;
+}
+
+export interface MyNeedResponse {
+  id: number;
+  sessionId: number;
+  sessionTitle: string;
+  courseId: number;
+  courseCode: string;
+  courseName?: string;
+  status: TeachingNeedStatus;
+  createdAt: string;
+  submittedAt?: string;
+  reviewedAt?: string;
+  rejectionReason?: string;
   notes?: string;
 }

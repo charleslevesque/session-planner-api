@@ -255,4 +255,5 @@ export interface FieldDef {
   placeholder?: string;
   min?: number;
   options?: readonly { value: string; label: string }[];
+  suggestions?: readonly string[];
 }

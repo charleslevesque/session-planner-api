@@ -94,14 +94,6 @@ export function NeedsPage() {
                           Ouvrir le workflow besoins
                         </Link>
                       )}
-                      {isTeacher ? (
-                        <Link
-                          to={`/sessions/${session.id}/needs`}
-                          className="inline-flex rounded-xl border border-stone-200 px-3 py-1.5 text-xs font-medium text-stone-600 transition hover:bg-stone-50"
-                        >
-                          Mes demandes
-                        </Link>
-                      ) : null}
                     </div>
                   ) : (
                     <span className="inline-flex rounded-xl border border-stone-300 px-3 py-1.5 text-xs text-stone-500">

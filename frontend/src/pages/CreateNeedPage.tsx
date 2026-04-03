@@ -1,62 +1,66 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { FieldRenderer } from '../components/FieldRenderer';
 import { getErrorMessage } from '../lib/api';
-import type {
-  AddNeedItemRequest,
-  CourseResponse,
-  NeedItemType,
-  SoftwareResponse,
-  TeachingNeedResponse,
-} from '../types/needs';
+import {
+  createNeedItemPayload,
+  getNeedItemSchema,
+  isNeedItemValid,
+  parseDetailsJson,
+  TEACHER_NEED_ITEM_OPTIONS,
+  summarizeNeedItem,
+  type NeedItemDraft,
+  type NeedItemLookups,
+  type TeacherNeedItemType,
+} from '../lib/needItemSchemas';
+import type { CourseResponse, TeachingNeedResponse, TeachingNeedStatus } from '../types/needs';
 import type { SessionResponse } from '../types/sessions';
+import type { OSResponse, LaboratoryLookupResponse, PhysicalServerResponse, SoftwareResponse } from '../types/admin';
 
-const ITEM_TYPE_LABELS: Record<NeedItemType, string> = {
-  software: 'Logiciel',
-  virtual_machine: 'Machine virtuelle',
-  physical_server: 'Serveur physique',
-  equipment_loan: 'Prêt d\'équipement',
-  other: 'Autre besoin',
+const EMPTY_LOOKUPS: NeedItemLookups = {
+  softwareNames: [],
+  osOptions: [],
+  laboratoryOptions: [],
+  serverOptions: [],
 };
 
-interface LocalNeedItem {
-  id: string;
-  itemType: NeedItemType;
-  softwareId?: number;
-  softwareName?: string;
-  softwareVersion?: string;
-  description?: string;
-}
+const EDITABLE_ITEM_TYPES = new Set<string>([
+  'saas', 'software', 'configuration', 'virtual_machine', 'physical_server', 'equipment_loan',
+]);
 
 export function CreateNeedPage() {
-  const { sessionId, courseId } = useParams();
+  const { sessionId, courseId, needId } = useParams();
   const sId = Number(sessionId);
   const cId = Number(courseId);
+  const nId = Number(needId);
+  const isEditMode = !!needId && Number.isFinite(nId);
+
   const navigate = useNavigate();
   const { apiFetch } = useAuth();
 
   const [session, setSession] = useState<SessionResponse | null>(null);
   const [course, setCourse] = useState<CourseResponse | null>(null);
-  const [softwares, setSoftwares] = useState<SoftwareResponse[]>([]);
+  const [lookups, setLookups] = useState<NeedItemLookups>(EMPTY_LOOKUPS);
+  const [existingStatus, setExistingStatus] = useState<TeachingNeedStatus | null>(null);
+  const [originalItemIds, setOriginalItemIds] = useState<Set<number>>(new Set());
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const [expectedStudents, setExpectedStudents] = useState('');
-  const [hasTechNeeds, setHasTechNeeds] = useState<boolean | null>(null);
-  const [foundAllCourses, setFoundAllCourses] = useState<boolean | null>(null);
-  const [desiredModifications, setDesiredModifications] = useState('');
-  const [allowsUpdates, setAllowsUpdates] = useState<boolean | null>(null);
-  const [additionalComments, setAdditionalComments] = useState('');
+  const [items, setItems] = useState<NeedItemDraft[]>([]);
+  const [selectedType, setSelectedType] = useState<TeacherNeedItemType>('software');
+  const [draftValues, setDraftValues] = useState<Record<string, string>>(() => {
+    return getNeedItemSchema('software', EMPTY_LOOKUPS).defaultValues;
+  });
 
-  const [newItemType, setNewItemType] = useState<NeedItemType>('software');
-  const [softwareNameInput, setSoftwareNameInput] = useState('');
-  const [softwareVersionInput, setSoftwareVersionInput] = useState('');
-  const [newItemDescription, setNewItemDescription] = useState('');
-  const [items, setItems] = useState<LocalNeedItem[]>([]);
+  const currentSchema = useMemo(() => getNeedItemSchema(selectedType, lookups), [selectedType, lookups]);
+  const canAddItem = useMemo(() => isNeedItemValid(currentSchema, draftValues), [currentSchema, draftValues]);
 
-  const softwareSuggestions = useMemo(() => softwares.map((s) => s.name), [softwares]);
+  // In edit mode, submit is only possible from Draft or Rejected statuses.
+  const canSubmit = !isEditMode || existingStatus === 'Draft' || existingStatus === 'Rejected';
 
   const loadData = useCallback(async () => {
     if (!Number.isFinite(sId) || !Number.isFinite(cId)) {
@@ -69,83 +73,82 @@ export function CreateNeedPage() {
     setError('');
 
     try {
-      const [sessionData, courseData, softwaresData] = await Promise.all([
+      const baseRequests = [
         apiFetch<SessionResponse>(`/sessions/${sId}`),
         apiFetch<CourseResponse>(`/courses/${cId}`),
         apiFetch<SoftwareResponse[]>('/softwares'),
-      ]);
+        apiFetch<OSResponse[]>('/operatingsystems'),
+        apiFetch<LaboratoryLookupResponse[]>('/laboratories'),
+        apiFetch<PhysicalServerResponse[]>('/physicalservers'),
+      ] as const;
+
+      const [sessionData, courseData, softwaresData, osData, laboratoriesData, serversData] =
+        await Promise.all(baseRequests);
 
       if (sessionData.status !== 'Open') {
-        setError('Cette session n\'accepte pas de besoins actuellement.');
+        setError("Cette session n'accepte pas de besoins actuellement.");
         setLoading(false);
         return;
       }
 
       setSession(sessionData);
       setCourse(courseData);
-      setSoftwares(softwaresData);
+
+      const resolvedLookups: NeedItemLookups = {
+        softwareNames: softwaresData.map((s) => s.name),
+        osOptions: osData.map((os) => ({ value: String(os.id), label: os.name })),
+        laboratoryOptions: laboratoriesData.map((lab) => ({ value: String(lab.id), label: lab.name })),
+        serverOptions: serversData.map((server) => ({ value: String(server.id), label: server.hostname })),
+      };
+      setLookups(resolvedLookups);
+
+      if (isEditMode) {
+        const needData = await apiFetch<TeachingNeedResponse>(`/sessions/${sId}/needs/${nId}`);
+        setExistingStatus(needData.status);
+        setOriginalItemIds(new Set(needData.items.map((i) => i.id)));
+
+        const loadedItems: NeedItemDraft[] = needData.items
+          .filter((item) => EDITABLE_ITEM_TYPES.has(item.itemType))
+          .map((item) => ({
+            id: `existing-${item.id}`,
+            existingApiId: item.id,
+            itemType: item.itemType as TeacherNeedItemType,
+            values: parseDetailsJson(item.detailsJson),
+          }));
+        setItems(loadedItems);
+      }
     } catch (err) {
       setError(getErrorMessage(err, 'Impossible de charger les données.'));
     } finally {
       setLoading(false);
     }
-  }, [apiFetch, sId, cId]);
+  }, [apiFetch, sId, cId, nId, isEditMode]);
 
   useEffect(() => {
     void loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    setDraftValues(getNeedItemSchema(selectedType, lookups).defaultValues);
+  }, [selectedType, lookups]);
+
   function addItem() {
-    if (newItemType === 'software') {
-      const name = softwareNameInput.trim();
-      if (!name) return;
+    if (!canAddItem) return;
 
-      const version = softwareVersionInput.trim();
-      const dedupeKey = `${name.toLowerCase()}::${version.toLowerCase()}`;
-
-      setItems((prev) => {
-        if (prev.some((e) => e.itemType === 'software' && `${(e.softwareName ?? '').toLowerCase()}::${(e.softwareVersion ?? '').toLowerCase()}` === dedupeKey)) {
-          return prev;
-        }
-        return [...prev, {
-          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          itemType: 'software',
-          softwareName: name,
-          softwareVersion: version || undefined,
-        }];
-      });
-
-      setSoftwareNameInput('');
-      setSoftwareVersionInput('');
-    } else {
-      const desc = newItemDescription.trim();
-      if (!desc) return;
-
-      setItems((prev) => [...prev, {
+    setItems((prev) => [
+      ...prev,
+      {
         id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        itemType: newItemType,
-        description: desc,
-      }]);
+        itemType: selectedType,
+        values: { ...draftValues },
+      },
+    ]);
 
-      setNewItemDescription('');
-    }
+    setDraftValues(getNeedItemSchema(selectedType, lookups).defaultValues);
   }
 
   function removeItem(itemId: string) {
-    setItems((prev) => prev.filter((e) => e.id !== itemId));
-  }
-
-  async function resolveSoftwareId(name: string): Promise<number> {
-    const existing = softwares.find((s) => s.name.toLowerCase() === name.toLowerCase());
-    if (existing) return existing.id;
-
-    const created = await apiFetch<SoftwareResponse>('/softwares', {
-      method: 'POST',
-      body: JSON.stringify({ name }),
-    });
-
-    setSoftwares((prev) => [created, ...prev]);
-    return created.id;
+    setItems((prev) => prev.filter((item) => item.id !== itemId));
   }
 
   async function persistNeed(mode: 'draft' | 'submit') {
@@ -154,44 +157,61 @@ export function CreateNeedPage() {
     setSuccess('');
 
     try {
-      const need = await apiFetch<TeachingNeedResponse>(`/sessions/${sId}/needs`, {
-        method: 'POST',
-        body: JSON.stringify({
-          courseId: cId,
-          expectedStudents: expectedStudents ? Number(expectedStudents) : undefined,
-          hasTechNeeds: hasTechNeeds ?? undefined,
-          foundAllCourses: foundAllCourses ?? undefined,
-          desiredModifications: desiredModifications.trim() || undefined,
-          allowsUpdates: allowsUpdates ?? undefined,
-          additionalComments: additionalComments.trim() || undefined,
-        }),
-      });
+      if (isEditMode) {
+        const currentApiIds = new Set(
+          items.filter((i) => i.existingApiId != null).map((i) => i.existingApiId!),
+        );
 
-      for (const item of items) {
-        let payload: AddNeedItemRequest;
+        const toDelete = [...originalItemIds].filter((id) => !currentApiIds.has(id));
+        const toAdd = items.filter((i) => i.existingApiId == null);
 
-        if (item.itemType === 'software' && item.softwareName) {
-          const softwareId = await resolveSoftwareId(item.softwareName);
-          const itemNotes = item.softwareVersion ? `Version demandee: ${item.softwareVersion}` : undefined;
-          payload = { itemType: 'software', softwareId, quantity: 1, notes: itemNotes };
-        } else {
-          payload = { itemType: item.itemType, description: item.description };
+        await Promise.all(
+          toDelete.map((id) =>
+            apiFetch(`/sessions/${sId}/needs/${nId}/items/${id}`, { method: 'DELETE' }),
+          ),
+        );
+
+        await Promise.all(
+          toAdd.map((item) =>
+            apiFetch(`/sessions/${sId}/needs/${nId}/items`, {
+              method: 'POST',
+              body: JSON.stringify(createNeedItemPayload(item.itemType, item.values)),
+            }),
+          ),
+        );
+
+        if (mode === 'submit') {
+          if (existingStatus === 'Rejected') {
+            await apiFetch(`/sessions/${sId}/needs/${nId}/revise`, { method: 'POST' });
+          }
+          await apiFetch(`/sessions/${sId}/needs/${nId}/submit`, { method: 'POST' });
         }
 
-        await apiFetch(`/sessions/${sId}/needs/${need.id}/items`, {
+        setSuccess(mode === 'submit' ? 'Besoin re-soumis avec succès.' : 'Modifications sauvegardées.');
+      } else {
+        const need = await apiFetch<TeachingNeedResponse>(`/sessions/${sId}/needs`, {
           method: 'POST',
-          body: JSON.stringify(payload),
+          body: JSON.stringify({ courseId: cId }),
         });
-      }
 
-      if (mode === 'submit') {
-        await apiFetch(`/sessions/${sId}/needs/${need.id}/submit`, { method: 'POST' });
-      }
+        await Promise.all(
+          items.map((item) =>
+            apiFetch(`/sessions/${sId}/needs/${need.id}/items`, {
+              method: 'POST',
+              body: JSON.stringify(createNeedItemPayload(item.itemType, item.values)),
+            }),
+          ),
+        );
 
-      setSuccess(mode === 'submit' ? 'Besoin soumis avec succès.' : 'Brouillon sauvegardé.');
+        if (mode === 'submit') {
+          await apiFetch(`/sessions/${sId}/needs/${need.id}/submit`, { method: 'POST' });
+        }
+
+        setSuccess(mode === 'submit' ? 'Besoin soumis avec succès.' : 'Brouillon sauvegardé.');
+      }
 
       setTimeout(() => {
-        void navigate(`/sessions/${sId}/courses/${cId}`);
+        void navigate(isEditMode ? '/mes-demandes' : `/sessions/${sId}/courses/${cId}`);
       }, 1200);
     } catch (err) {
       setError(getErrorMessage(err, "Impossible d'enregistrer ce besoin."));
@@ -200,15 +220,16 @@ export function CreateNeedPage() {
     }
   }
 
-  const resourcesUrl = `/sessions/${sId}/courses/${cId}`;
+  const backUrl = isEditMode ? '/mes-demandes' : `/sessions/${sId}/courses/${cId}`;
+  const backLabel = isEditMode ? 'Retour aux demandes' : 'Retour aux ressources du cours';
 
   return (
     <div className="space-y-6">
       <Link
-        to={resourcesUrl}
+        to={backUrl}
         className="inline-flex text-sm text-[var(--ets-primary)] hover:text-[var(--ets-primary-hover)]"
       >
-        &larr; Retour aux ressources du cours
+        &larr; {backLabel}
       </Link>
 
       {loading ? (
@@ -218,7 +239,9 @@ export function CreateNeedPage() {
       ) : (
         <>
           <section className="surface-card p-6 sm:p-8">
-            <p className="text-xs uppercase tracking-[0.3em] text-stone-500">Nouveau besoin</p>
+            <p className="text-xs uppercase tracking-[0.3em] text-stone-500">
+              {isEditMode ? 'Modifier le besoin' : 'Nouveau besoin'}
+            </p>
             <h1 className="mt-2 text-2xl font-semibold text-stone-950">
               {course?.code}{course?.name ? ` — ${course.name}` : ''}
             </h1>
@@ -229,129 +252,66 @@ export function CreateNeedPage() {
           {success ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{success}</div> : null}
 
           <section className="surface-card p-6 sm:p-8">
+            {/*
+              noValidate disables browser-native HTML5 validation so that the
+              required attributes on sub-form fields (FieldRenderer) do not
+              block the final "Soumettre" button when those fields are empty
+              but items have already been added to the list.
+              JS-side gates (canAddItem / items.length > 0) handle validation.
+            */}
             <form
+              noValidate
               className="grid gap-4"
               onSubmit={(event: FormEvent<HTMLFormElement>) => {
                 event.preventDefault();
-                void persistNeed('submit');
+                if (canSubmit && items.length > 0) {
+                  void persistNeed('submit');
+                }
               }}
             >
-              <label className="block">
-                <span className="mb-2 block text-sm font-medium text-stone-700">Combien d&apos;étudiant·e·s attendez-vous pour ce cours ?</span>
-                <input
-                  type="number"
-                  min={0}
-                  value={expectedStudents}
-                  onChange={(e) => setExpectedStudents(e.target.value)}
-                  className="input-field max-w-xs"
-                  placeholder="Ex: 35"
-                />
-              </label>
-
-              <fieldset>
-                <legend className="mb-2 text-sm font-medium text-stone-700">Avez-vous des besoins technologiques pour cette session ?</legend>
-                <div className="flex gap-4">
-                  <label className="flex items-center gap-2 text-sm"><input type="radio" name="hasTechNeeds" checked={hasTechNeeds === true} onChange={() => setHasTechNeeds(true)} /> Oui</label>
-                  <label className="flex items-center gap-2 text-sm"><input type="radio" name="hasTechNeeds" checked={hasTechNeeds === false} onChange={() => setHasTechNeeds(false)} /> Non</label>
-                </div>
-              </fieldset>
-
-              <fieldset>
-                <legend className="mb-2 text-sm font-medium text-stone-700">Est-ce que vous avez trouvé l&apos;ensemble de vos cours dans la liste ?</legend>
-                <div className="flex gap-4">
-                  <label className="flex items-center gap-2 text-sm"><input type="radio" name="foundAllCourses" checked={foundAllCourses === true} onChange={() => setFoundAllCourses(true)} /> Oui</label>
-                  <label className="flex items-center gap-2 text-sm"><input type="radio" name="foundAllCourses" checked={foundAllCourses === false} onChange={() => setFoundAllCourses(false)} /> Non</label>
-                </div>
-              </fieldset>
-
-              <label className="block">
-                <span className="mb-2 block text-sm font-medium text-stone-700">Souhaitez-vous apporter des modifications ?</span>
-                <textarea
-                  value={desiredModifications}
-                  onChange={(e) => setDesiredModifications(e.target.value)}
-                  rows={2}
-                  className="input-field"
-                  placeholder="Décrivez les modifications souhaitées"
-                />
-              </label>
-
-              <fieldset>
-                <legend className="mb-2 text-sm font-medium text-stone-700">Autorisez-vous l&apos;équipe technique à faire la mise à jour des logiciels et des systèmes d&apos;exploitation vers des versions subséquentes le cas échéant ?</legend>
-                <div className="flex gap-4">
-                  <label className="flex items-center gap-2 text-sm"><input type="radio" name="allowsUpdates" checked={allowsUpdates === true} onChange={() => setAllowsUpdates(true)} /> Oui</label>
-                  <label className="flex items-center gap-2 text-sm"><input type="radio" name="allowsUpdates" checked={allowsUpdates === false} onChange={() => setAllowsUpdates(false)} /> Non</label>
-                </div>
-              </fieldset>
-
-              <label className="block">
-                <span className="mb-2 block text-sm font-medium text-stone-700">Commentaires supplémentaires</span>
-                <textarea
-                  value={additionalComments}
-                  onChange={(e) => setAdditionalComments(e.target.value)}
-                  rows={2}
-                  className="input-field"
-                  placeholder="Précisions ou commentaires"
-                />
-              </label>
-
               <div className="rounded-2xl border border-stone-200 bg-stone-50/70 p-4">
-                <p className="text-sm font-semibold text-stone-800 mb-3">Ajouter des besoins</p>
+                <p className="mb-3 text-sm font-semibold text-stone-800">Ajouter des besoins</p>
 
-                <div className="grid gap-3">
+                <div className="grid gap-4">
                   <label className="block">
                     <span className="mb-1 block text-xs font-medium text-stone-600">Type de besoin</span>
-                    <select value={newItemType} onChange={(e) => setNewItemType(e.target.value as NeedItemType)} className="input-field max-w-xs">
-                      <option value="software">Logiciel</option>
-                      <option value="virtual_machine">Machine virtuelle</option>
-                      <option value="physical_server">Serveur physique</option>
-                      <option value="equipment_loan">Prêt d&apos;équipement</option>
-                      <option value="other">Autre besoin technologique</option>
+                    <select
+                      value={selectedType}
+                      onChange={(event) => setSelectedType(event.target.value as TeacherNeedItemType)}
+                      className="input-field max-w-xs"
+                    >
+                      {TEACHER_NEED_ITEM_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
                     </select>
                   </label>
 
-                  {newItemType === 'software' ? (
-                    <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
-                      <input
-                        value={softwareNameInput}
-                        onChange={(e) => setSoftwareNameInput(e.target.value)}
-                        className="input-field"
-                        list="create-need-sw-suggestions"
-                        placeholder="Nom logiciel"
-                      />
-                      <datalist id="create-need-sw-suggestions">
-                        {softwareSuggestions.map((name) => (
-                          <option key={name} value={name} />
-                        ))}
-                      </datalist>
-                      <input
-                        value={softwareVersionInput}
-                        onChange={(e) => setSoftwareVersionInput(e.target.value)}
-                        className="input-field"
-                        placeholder="Version (ex: 2022.3)"
-                      />
-                      <button type="button" onClick={addItem} className="rounded-2xl border border-stone-300 px-4 py-3 text-sm text-stone-700 transition hover:bg-stone-100">
-                        Ajouter
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="grid gap-3 md:grid-cols-[1fr_auto]">
-                      <textarea
-                        value={newItemDescription}
-                        onChange={(e) => setNewItemDescription(e.target.value)}
-                        rows={2}
-                        className="input-field"
-                        placeholder={
-                          newItemType === 'virtual_machine' ? 'Décrivez vos besoins en machines virtuelles' :
-                          newItemType === 'physical_server' ? 'Décrivez vos besoins en serveurs physiques' :
-                          newItemType === 'equipment_loan' ? 'Quel équipement faudrait-il prêter aux étudiant·e·s ?' :
-                          'Décrivez vos autres besoins technologiques'
-                        }
-                      />
-                      <button type="button" onClick={addItem} className="rounded-2xl border border-stone-300 px-4 py-3 text-sm text-stone-700 transition hover:bg-stone-100 self-end">
-                        Ajouter
-                      </button>
-                    </div>
-                  )}
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {currentSchema.fields.map((field) => (
+                      <label key={field.name} className="block md:col-span-1">
+                        <span className="mb-1 block text-xs font-medium text-stone-600">
+                          {field.label}
+                          {field.required ? <span className="ml-0.5 text-rose-500">*</span> : null}
+                        </span>
+                        <FieldRenderer
+                          field={field}
+                          value={draftValues[field.name] ?? ''}
+                          onChange={(name, value) => setDraftValues((prev) => ({ ...prev, [name]: value }))}
+                        />
+                      </label>
+                    ))}
+                  </div>
+
+                  <div>
+                    <button
+                      type="button"
+                      onClick={addItem}
+                      disabled={!canAddItem}
+                      className="rounded-2xl border border-stone-300 px-4 py-3 text-sm text-stone-700 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Ajouter
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -359,21 +319,30 @@ export function CreateNeedPage() {
                 <div className="rounded-2xl border border-stone-200 bg-stone-50/70 p-4">
                   <p className="text-sm font-medium text-stone-800">Besoins ajoutés</p>
                   <ul className="mt-3 space-y-2">
-                    {items.map((item) => (
-                      <li key={item.id} className="flex items-center justify-between rounded-xl bg-white px-3 py-2 text-sm">
-                        <span>
-                          <span className="inline-flex rounded-md border border-stone-200 bg-stone-100 px-1.5 py-0.5 text-[10px] font-medium text-stone-600 mr-2">
-                            {ITEM_TYPE_LABELS[item.itemType]}
+                    {items.map((item) => {
+                      const { label, summary } = summarizeNeedItem(
+                        { id: item.existingApiId ?? 0, itemType: item.itemType, detailsJson: JSON.stringify(item.values) },
+                        lookups,
+                      );
+
+                      return (
+                        <li key={item.id} className="flex items-center justify-between gap-4 rounded-xl bg-white px-3 py-2 text-sm">
+                          <span className="min-w-0">
+                            <span className="mr-2 inline-flex rounded-md border border-stone-200 bg-stone-100 px-1.5 py-0.5 text-[10px] font-medium text-stone-600">
+                              {label}
+                            </span>
+                            {summary}
                           </span>
-                          {item.itemType === 'software'
-                            ? <>{item.softwareName}{item.softwareVersion ? ` - ${item.softwareVersion}` : ''}</>
-                            : item.description}
-                        </span>
-                        <button type="button" onClick={() => removeItem(item.id)} className="text-xs text-rose-600 hover:text-rose-700">
-                          Retirer
-                        </button>
-                      </li>
-                    ))}
+                          <button
+                            type="button"
+                            onClick={() => removeItem(item.id)}
+                            className="text-xs text-rose-600 hover:text-rose-700"
+                          >
+                            Retirer
+                          </button>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               ) : null}
@@ -385,11 +354,18 @@ export function CreateNeedPage() {
                   onClick={() => void persistNeed('draft')}
                   className="rounded-2xl border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100 disabled:opacity-50"
                 >
-                  {saving ? 'Enregistrement...' : 'Sauvegarder brouillon'}
+                  {saving ? 'Enregistrement...' : isEditMode ? 'Sauvegarder les modifications' : 'Sauvegarder brouillon'}
                 </button>
-                <button type="submit" disabled={saving} className="primary-button disabled:opacity-50">
-                  {saving ? 'Soumission...' : 'Soumettre'}
-                </button>
+
+                {canSubmit ? (
+                  <button
+                    type="submit"
+                    disabled={saving || items.length === 0}
+                    className="primary-button disabled:opacity-50"
+                  >
+                    {saving ? 'Soumission...' : 'Soumettre'}
+                  </button>
+                ) : null}
               </div>
             </form>
           </section>
