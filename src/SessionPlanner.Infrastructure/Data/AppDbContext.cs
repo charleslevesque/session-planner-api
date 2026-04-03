@@ -82,6 +82,9 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<CourseEquipmentModel>()
             .HasKey(cem => new { cem.CourseId, cem.EquipmentModelId });
 
+        modelBuilder.Entity<CourseSoftwareVersion>()
+            .HasKey(csv => new { csv.CourseId, csv.SoftwareVersionId });
+
         modelBuilder.Entity<CoursePersonnel>()
             .HasKey(cp => new { cp.CourseId, cp.PersonnelId });
 

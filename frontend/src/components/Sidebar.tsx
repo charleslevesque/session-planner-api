@@ -7,12 +7,14 @@ const navigation = [
   { to: '/dashboard', label: 'Dashboard', hint: 'Vue generale', allowedRoles: PAGE_ACCESS.dashboard },
   { to: '/sessions/manage', label: 'Sessions', hint: 'Gestion cycle de vie', allowedRoles: PAGE_ACCESS.sessionsManage },
   { to: '/besoins', label: 'Besoins', hint: 'Saisie et suivi', allowedRoles: PAGE_ACCESS.besoins },
+  { to: '/mes-demandes', label: 'Mes demandes', hint: 'Consulter mes demandes', allowedRoles: PAGE_ACCESS.mesDemandesPage },
   { to: '/matrice', label: 'Matrice', hint: 'Affectations', allowedRoles: PAGE_ACCESS.matrice },
   { to: '/compte/securite', label: 'Securite', hint: 'Changer mon mot de passe', allowedRoles: PAGE_ACCESS.security },
 ];
 
 const adminNavigation = [
   { to: '/admin/users', label: 'Utilisateurs', hint: 'Gestion des comptes', allowedRoles: PAGE_ACCESS.users },
+  { to: '/admin/courses-resources', label: 'Cours et ressources', hint: 'Catalogue et inventaire', allowedRoles: PAGE_ACCESS.adminCoursesResources },
 ];
 
 interface SidebarProps {

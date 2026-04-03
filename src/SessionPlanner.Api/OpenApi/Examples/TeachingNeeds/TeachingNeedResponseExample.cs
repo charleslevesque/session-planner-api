@@ -41,7 +41,8 @@ public sealed class TeachingNeedResponseExample : IExamplesProvider<TeachingNeed
                     OSId: 2,
                     OSName: "Windows",
                     Quantity: 30,
-                    Notes: "Installed on all machines"
+                    Notes: "Installed on all machines",
+                    DetailsJson: "{\"name\":\"Example\"}"
                 )
             }
         );

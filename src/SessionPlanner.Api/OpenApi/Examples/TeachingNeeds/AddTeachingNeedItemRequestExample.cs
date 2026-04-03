@@ -14,7 +14,8 @@ public sealed class AddTeachingNeedItemRequestExample : IExamplesProvider<AddNee
             SoftwareVersionId: 25,
             OSId: 2,
             Quantity: 30,
-            Notes: "Before the 3rd week of the semester"
+            Notes: "Before the 3rd week of the semester",
+            DetailsJson: "{\"name\":\"Example\"}"
         );
     }
 }

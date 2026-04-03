@@ -197,6 +197,21 @@ namespace SessionPlanner.Infrastructure.Migrations
                     b.ToTable("CourseSoftware");
                 });
 
+            modelBuilder.Entity("SessionPlanner.Core.Entities.Joins.CourseSoftwareVersion", b =>
+                {
+                    b.Property<int>("CourseId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("SoftwareVersionId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("CourseId", "SoftwareVersionId");
+
+                    b.HasIndex("SoftwareVersionId");
+
+                    b.ToTable("CourseSoftwareVersion");
+                });
+
             modelBuilder.Entity("SessionPlanner.Core.Entities.Joins.CourseVirtualMachine", b =>
                 {
                     b.Property<int>("CourseId")
@@ -739,6 +754,9 @@ namespace SessionPlanner.Infrastructure.Migrations
                     b.Property<string>("Description")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("DetailsJson")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("ItemType")
                         .IsRequired()
                         .HasMaxLength(30)
@@ -1022,6 +1040,25 @@ namespace SessionPlanner.Infrastructure.Migrations
                     b.Navigation("Course");
 
                     b.Navigation("Software");
+                });
+
+            modelBuilder.Entity("SessionPlanner.Core.Entities.Joins.CourseSoftwareVersion", b =>
+                {
+                    b.HasOne("SessionPlanner.Core.Entities.Course", "Course")
+                        .WithMany()
+                        .HasForeignKey("CourseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SessionPlanner.Core.Entities.SoftwareVersion", "SoftwareVersion")
+                        .WithMany()
+                        .HasForeignKey("SoftwareVersionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Course");
+
+                    b.Navigation("SoftwareVersion");
                 });
 
             modelBuilder.Entity("SessionPlanner.Core.Entities.Joins.CourseVirtualMachine", b =>

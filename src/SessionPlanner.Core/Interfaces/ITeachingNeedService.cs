@@ -1,4 +1,5 @@
 using SessionPlanner.Core.Entities;
+using SessionPlanner.Core.Enums;
 
 namespace SessionPlanner.Core.Interfaces;
 
@@ -19,11 +20,11 @@ public interface ITeachingNeedService
         int? expectedStudents = null, bool? hasTechNeeds = null, bool? foundAllCourses = null,
         string? desiredModifications = null, bool? allowsUpdates = null, string? additionalComments = null);
 
-    /// <summary>Deletes a need. Returns false if not found. Throws InvalidOperationException if status is not Draft.</summary>
+    /// <summary>Deletes a need. Returns false if not found. Throws InvalidOperationException if status is Approved.</summary>
     Task<bool> DeleteAsync(int sessionId, int id);
 
     /// <summary>Adds an item to a need. Returns null if need not found. Throws InvalidOperationException if status is not Draft or Submitted.</summary>
-    Task<TeachingNeedItem?> AddItemAsync(int sessionId, int needId, string itemType, int? softwareId, int? softwareVersionId, int? osId, int? quantity, string? description, string? notes);
+    Task<TeachingNeedItem?> AddItemAsync(int sessionId, int needId, string itemType, int? softwareId, int? softwareVersionId, int? osId, int? quantity, string? description, string? notes, string? detailsJson);
 
     /// <summary>Removes an item from a need. Returns false if need or item not found. Throws InvalidOperationException if status is not Draft.</summary>
     Task<bool> RemoveItemAsync(int sessionId, int needId, int itemId);
@@ -42,6 +43,9 @@ public interface ITeachingNeedService
 
     /// <summary>Transitions Rejected -> Draft. Returns null if not found.</summary>
     Task<TeachingNeed?> ReviseAsync(int sessionId, int id);
+
+    /// <summary>Returns all needs belonging to a personnel, with optional filters on session, course and backend statuses.</summary>
+    Task<List<TeachingNeed>> GetMyNeedsAsync(int personnelId, int? sessionId = null, int? courseId = null, IEnumerable<NeedStatus>? statuses = null);
 
     /// <summary>Returns the PersonnelId linked to the given userId, or null if none.</summary>
     Task<int?> GetPersonnelIdForUserAsync(int userId);

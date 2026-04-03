@@ -10,6 +10,8 @@ public sealed class ConfigurationResponseExample : IExamplesProvider<Configurati
         return new ConfigurationResponse(
             Id: 1,
             Title: "Software installation",
+            OSIds: [1, 2],
+            LaboratoryIds: [1, 2],
             Notes: "REQUIRED MODULES : \nMicrosoft Visual Studio"
         );
     }

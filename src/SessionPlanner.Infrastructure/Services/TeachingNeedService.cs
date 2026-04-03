@@ -93,6 +93,30 @@ public class TeachingNeedService : ITeachingNeedService
         return await query.OrderByDescending(n => n.CreatedAt).ToListAsync();
     }
 
+    public async Task<List<TeachingNeed>> GetMyNeedsAsync(int personnelId, int? sessionId = null, int? courseId = null, IEnumerable<NeedStatus>? statuses = null)
+    {
+        var query = _db.TeachingNeeds
+            .Include(n => n.Session)
+            .Include(n => n.Personnel)
+            .Include(n => n.Course)
+            .Where(n => n.PersonnelId == personnelId);
+
+        if (sessionId.HasValue)
+            query = query.Where(n => n.SessionId == sessionId.Value);
+
+        if (courseId.HasValue)
+            query = query.Where(n => n.CourseId == courseId.Value);
+
+        if (statuses is not null)
+        {
+            var statusList = statuses.ToList();
+            if (statusList.Count > 0)
+                query = query.Where(n => statusList.Contains(n.Status));
+        }
+
+        return await query.OrderByDescending(n => n.CreatedAt).ToListAsync();
+    }
+
     public async Task<TeachingNeed?> GetByIdAsync(int sessionId, int id)
     {
         return await _db.TeachingNeeds
@@ -168,15 +192,15 @@ public class TeachingNeedService : ITeachingNeedService
 
         if (need is null) return false;
 
-        if (need.Status != NeedStatus.Draft)
-            throw new InvalidOperationException("Only Draft needs can be deleted.");
+        if (need.Status == NeedStatus.Approved)
+            throw new InvalidOperationException("Approved needs cannot be cancelled.");
 
         _db.TeachingNeeds.Remove(need);
         await _db.SaveChangesAsync();
         return true;
     }
 
-    public async Task<TeachingNeedItem?> AddItemAsync(int sessionId, int needId, string itemType, int? softwareId, int? softwareVersionId, int? osId, int? quantity, string? description, string? notes)
+    public async Task<TeachingNeedItem?> AddItemAsync(int sessionId, int needId, string itemType, int? softwareId, int? softwareVersionId, int? osId, int? quantity, string? description, string? notes, string? detailsJson)
     {
         var need = await _db.TeachingNeeds
             .FirstOrDefaultAsync(n => n.SessionId == sessionId && n.Id == needId);
@@ -195,7 +219,8 @@ public class TeachingNeedService : ITeachingNeedService
             OSId = osId,
             Quantity = quantity,
             Description = description,
-            Notes = notes
+            Notes = notes,
+            DetailsJson = detailsJson
         };
 
         _db.TeachingNeedItems.Add(item);

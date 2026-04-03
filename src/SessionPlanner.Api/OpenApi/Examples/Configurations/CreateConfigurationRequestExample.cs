@@ -9,6 +9,8 @@ public sealed class CreateConfigurationRequestExample : IExamplesProvider<Create
     {
         return new CreateConfigurationRequest(
             Title: "Software installation",
+            OSIds: [1, 2],
+            LaboratoryIds: [1, 2],
             Notes: "REQUIRED MODULES : \nMicrosoft Visual Studio"
 
         );

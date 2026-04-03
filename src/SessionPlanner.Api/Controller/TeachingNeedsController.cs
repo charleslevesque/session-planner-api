@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using Asp.Versioning;
 using SessionPlanner.Core.Auth;
+using SessionPlanner.Core.Enums;
 using SessionPlanner.Core.Interfaces;
 using SessionPlanner.Api.Auth;
 using SessionPlanner.Api.Dtos.TeachingNeeds;
@@ -385,7 +386,7 @@ public class TeachingNeedsController : ControllerBase
                 sessionId, id,
                 request.ItemType ?? "software",
                 request.SoftwareId, request.SoftwareVersionId, request.OSId,
-                request.Quantity, request.Description, request.Notes);
+                request.Quantity, request.Description, request.Notes, request.DetailsJson);
 
             if (item is null)
             {
@@ -784,6 +785,63 @@ public class TeachingNeedsController : ControllerBase
                 Code: ErrorCodes.InvalidTeachingNeedTransition
             ));
         }
+    }
+
+    /// <summary>
+    /// Returns all teaching needs belonging to the authenticated professor.
+    /// </summary>
+    /// <param name="sessionId">Optional session filter.</param>
+    /// <param name="courseId">Optional course filter.</param>
+    /// <param name="status">Optional UI status filter: draft, open, under review, closed.</param>
+    [HttpGet("~/api/v{version:apiVersion}/needs/mine")]
+    [HasPermission(Permissions.TeachingNeeds.Read)]
+    [SwaggerOperation(
+        Summary = "Get my teaching needs",
+        Description = "Returns all teaching needs for the authenticated professor, with optional filters."
+    )]
+    [ProducesResponseType(typeof(IEnumerable<MyNeedResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<IEnumerable<MyNeedResponse>>> GetMine(
+        [FromQuery] int? sessionId,
+        [FromQuery] int? courseId,
+        [FromQuery] string? status)
+    {
+        if (!IsTeachingRole())
+            return Forbid();
+
+        var userId = GetCurrentUserId();
+        if (userId is null)
+        {
+            return Unauthorized(new ApiErrorResponse(
+                Error: "Unauthorized.",
+                Code: ErrorCodes.Unauthorized
+            ));
+        }
+
+        var personnelId = await _needService.GetOrCreatePersonnelIdForUserAsync(userId.Value);
+        if (personnelId is null)
+            return Ok(Array.Empty<MyNeedResponse>());
+
+        var backendStatuses = MapUiStatusToBackend(status);
+
+        var needs = await _needService.GetMyNeedsAsync(personnelId.Value, sessionId, courseId, backendStatuses);
+        return Ok(needs.Select(n => n.ToMyNeedResponse()));
+    }
+
+    private static List<NeedStatus>? MapUiStatusToBackend(string? uiStatus)
+    {
+        if (string.IsNullOrWhiteSpace(uiStatus))
+            return null;
+
+        return uiStatus.Trim().ToLowerInvariant() switch
+        {
+            "draft" => [NeedStatus.Draft],
+            "open" => [NeedStatus.Submitted],
+            "under review" => [NeedStatus.UnderReview],
+            "closed" => [NeedStatus.Approved, NeedStatus.Rejected],
+            _ => null
+        };
     }
 
     // --- Helpers ---

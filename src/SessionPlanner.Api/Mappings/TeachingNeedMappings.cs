@@ -16,7 +16,8 @@ public static class TeachingNeedMappings
         item.OS?.Name,
         item.Quantity,
         item.Description,
-        item.Notes);
+        item.Notes,
+        item.DetailsJson);
 
     public static TeachingNeedResponse ToResponse(this TeachingNeed need) => new(
         need.Id,
@@ -40,4 +41,18 @@ public static class TeachingNeedMappings
         need.AllowsUpdates,
         need.AdditionalComments,
         need.Items.Select(i => i.ToResponse()));
+
+    public static MyNeedResponse ToMyNeedResponse(this TeachingNeed need) => new(
+        need.Id,
+        need.SessionId,
+        need.Session?.Title ?? string.Empty,
+        need.CourseId,
+        need.Course?.Code ?? string.Empty,
+        need.Course?.Name,
+        need.Status.ToString(),
+        need.CreatedAt,
+        need.SubmittedAt,
+        need.ReviewedAt,
+        need.RejectionReason,
+        need.Notes);
 }

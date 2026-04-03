@@ -296,7 +296,7 @@ public class TeachingNeedsControllerTests : IClassFixture<TeachingNeedWebApplica
 
         var response = await _client.PostAsJsonAsync(
             ItemsUrl(sessionId, 9999),
-            new AddNeedItemRequest(null, null, null, null, 30, null, "Notes"));
+            new AddNeedItemRequest(null, null, null, null, 30, null, "Notes", null));
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
@@ -310,7 +310,7 @@ public class TeachingNeedsControllerTests : IClassFixture<TeachingNeedWebApplica
 
         var response = await _client.PostAsJsonAsync(
             ItemsUrl(sessionId, need.Id),
-            new AddNeedItemRequest(null, null, null, null, 25, null, "Poste supplémentaire"));
+            new AddNeedItemRequest(null, null, null, null, 25, null, "Poste supplémentaire", null));
 
         response.StatusCode.Should().Be(HttpStatusCode.Created);
         var item = await response.Content.ReadFromJsonAsync<TeachingNeedItemResponse>();
@@ -328,7 +328,7 @@ public class TeachingNeedsControllerTests : IClassFixture<TeachingNeedWebApplica
 
         await _client.PostAsJsonAsync(
             ItemsUrl(sessionId, need.Id),
-            new AddNeedItemRequest(null, null, null, null, 10, null, "item test"));
+            new AddNeedItemRequest(null, null, null, null, 10, null, "item test", null));
 
         var response = await _client.GetAsync(NeedUrl(sessionId, need.Id));
         var updated = await response.Content.ReadFromJsonAsync<TeachingNeedResponse>();
@@ -373,7 +373,7 @@ public class TeachingNeedsControllerTests : IClassFixture<TeachingNeedWebApplica
 
         var addResponse = await _client.PostAsJsonAsync(
             ItemsUrl(sessionId, need.Id),
-            new AddNeedItemRequest(null, null, null, null, 5, null, null));
+            new AddNeedItemRequest(null, null, null, null, 5, null, null, null));
         addResponse.StatusCode.Should().Be(HttpStatusCode.Created);
         var item = await addResponse.Content.ReadFromJsonAsync<TeachingNeedItemResponse>();
 
@@ -391,7 +391,7 @@ public class TeachingNeedsControllerTests : IClassFixture<TeachingNeedWebApplica
 
         var addResponse = await _client.PostAsJsonAsync(
             ItemsUrl(sessionId, need.Id),
-            new AddNeedItemRequest(null, null, null, null, 8, null, null));
+            new AddNeedItemRequest(null, null, null, null, 8, null, null, null));
         var item = await addResponse.Content.ReadFromJsonAsync<TeachingNeedItemResponse>();
 
         await _client.DeleteAsync(ItemUrl(sessionId, need.Id, item!.Id));

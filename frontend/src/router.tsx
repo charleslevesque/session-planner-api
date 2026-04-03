@@ -5,16 +5,22 @@ import { PublicOnlyRoute } from './components/PublicOnlyRoute';
 import { RoleRoute } from './components/RoleRoute';
 import { useAuth } from './contexts/AuthContext';
 import { PAGE_ACCESS } from './lib/access';
+import { CourseResourcesPage } from './pages/CourseResourcesPage';
+import { CreateNeedPage } from './pages/CreateNeedPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { LoginPage } from './pages/LoginPage';
 import { MatrixPage } from './pages/MatrixPage';
 import { NeedsPage } from './pages/NeedsPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { RegisterPage } from './pages/RegisterPage';
+import { SessionCoursesPage } from './pages/SessionCoursesPage';
 import { SessionNeedsPage } from './pages/SessionNeedsPage';
 import { SessionsManagementPage } from './pages/SessionsManagementPage';
 import { SecurityPage } from './pages/SecurityPage';
 import { UsersPage } from './pages/UsersPage';
+import { AdminCoursesResourcesPage } from './pages/AdminCoursesResourcesPage';
+import { AdminCourseDetailPage } from './pages/AdminCourseDetailPage';
+import { MyRequestsPage } from './pages/MyRequestsPage';
 
 function RootRedirect() {
   const { isAuthenticated, isInitializing } = useAuth();
@@ -76,6 +82,14 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: 'mes-demandes',
+        element: (
+          <RoleRoute allowedRoles={PAGE_ACCESS.mesDemandesPage}>
+            <MyRequestsPage />
+          </RoleRoute>
+        ),
+      },
+      {
         path: 'sessions/manage',
         element: (
           <RoleRoute allowedRoles={PAGE_ACCESS.sessionsManage}>
@@ -88,6 +102,38 @@ export const router = createBrowserRouter([
         element: (
           <RoleRoute allowedRoles={PAGE_ACCESS.sessionNeeds}>
             <SessionNeedsPage />
+          </RoleRoute>
+        ),
+      },
+      {
+        path: 'sessions/:sessionId/courses',
+        element: (
+          <RoleRoute allowedRoles={PAGE_ACCESS.sessionCourses}>
+            <SessionCoursesPage />
+          </RoleRoute>
+        ),
+      },
+      {
+        path: 'sessions/:sessionId/courses/:courseId',
+        element: (
+          <RoleRoute allowedRoles={PAGE_ACCESS.courseResources}>
+            <CourseResourcesPage />
+          </RoleRoute>
+        ),
+      },
+      {
+        path: 'sessions/:sessionId/courses/:courseId/create-need',
+        element: (
+          <RoleRoute allowedRoles={PAGE_ACCESS.createNeed}>
+            <CreateNeedPage />
+          </RoleRoute>
+        ),
+      },
+      {
+        path: 'sessions/:sessionId/courses/:courseId/needs/:needId/edit',
+        element: (
+          <RoleRoute allowedRoles={PAGE_ACCESS.createNeed}>
+            <CreateNeedPage />
           </RoleRoute>
         ),
       },
@@ -108,6 +154,22 @@ export const router = createBrowserRouter([
         element: (
           <RoleRoute allowedRoles={PAGE_ACCESS.users}>
             <UsersPage />
+          </RoleRoute>
+        ),
+      },
+      {
+        path: 'admin/courses-resources',
+        element: (
+          <RoleRoute allowedRoles={PAGE_ACCESS.adminCoursesResources}>
+            <AdminCoursesResourcesPage />
+          </RoleRoute>
+        ),
+      },
+      {
+        path: 'admin/courses-resources/:courseId',
+        element: (
+          <RoleRoute allowedRoles={PAGE_ACCESS.adminCoursesResources}>
+            <AdminCourseDetailPage />
           </RoleRoute>
         ),
       },

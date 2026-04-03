@@ -7,4 +7,5 @@ public record AddNeedItemRequest(
     int? OSId,
     int? Quantity,
     string? Description,
-    string? Notes);
+    string? Notes,
+    string? DetailsJson);
