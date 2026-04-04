@@ -43,6 +43,7 @@ export function CreateNeedPage() {
   const [course, setCourse] = useState<CourseResponse | null>(null);
   const [lookups, setLookups] = useState<NeedItemLookups>(EMPTY_LOOKUPS);
   const [existingStatus, setExistingStatus] = useState<TeachingNeedStatus | null>(null);
+  const [rejectionReason, setRejectionReason] = useState<string | null>(null);
   const [originalItemIds, setOriginalItemIds] = useState<Set<number>>(new Set());
 
   const [loading, setLoading] = useState(true);
@@ -55,6 +56,7 @@ export function CreateNeedPage() {
   const [draftValues, setDraftValues] = useState<Record<string, string>>(() => {
     return getNeedItemSchema('software', EMPTY_LOOKUPS).defaultValues;
   });
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
   const currentSchema = useMemo(() => getNeedItemSchema(selectedType, lookups), [selectedType, lookups]);
   const canAddItem = useMemo(() => isNeedItemValid(currentSchema, draftValues), [currentSchema, draftValues]);
@@ -105,16 +107,22 @@ export function CreateNeedPage() {
       if (isEditMode) {
         const needData = await apiFetch<TeachingNeedResponse>(`/sessions/${sId}/needs/${nId}`);
         setExistingStatus(needData.status);
+        setRejectionReason(needData.rejectionReason ?? null);
         setOriginalItemIds(new Set(needData.items.map((i) => i.id)));
 
         const loadedItems: NeedItemDraft[] = needData.items
           .filter((item) => EDITABLE_ITEM_TYPES.has(item.itemType))
-          .map((item) => ({
-            id: `existing-${item.id}`,
-            existingApiId: item.id,
-            itemType: item.itemType as TeacherNeedItemType,
-            values: parseDetailsJson(item.detailsJson),
-          }));
+          .map((item) => {
+            const parsedValues = parseDetailsJson(item.detailsJson);
+            return {
+              id: `existing-${item.id}`,
+              existingApiId: item.id,
+              // Snapshot kept to detect field-level modifications later.
+              originalValues: parsedValues,
+              itemType: item.itemType as TeacherNeedItemType,
+              values: parsedValues,
+            };
+          });
         setItems(loadedItems);
       }
     } catch (err) {
@@ -132,23 +140,55 @@ export function CreateNeedPage() {
     setDraftValues(getNeedItemSchema(selectedType, lookups).defaultValues);
   }, [selectedType, lookups]);
 
-  function addItem() {
+  function addOrUpdateItem() {
     if (!canAddItem) return;
 
-    setItems((prev) => [
-      ...prev,
-      {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        itemType: selectedType,
-        values: { ...draftValues },
-      },
-    ]);
+    if (editingItemId) {
+      // Update existing item
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === editingItemId
+            ? { ...item, values: { ...draftValues } }
+            : item
+        )
+      );
+      setEditingItemId(null);
+    } else {
+      // Add new item
+      setItems((prev) => [
+        ...prev,
+        {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          itemType: selectedType,
+          values: { ...draftValues },
+        },
+      ]);
+    }
 
+    setDraftValues(getNeedItemSchema(selectedType, lookups).defaultValues);
+  }
+
+  function startEditItem(itemId: string) {
+    const item = items.find((i) => i.id === itemId);
+    if (!item) return;
+
+    setSelectedType(item.itemType);
+    setDraftValues(item.values);
+    setEditingItemId(itemId);
+    // Scroll to the edit form
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function cancelEditItem() {
+    setEditingItemId(null);
     setDraftValues(getNeedItemSchema(selectedType, lookups).defaultValues);
   }
 
   function removeItem(itemId: string) {
     setItems((prev) => prev.filter((item) => item.id !== itemId));
+    if (editingItemId === itemId) {
+      cancelEditItem();
+    }
   }
 
   async function persistNeed(mode: 'draft' | 'submit') {
@@ -158,12 +198,42 @@ export function CreateNeedPage() {
 
     try {
       if (isEditMode) {
+        // Compare two value maps, ignoring empty-string fields.
+        function hasValueChanged(orig: Record<string, string>, curr: Record<string, string>): boolean {
+          const nonEmpty = (r: Record<string, string>) =>
+            Object.fromEntries(Object.entries(r).filter(([, v]) => v !== ''));
+          const a = nonEmpty(orig);
+          const b = nonEmpty(curr);
+          const keysA = Object.keys(a).sort();
+          const keysB = Object.keys(b).sort();
+          if (keysA.join(',') !== keysB.join(',')) return true;
+          return keysA.some((k) => a[k] !== b[k]);
+        }
+
+        // Items whose detailsJson values changed — must be deleted and re-created.
+        const modifiedApiIds = new Set<number>(
+          items
+            .filter(
+              (i) =>
+                i.existingApiId != null &&
+                hasValueChanged(i.originalValues ?? {}, i.values),
+            )
+            .map((i) => i.existingApiId!),
+        );
+
         const currentApiIds = new Set(
           items.filter((i) => i.existingApiId != null).map((i) => i.existingApiId!),
         );
 
-        const toDelete = [...originalItemIds].filter((id) => !currentApiIds.has(id));
-        const toAdd = items.filter((i) => i.existingApiId == null);
+        // Delete: items removed from the list + items whose values changed.
+        const toDelete = [...originalItemIds].filter(
+          (id) => !currentApiIds.has(id) || modifiedApiIds.has(id),
+        );
+
+        // Add: brand-new items + modified items (re-created with updated values).
+        const toAdd = items.filter(
+          (i) => i.existingApiId == null || modifiedApiIds.has(i.existingApiId),
+        );
 
         await Promise.all(
           toDelete.map((id) =>
@@ -248,6 +318,16 @@ export function CreateNeedPage() {
             <p className="mt-2 text-sm text-stone-600">Session: {session?.title}</p>
           </section>
 
+          {isEditMode && existingStatus === 'Rejected' && rejectionReason ? (
+            <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+              <p className="font-semibold">Demande rejetée</p>
+              <p className="mt-1 text-rose-700">Motif indiqué par l&apos;équipe&nbsp;: {rejectionReason}</p>
+              <p className="mt-2 text-xs text-rose-600">
+                Vous pouvez modifier les éléments ci-dessous, puis utiliser «&nbsp;Soumettre&nbsp;» pour renvoyer la demande (brouillon puis soumission).
+              </p>
+            </div>
+          ) : null}
+
           {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
           {success ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{success}</div> : null}
 
@@ -270,7 +350,9 @@ export function CreateNeedPage() {
               }}
             >
               <div className="rounded-2xl border border-stone-200 bg-stone-50/70 p-4">
-                <p className="mb-3 text-sm font-semibold text-stone-800">Ajouter des besoins</p>
+                <p className="mb-3 text-sm font-semibold text-stone-800">
+                  {editingItemId ? 'Modifier le besoin' : 'Ajouter des besoins'}
+                </p>
 
                 <div className="grid gap-4">
                   <label className="block">
@@ -278,7 +360,8 @@ export function CreateNeedPage() {
                     <select
                       value={selectedType}
                       onChange={(event) => setSelectedType(event.target.value as TeacherNeedItemType)}
-                      className="input-field max-w-xs"
+                      disabled={editingItemId != null}
+                      className="input-field max-w-xs disabled:cursor-not-allowed disabled:bg-stone-200"
                     >
                       {TEACHER_NEED_ITEM_OPTIONS.map((option) => (
                         <option key={option.value} value={option.value}>{option.label}</option>
@@ -302,15 +385,24 @@ export function CreateNeedPage() {
                     ))}
                   </div>
 
-                  <div>
+                  <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={addItem}
+                      onClick={addOrUpdateItem}
                       disabled={!canAddItem}
                       className="rounded-2xl border border-stone-300 px-4 py-3 text-sm text-stone-700 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      Ajouter
+                      {editingItemId ? 'Mettre à jour' : 'Ajouter'}
                     </button>
+                    {editingItemId ? (
+                      <button
+                        type="button"
+                        onClick={cancelEditItem}
+                        className="rounded-2xl border border-stone-300 px-4 py-3 text-sm text-stone-600 transition hover:bg-stone-100"
+                      >
+                        Annuler
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -324,22 +416,43 @@ export function CreateNeedPage() {
                         { id: item.existingApiId ?? 0, itemType: item.itemType, detailsJson: JSON.stringify(item.values) },
                         lookups,
                       );
+                      const isBeingEdited = editingItemId === item.id;
 
                       return (
-                        <li key={item.id} className="flex items-center justify-between gap-4 rounded-xl bg-white px-3 py-2 text-sm">
+                        <li
+                          key={item.id}
+                          className={[
+                            'flex items-center justify-between gap-4 rounded-xl px-3 py-2 text-sm transition',
+                            isBeingEdited ? 'bg-blue-50 border border-blue-200' : 'bg-white'
+                          ].join(' ')}
+                        >
                           <span className="min-w-0">
                             <span className="mr-2 inline-flex rounded-md border border-stone-200 bg-stone-100 px-1.5 py-0.5 text-[10px] font-medium text-stone-600">
                               {label}
                             </span>
                             {summary}
+                            {isBeingEdited && (
+                              <span className="ml-2 inline-flex rounded-md border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600">
+                                En édition
+                              </span>
+                            )}
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => removeItem(item.id)}
-                            className="text-xs text-rose-600 hover:text-rose-700"
-                          >
-                            Retirer
-                          </button>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => startEditItem(item.id)}
+                              className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                            >
+                              Éditer
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeItem(item.id)}
+                              className="text-xs text-rose-600 hover:text-rose-700"
+                            >
+                              Retirer
+                            </button>
+                          </div>
                         </li>
                       );
                     })}

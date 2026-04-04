@@ -151,6 +151,16 @@ public class TeachingNeedWorkflowWebApplicationFactory : WebApplicationFactory<P
                 PersonnelId = AdminPersonnelId
             });
 
+            db.OperatingSystems.Add(new OS { Id = 1, Name = "Test OS" });
+            db.Laboratories.Add(new Laboratory
+            {
+                Id = 1,
+                Name = "Workflow Lab",
+                Building = "Test",
+                NumberOfPCs = 1,
+                SeatingCapacity = 30
+            });
+
             db.SaveChanges();
         });
 

@@ -3,6 +3,7 @@ import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getErrorMessage } from '../lib/api';
 import { NEED_ITEM_LABELS, summarizeNeedItem, type NeedItemLookups } from '../lib/needItemSchemas';
+import { teachingNeedStatusBadgeClass, teachingNeedStatusLabelFr } from '../lib/needStatusMapping';
 import type {
   AddNeedItemRequest,
   CourseResponse,
@@ -92,15 +93,11 @@ function NeedDetailPanel({ need, lookups }: NeedDetailPanelProps) {
 }
 
 function NeedStatusBadge({ status }: { status: TeachingNeedStatus }) {
-  const styles: Record<TeachingNeedStatus, string> = {
-    Draft: 'bg-slate-100 text-slate-700 border-slate-200',
-    Submitted: 'bg-blue-100 text-blue-700 border-blue-200',
-    UnderReview: 'bg-violet-100 text-violet-700 border-violet-200',
-    Approved: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-    Rejected: 'bg-rose-100 text-rose-700 border-rose-200',
-  };
-
-  return <span className={`inline-flex rounded-xl border px-2.5 py-0.5 text-xs font-medium ${styles[status]}`}>{status}</span>;
+  return (
+    <span className={`inline-flex rounded-xl border px-2.5 py-0.5 text-xs font-medium ${teachingNeedStatusBadgeClass(status)}`}>
+      {teachingNeedStatusLabelFr(status)}
+    </span>
+  );
 }
 
 function TeacherNeedsView({ sessionId, startInCreateMode = false }: { sessionId: number; startInCreateMode?: boolean }) {
@@ -342,13 +339,16 @@ function TeacherNeedsView({ sessionId, startInCreateMode = false }: { sessionId:
     }
   }
 
-  async function submitExistingNeed(needId: number) {
-    setSubmittingNeedId(needId);
+  async function submitExistingNeed(need: TeachingNeedResponse) {
+    setSubmittingNeedId(need.id);
     setError('');
     setSuccess('');
 
     try {
-      await apiFetch(`/sessions/${sessionId}/needs/${needId}/submit`, { method: 'POST' });
+      if (need.status === 'Rejected') {
+        await apiFetch(`/sessions/${sessionId}/needs/${need.id}/revise`, { method: 'POST' });
+      }
+      await apiFetch(`/sessions/${sessionId}/needs/${need.id}/submit`, { method: 'POST' });
       setSuccess('Besoin soumis.');
       await loadData();
     } catch (err) {
@@ -429,8 +429,12 @@ function TeacherNeedsView({ sessionId, startInCreateMode = false }: { sessionId:
     return <div className="rounded-2xl border border-stone-200 bg-white/70 px-4 py-6 text-sm text-stone-600">Chargement...</div>;
   }
 
-  const editableNeeds = needs.filter((need) => need.status === 'Draft' || need.status === 'Submitted');
-  const lockedNeeds = needs.filter((need) => need.status !== 'Draft' && need.status !== 'Submitted');
+  const editableNeeds = needs.filter(
+    (need) => need.status === 'Draft' || need.status === 'Submitted' || need.status === 'Rejected',
+  );
+  const lockedNeeds = needs.filter(
+    (need) => need.status !== 'Draft' && need.status !== 'Submitted' && need.status !== 'Rejected',
+  );
 
   return (
     <div className="space-y-6">
@@ -680,7 +684,7 @@ function TeacherNeedsView({ sessionId, startInCreateMode = false }: { sessionId:
             <p className="text-sm text-stone-500">Aucun besoin pour cette session.</p>
           ) : (
             [...editableNeeds, ...lockedNeeds].map((need) => {
-              const isEditable = need.status === 'Draft' || need.status === 'Submitted';
+              const isEditable = need.status === 'Draft' || need.status === 'Submitted' || need.status === 'Rejected';
               const isExpanded = expandedIds.has(need.id);
 
               return (
@@ -817,10 +821,10 @@ function TeacherNeedsView({ sessionId, startInCreateMode = false }: { sessionId:
                     </div>
                   ) : null}
 
-                      {need.status === 'Draft' ? (
+                      {need.status === 'Draft' || need.status === 'Rejected' ? (
                         <div className="mt-3">
-                          <button type="button" onClick={() => void submitExistingNeed(need.id)} disabled={submittingNeedId === need.id} className="rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
-                            {submittingNeedId === need.id ? 'Soumission...' : 'Soumettre'}
+                          <button type="button" onClick={() => void submitExistingNeed(need)} disabled={submittingNeedId === need.id} className="rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
+                            {submittingNeedId === need.id ? 'Soumission...' : need.status === 'Rejected' ? 'Resoumettre' : 'Soumettre'}
                           </button>
                         </div>
                       ) : null}
@@ -839,6 +843,12 @@ function TeacherNeedsView({ sessionId, startInCreateMode = false }: { sessionId:
 function TechnicianReviewView({ sessionId }: { sessionId: number }) {
   const { apiFetch } = useAuth();
   const [needs, setNeeds] = useState<TeachingNeedResponse[]>([]);
+  const [reviewLookups, setReviewLookups] = useState<NeedItemLookups>({
+    softwareNames: [],
+    osOptions: [],
+    laboratoryOptions: [],
+    serverOptions: [],
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [busyId, setBusyId] = useState<number | null>(null);
@@ -857,8 +867,19 @@ function TechnicianReviewView({ sessionId }: { sessionId: number }) {
     setError('');
 
     try {
-      const data = await apiFetch<TeachingNeedResponse[]>(`/sessions/${sessionId}/needs`);
+      const [data, osData, laboratoriesData, serversData] = await Promise.all([
+        apiFetch<TeachingNeedResponse[]>(`/sessions/${sessionId}/needs`),
+        apiFetch<OSResponse[]>('/operatingsystems'),
+        apiFetch<LaboratoryLookupResponse[]>('/laboratories'),
+        apiFetch<PhysicalServerResponse[]>('/physicalservers'),
+      ]);
       setNeeds(data);
+      setReviewLookups({
+        softwareNames: [],
+        osOptions: osData.map((os) => ({ value: String(os.id), label: os.name })),
+        laboratoryOptions: laboratoriesData.map((lab) => ({ value: String(lab.id), label: lab.name })),
+        serverOptions: serversData.map((server) => ({ value: String(server.id), label: server.hostname })),
+      });
     } catch (err) {
       setError(getErrorMessage(err, 'Impossible de charger les besoins.'));
     } finally {
@@ -978,12 +999,7 @@ function TechnicianReviewView({ sessionId }: { sessionId: number }) {
                   <div className="border-t border-stone-100 px-4 pb-4">
                     <NeedDetailPanel
                       need={need}
-                      lookups={{
-                        softwareNames: [],
-                        osOptions: [],
-                        laboratoryOptions: [],
-                        serverOptions: [],
-                      }}
+                      lookups={reviewLookups}
                     />
 
                     {need.status === 'Submitted' ? (

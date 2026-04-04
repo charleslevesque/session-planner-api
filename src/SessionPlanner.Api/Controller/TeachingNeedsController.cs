@@ -792,7 +792,7 @@ public class TeachingNeedsController : ControllerBase
     /// </summary>
     /// <param name="sessionId">Optional session filter.</param>
     /// <param name="courseId">Optional course filter.</param>
-    /// <param name="status">Optional UI status filter: draft, open, under review, closed.</param>
+    /// <param name="status">Optional filter: draft, submitted (or open), under review, approved, rejected.</param>
     [HttpGet("~/api/v{version:apiVersion}/needs/mine")]
     [HasPermission(Permissions.TeachingNeeds.Read)]
     [SwaggerOperation(
@@ -837,9 +837,10 @@ public class TeachingNeedsController : ControllerBase
         return uiStatus.Trim().ToLowerInvariant() switch
         {
             "draft" => [NeedStatus.Draft],
-            "open" => [NeedStatus.Submitted],
-            "under review" => [NeedStatus.UnderReview],
-            "closed" => [NeedStatus.Approved, NeedStatus.Rejected],
+            "submitted" or "open" => [NeedStatus.Submitted],
+            "under review" or "underreview" or "under_review" => [NeedStatus.UnderReview],
+            "approved" => [NeedStatus.Approved],
+            "rejected" => [NeedStatus.Rejected],
             _ => null
         };
     }
