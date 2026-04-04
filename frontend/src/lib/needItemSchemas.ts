@@ -26,6 +26,12 @@ export interface NeedItemDraft {
   id: string;
   /** Set when the item was loaded from the API (edit mode). */
   existingApiId?: number;
+  /**
+   * Snapshot of the values at load time (edit mode only).
+   * Used to detect field-level changes so that modified items
+   * are deleted + re-created rather than silently kept as-is.
+   */
+  originalValues?: Record<string, string>;
   itemType: TeacherNeedItemType;
   values: Record<string, string>;
 }

@@ -163,7 +163,10 @@ export function CourseResourcesPage() {
               {course?.code}{course?.name ? ` — ${course.name}` : ''}
             </h1>
             <p className="mt-2 text-sm text-stone-600">
-              {totalCount} ressource{totalCount !== 1 ? 's' : ''} associée{totalCount !== 1 ? 's' : ''}
+              {totalCount} ressource{totalCount !== 1 ? 's' : ''} associée{totalCount !== 1 ? 's' : ''} à ce cours
+            </p>
+            <p className="mt-1 text-xs text-stone-400">
+              Ces ressources proviennent des demandes approuvées pour ce cours. Elles sont indépendantes du catalogue global.
             </p>
           </section>
 

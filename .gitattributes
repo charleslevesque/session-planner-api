@@ -1,0 +1,27 @@
+# Normalize text files by default and keep LF in repository
+* text=auto eol=lf
+
+# Keep Windows-specific scripts with CRLF for better native compatibility
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Shell scripts must stay LF
+*.sh text eol=lf
+
+# Solution files are typically edited by Visual Studio on Windows
+*.sln text eol=crlf
+*.slnx text eol=crlf
+
+# Common binary assets
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.7z binary
+*.dll binary
+*.exe binary
+*.pdb binary

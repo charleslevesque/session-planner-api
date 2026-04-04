@@ -1,4 +1,6 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using SessionPlanner.Core.Entities;
 using SessionPlanner.Core.Enums;
 using SessionPlanner.Core.Interfaces;
@@ -8,11 +10,46 @@ namespace SessionPlanner.Infrastructure.Services;
 
 public class TeachingNeedService : ITeachingNeedService
 {
-    private readonly AppDbContext _db;
+    private static readonly JsonSerializerOptions DetailJsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        ReadCommentHandling = JsonCommentHandling.Skip,
+        AllowTrailingCommas = true,
+    };
 
-    public TeachingNeedService(AppDbContext db)
+    private readonly AppDbContext _db;
+    private readonly ICourseService _courseService;
+    private readonly ISoftwareService _softwareService;
+    private readonly ISoftwareVersionService _softwareVersionService;
+    private readonly ISaaSProductService _saasProductService;
+    private readonly IVirtualMachineService _virtualMachineService;
+    private readonly IPhysicalServerService _physicalServerService;
+    private readonly IEquipmentModelService _equipmentModelService;
+    private readonly IConfigurationService _configurationService;
+    private readonly ILogger<TeachingNeedService> _logger;
+
+    public TeachingNeedService(
+        AppDbContext db,
+        ICourseService courseService,
+        ISoftwareService softwareService,
+        ISoftwareVersionService softwareVersionService,
+        ISaaSProductService saasProductService,
+        IVirtualMachineService virtualMachineService,
+        IPhysicalServerService physicalServerService,
+        IEquipmentModelService equipmentModelService,
+        IConfigurationService configurationService,
+        ILogger<TeachingNeedService> logger)
     {
         _db = db;
+        _courseService = courseService;
+        _softwareService = softwareService;
+        _softwareVersionService = softwareVersionService;
+        _saasProductService = saasProductService;
+        _virtualMachineService = virtualMachineService;
+        _physicalServerService = physicalServerService;
+        _equipmentModelService = equipmentModelService;
+        _configurationService = configurationService;
+        _logger = logger;
     }
 
     public async Task<int?> GetPersonnelIdForUserAsync(int userId)
@@ -207,8 +244,8 @@ public class TeachingNeedService : ITeachingNeedService
 
         if (need is null) return null;
 
-        if (need.Status != NeedStatus.Draft && need.Status != NeedStatus.Submitted)
-            throw new InvalidOperationException("Items can only be added to Draft or Submitted needs.");
+        if (need.Status != NeedStatus.Draft && need.Status != NeedStatus.Submitted && need.Status != NeedStatus.Rejected)
+            throw new InvalidOperationException("Items can only be added to Draft, Submitted, or Rejected needs.");
 
         var item = new TeachingNeedItem
         {
@@ -240,8 +277,8 @@ public class TeachingNeedService : ITeachingNeedService
 
         if (need is null) return false;
 
-        if (need.Status != NeedStatus.Draft && need.Status != NeedStatus.Submitted)
-            throw new InvalidOperationException("Items can only be removed from Draft or Submitted needs.");
+        if (need.Status != NeedStatus.Draft && need.Status != NeedStatus.Submitted && need.Status != NeedStatus.Rejected)
+            throw new InvalidOperationException("Items can only be removed from Draft, Submitted, or Rejected needs.");
 
         var item = await _db.TeachingNeedItems
             .FirstOrDefaultAsync(i => i.Id == itemId && i.TeachingNeedId == needId);
@@ -286,19 +323,397 @@ public class TeachingNeedService : ITeachingNeedService
 
     public async Task<TeachingNeed?> ApproveAsync(int sessionId, int id, int? reviewedByUserId)
     {
-        var need = await _db.TeachingNeeds
-            .FirstOrDefaultAsync(n => n.SessionId == sessionId && n.Id == id);
+        await using var transaction = await _db.Database.BeginTransactionAsync();
+        try
+        {
+            var need = await _db.TeachingNeeds
+                .FirstOrDefaultAsync(n => n.SessionId == sessionId && n.Id == id);
 
-        if (need is null) return null;
+            if (need is null)
+            {
+                await transaction.RollbackAsync();
+                return null;
+            }
 
-        EnsureStatus(need, NeedStatus.UnderReview, "Need can only be approved from UnderReview status.");
+            EnsureStatus(need, NeedStatus.UnderReview, "Need can only be approved from UnderReview status.");
 
-        need.Status = NeedStatus.Approved;
-        need.ReviewedAt = DateTime.UtcNow;
-        need.ReviewedByUserId = reviewedByUserId;
+            need.Status = NeedStatus.Approved;
+            need.ReviewedAt = DateTime.UtcNow;
+            need.ReviewedByUserId = reviewedByUserId;
 
-        await _db.SaveChangesAsync();
-        return await GetByIdAsync(sessionId, id);
+            await _db.SaveChangesAsync();
+
+            // Re-read items fresh from DB after status change so that any item that was
+            // deleted + re-created by the teacher before resubmission is reflected here,
+            // never a stale in-memory snapshot from a previous query.
+            var latestItems = await _db.TeachingNeedItems
+                .Where(i => i.TeachingNeedId == id)
+                .ToListAsync();
+
+            await PropagateApprovedItemsToCourseAsync(need.CourseId, latestItems);
+
+            await transaction.CommitAsync();
+            return await GetByIdAsync(sessionId, id);
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+    }
+
+    private async Task PropagateApprovedItemsToCourseAsync(int courseId, ICollection<TeachingNeedItem> items)
+    {
+        foreach (var item in items)
+        {
+            var type = (item.ItemType ?? string.Empty).Trim().ToLowerInvariant();
+            switch (type)
+            {
+                case "software":
+                    await PropagateSoftwareItemAsync(courseId, item);
+                    break;
+                case "saas":
+                    await PropagateSaasItemAsync(courseId, item);
+                    break;
+                case "virtual_machine":
+                    await PropagateVirtualMachineItemAsync(courseId, item);
+                    break;
+                case "physical_server":
+                    await PropagatePhysicalServerItemAsync(courseId, item);
+                    break;
+                case "equipment_loan":
+                    await PropagateEquipmentItemAsync(courseId, item);
+                    break;
+                case "configuration":
+                    await PropagateConfigurationItemAsync(courseId, item);
+                    break;
+                case "other":
+                    _logger.LogInformation(
+                        "Skipping teaching need item {ItemId} (type other) — no course resource to create.",
+                        item.Id);
+                    break;
+                default:
+                    throw new InvalidOperationException(
+                        $"Item {item.Id}: unsupported itemType '{item.ItemType}'.");
+            }
+        }
+    }
+
+    private async Task PropagateSoftwareItemAsync(int courseId, TeachingNeedItem item)
+    {
+        if (item.SoftwareVersionId is int svId)
+        {
+            var r = await _courseService.AssociateSoftwareVersionAsync(courseId, svId);
+            if (r is null)
+                throw new InvalidOperationException(
+                    $"Item {item.Id}: SoftwareVersion {svId} not found in the catalogue.");
+            return;
+        }
+
+        if (item.SoftwareId is int sid)
+        {
+            var r = await _courseService.AssociateSoftwareAsync(courseId, sid);
+            if (r is null)
+                throw new InvalidOperationException(
+                    $"Item {item.Id}: Software {sid} not found in the catalogue.");
+            return;
+        }
+
+        var details = ParseDetailsDict(item.DetailsJson);
+        var softwareName = DetailString(details, "softwareName", "name");
+        var versionNumber = DetailString(details, "versionNumber", "version");
+        var osId = DetailInt(details, "osId", "OSId");
+
+        if (string.IsNullOrWhiteSpace(softwareName) || string.IsNullOrWhiteSpace(versionNumber) || osId is null)
+            throw new InvalidOperationException(
+                $"Item {item.Id} (software): detailsJson is incomplete — softwareName, versionNumber and osId are required.");
+
+        var trimmedName = softwareName.Trim();
+        var trimmedVersion = versionNumber.Trim();
+
+        var software = await _db.Softwares
+            .FirstOrDefaultAsync(s => s.Name.ToLower() == trimmedName.ToLowerInvariant());
+        software ??= await _softwareService.CreateAsync(trimmedName);
+
+        var version = await _db.SoftwareVersions
+            .FirstOrDefaultAsync(v =>
+                v.SoftwareId == software.Id &&
+                v.OsId == osId.Value &&
+                v.VersionNumber == trimmedVersion);
+
+        if (version is null)
+        {
+            var installationDetails = DetailString(details, "installationDetails");
+            var notes = DetailString(details, "notes");
+            version = await _softwareVersionService
+                .CreateAsync(software.Id, osId.Value, trimmedVersion, installationDetails, notes)
+                ?? throw new InvalidOperationException(
+                    $"Item {item.Id}: could not create SoftwareVersion for OS {osId}.");
+        }
+
+        var assoc = await _courseService.AssociateSoftwareVersionAsync(courseId, version.Id);
+        if (assoc is null)
+            throw new InvalidOperationException(
+                $"Item {item.Id}: SoftwareVersion {version.Id} not found after creation.");
+    }
+
+    private async Task PropagateSaasItemAsync(int courseId, TeachingNeedItem item)
+    {
+        var details = ParseDetailsDict(item.DetailsJson);
+        var name = DetailString(details, "name");
+
+        if (string.IsNullOrWhiteSpace(name))
+            throw new InvalidOperationException(
+                $"Item {item.Id} (saas): detailsJson missing required field 'name'.");
+
+        var trimmed = name.Trim();
+        var product = await _db.SaaSProducts
+            .FirstOrDefaultAsync(p => p.Name.ToLower() == trimmed.ToLowerInvariant());
+
+        if (product is null)
+        {
+            var accounts = DetailInt(details, "numberOfAccounts");
+            var notes = DetailString(details, "notes");
+            product = await _saasProductService.CreateAsync(trimmed, accounts, notes);
+        }
+
+        var r = await _courseService.AssociateSaaSProductAsync(courseId, product.Id);
+        if (r is null)
+            throw new InvalidOperationException(
+                $"Item {item.Id}: SaaS product {product.Id} not found after find-or-create.");
+    }
+
+    private async Task PropagateVirtualMachineItemAsync(int courseId, TeachingNeedItem item)
+    {
+        var details = ParseDetailsDict(item.DetailsJson);
+        var quantity = DetailInt(details, "quantity") ?? 1;
+        var cpu = DetailInt(details, "cpuCores");
+        var ram = DetailInt(details, "ramGb");
+        var storage = DetailInt(details, "storageGb");
+        var accessType = DetailString(details, "accessType");
+        var osId = DetailInt(details, "osId", "OSId");
+        var hostServerId = DetailInt(details, "hostServerId", "HostServerId");
+        var notes = DetailString(details, "notes");
+
+        if (cpu is null || ram is null || storage is null || string.IsNullOrWhiteSpace(accessType) || osId is null)
+            throw new InvalidOperationException(
+                $"Item {item.Id} (virtual_machine): detailsJson is incomplete — cpuCores, ramGb, storageGb, accessType and osId are required.");
+
+        var trimmedAccess = accessType.Trim();
+
+        // Find-or-create: match by full spec (quantity+cpu+ram+storage+accessType+osId+hostServerId).
+        var existing = await _db.VirtualMachines
+            .FirstOrDefaultAsync(v =>
+                v.Quantity == quantity &&
+                v.CpuCores == cpu.Value &&
+                v.RamGb == ram.Value &&
+                v.StorageGb == storage.Value &&
+                v.AccessType == trimmedAccess &&
+                v.OSId == osId.Value &&
+                v.HostServerId == hostServerId);
+
+        VirtualMachine vm;
+        if (existing is not null)
+        {
+            vm = existing;
+        }
+        else
+        {
+            var result = await _virtualMachineService.CreateAsync(
+                quantity, cpu.Value, ram.Value, storage.Value, trimmedAccess, notes, osId.Value, hostServerId);
+
+            if (result.Status != VirtualMachineOperationStatus.Success || result.VirtualMachine is null)
+                throw new InvalidOperationException(
+                    $"Item {item.Id}: VM creation failed with status {result.Status}.");
+
+            vm = result.VirtualMachine;
+        }
+
+        var assoc = await _courseService.AssociateVirtualMachineAsync(courseId, vm.Id);
+        if (assoc is null)
+            throw new InvalidOperationException(
+                $"Item {item.Id}: VM {vm.Id} not found after find-or-create.");
+    }
+
+    private async Task PropagatePhysicalServerItemAsync(int courseId, TeachingNeedItem item)
+    {
+        var details = ParseDetailsDict(item.DetailsJson);
+        var hostname = DetailString(details, "hostname");
+        var cpu = DetailInt(details, "cpuCores");
+        var ram = DetailInt(details, "ramGb");
+        var storage = DetailInt(details, "storageGb");
+        var accessType = DetailString(details, "accessType");
+        var osId = DetailInt(details, "osId", "OSId");
+        var notes = DetailString(details, "notes");
+
+        if (string.IsNullOrWhiteSpace(hostname) || cpu is null || ram is null || storage is null ||
+            string.IsNullOrWhiteSpace(accessType) || osId is null)
+            throw new InvalidOperationException(
+                $"Item {item.Id} (physical_server): detailsJson is incomplete — hostname, cpuCores, ramGb, storageGb, accessType and osId are required.");
+
+        var h = hostname.Trim();
+        var result = await _physicalServerService.CreateAsync(
+            h, cpu.Value, ram.Value, storage.Value, accessType.Trim(), notes, osId.Value);
+
+        PhysicalServer? server = result.Server;
+
+        if (result.Status == PhysicalServerOperationStatus.DuplicateHostname)
+            server = await _db.PhysicalServers.FirstOrDefaultAsync(s => s.Hostname == h);
+        else if (result.Status != PhysicalServerOperationStatus.Success)
+            throw new InvalidOperationException(
+                $"Item {item.Id}: physical server creation failed with status {result.Status}.");
+
+        if (server is null)
+            throw new InvalidOperationException(
+                $"Item {item.Id}: could not resolve physical server '{h}' after find-or-create.");
+
+        var assoc = await _courseService.AssociatePhysicalServerAsync(courseId, server.Id);
+        if (assoc is null)
+            throw new InvalidOperationException(
+                $"Item {item.Id}: physical server {server.Id} not found after find-or-create.");
+    }
+
+    private async Task PropagateEquipmentItemAsync(int courseId, TeachingNeedItem item)
+    {
+        var details = ParseDetailsDict(item.DetailsJson);
+        var name = DetailString(details, "name");
+
+        if (string.IsNullOrWhiteSpace(name))
+            throw new InvalidOperationException(
+                $"Item {item.Id} (equipment_loan): detailsJson missing required field 'name'.");
+
+        var trimmed = name.Trim();
+        var qty = DetailInt(details, "quantity") ?? 1;
+        var accessories = DetailString(details, "defaultAccessories");
+        var notes = DetailString(details, "notes");
+
+        // Find-or-create by name (case-insensitive).
+        var model = await _db.EquipmentModels
+            .FirstOrDefaultAsync(e => e.Name.ToLower() == trimmed.ToLowerInvariant());
+
+        model ??= await _equipmentModelService.CreateAsync(trimmed, qty, accessories, notes);
+
+        var assoc = await _courseService.AssociateEquipmentModelAsync(courseId, model.Id);
+        if (assoc is null)
+            throw new InvalidOperationException(
+                $"Item {item.Id}: equipment model {model.Id} not found after find-or-create.");
+    }
+
+    private async Task PropagateConfigurationItemAsync(int courseId, TeachingNeedItem item)
+    {
+        var details = ParseDetailsDict(item.DetailsJson);
+        var title = DetailString(details, "title");
+        var osRaw = DetailString(details, "osIds");
+        var labRaw = DetailString(details, "laboratoryIds");
+
+        if (string.IsNullOrWhiteSpace(title))
+            throw new InvalidOperationException(
+                $"Item {item.Id} (configuration): detailsJson missing required field 'title'.");
+
+        var osIds = ParseIdList(osRaw);
+        var labIds = ParseIdList(labRaw);
+
+        if (osIds.Count == 0 || labIds.Count == 0)
+            throw new InvalidOperationException(
+                $"Item {item.Id} (configuration): detailsJson missing required fields 'osIds' and/or 'laboratoryIds'.");
+
+        var trimmedTitle = title.Trim();
+        var notes = DetailString(details, "notes");
+
+        var configuration = await FindMatchingConfigurationAsync(trimmedTitle, osIds, labIds);
+
+        configuration ??= await _configurationService.CreateAsync(trimmedTitle, osIds, labIds, notes);
+
+        var assoc = await _courseService.AssociateConfigurationAsync(courseId, configuration.Id);
+        if (assoc is null)
+            throw new InvalidOperationException(
+                $"Item {item.Id}: configuration {configuration.Id} not found after find-or-create.");
+    }
+
+    private static List<int> ParseIdList(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return [];
+
+        return raw
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(s => int.TryParse(s, out var id) ? id : (int?)null)
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .ToList();
+    }
+
+    private async Task<Configuration?> FindMatchingConfigurationAsync(string title, IReadOnlyCollection<int> osIds, IReadOnlyCollection<int> labIds)
+    {
+        var normalized = title.ToLowerInvariant();
+        var requestedOs = osIds.ToHashSet();
+        var requestedLabs = labIds.ToHashSet();
+
+        var candidates = await _db.Configurations
+            .Include(c => c.ConfigurationOSes)
+            .Include(c => c.LaboratoryConfigurations)
+            .Where(c => c.Title.ToLower() == normalized)
+            .ToListAsync();
+
+        foreach (var candidate in candidates)
+        {
+            var candidateOs = candidate.ConfigurationOSes.Select(x => x.OSId).ToHashSet();
+            var candidateLabs = candidate.LaboratoryConfigurations.Select(x => x.LaboratoryId).ToHashSet();
+            if (candidateOs.SetEquals(requestedOs) && candidateLabs.SetEquals(requestedLabs))
+                return candidate;
+        }
+
+        return null;
+    }
+
+    private static IReadOnlyDictionary<string, JsonElement>? ParseDetailsDict(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return null;
+
+        try
+        {
+            return JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json, DetailJsonOptions);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string? DetailString(IReadOnlyDictionary<string, JsonElement>? d, params string[] keys)
+    {
+        if (d is null) return null;
+        foreach (var key in keys)
+        {
+            if (!d.TryGetValue(key, out var el))
+                continue;
+            if (el.ValueKind == JsonValueKind.Null || el.ValueKind == JsonValueKind.Undefined)
+                return null;
+            if (el.ValueKind == JsonValueKind.String)
+                return el.GetString();
+            return el.ToString();
+        }
+
+        return null;
+    }
+
+    private static int? DetailInt(IReadOnlyDictionary<string, JsonElement>? d, params string[] keys)
+    {
+        if (d is null) return null;
+        foreach (var key in keys)
+        {
+            if (!d.TryGetValue(key, out var el))
+                continue;
+            if (el.ValueKind == JsonValueKind.Null || el.ValueKind == JsonValueKind.Undefined)
+                return null;
+            if (el.ValueKind == JsonValueKind.Number && el.TryGetInt32(out var i))
+                return i;
+            if (el.ValueKind == JsonValueKind.String && int.TryParse(el.GetString(), out var j))
+                return j;
+        }
+
+        return null;
     }
 
     public async Task<TeachingNeed?> RejectAsync(int sessionId, int id, string reason, int? reviewedByUserId)
