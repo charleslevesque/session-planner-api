@@ -51,10 +51,14 @@ export function SessionCoursesPage() {
     void loadData();
   }, [loadData]);
 
+  // Only count active needs (Draft / Submitted / UnderReview / Rejected).
+  // Approved is a terminal state and must not appear in active-demand badges.
   const courseNeedCounts = useMemo(() => {
     const map = new Map<number, number>();
     for (const need of needs) {
-      map.set(need.courseId, (map.get(need.courseId) ?? 0) + 1);
+      if (need.status !== 'Approved') {
+        map.set(need.courseId, (map.get(need.courseId) ?? 0) + 1);
+      }
     }
     return map;
   }, [needs]);
@@ -132,7 +136,7 @@ export function SessionCoursesPage() {
                         </div>
                         {needCount > 0 ? (
                           <span className="shrink-0 rounded-xl border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
-                            {needCount} besoin{needCount > 1 ? 's' : ''}
+                            {needCount} demande{needCount > 1 ? 's' : ''} active{needCount > 1 ? 's' : ''}
                           </span>
                         ) : null}
                       </div>

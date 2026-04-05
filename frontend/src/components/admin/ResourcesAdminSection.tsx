@@ -785,7 +785,10 @@ export function ResourcesAdminSection({ courseId }: ResourcesAdminSectionProps) 
           <p className="mt-1 text-xs text-stone-500">
             Cliquez sur <span className="font-semibold text-emerald-600">Associer</span> ou{' '}
             <span className="font-semibold text-emerald-600">✓ Dissocier</span> pour gérer les
-            liens entre ce cours et ses ressources.
+            liens entre ce cours et ses ressources.{' '}
+            <span className="text-stone-400">
+              Dissocier retire uniquement l&apos;association au cours — la ressource reste dans le catalogue global.
+            </span>
           </p>
         ) : null}
 

@@ -23,10 +23,10 @@ public interface ITeachingNeedService
     /// <summary>Deletes a need. Returns false if not found. Throws InvalidOperationException if status is Approved.</summary>
     Task<bool> DeleteAsync(int sessionId, int id);
 
-    /// <summary>Adds an item to a need. Returns null if need not found. Throws InvalidOperationException if status is not Draft or Submitted.</summary>
+    /// <summary>Adds an item to a need. Returns null if need not found. Throws InvalidOperationException if status is not Draft, Submitted, or Rejected.</summary>
     Task<TeachingNeedItem?> AddItemAsync(int sessionId, int needId, string itemType, int? softwareId, int? softwareVersionId, int? osId, int? quantity, string? description, string? notes, string? detailsJson);
 
-    /// <summary>Removes an item from a need. Returns false if need or item not found. Throws InvalidOperationException if status is not Draft.</summary>
+    /// <summary>Removes an item from a need. Returns false if need or item not found. Throws InvalidOperationException if status is not Draft, Submitted, or Rejected.</summary>
     Task<bool> RemoveItemAsync(int sessionId, int needId, int itemId);
 
     /// <summary>Transitions Draft -> Submitted. Returns null if not found.</summary>

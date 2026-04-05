@@ -2,15 +2,16 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getErrorMessage } from '../lib/api';
+import { summarizeNeedItem, type NeedItemLookups } from '../lib/needItemSchemas';
 import {
-  toUiStatus,
-  uiStatusLabel,
-  uiStatusStyle,
-  UI_STATUS_OPTIONS,
-  type UiNeedStatus,
+  MINE_STATUS_FILTER_OPTIONS,
+  teachingNeedStatusBadgeClass,
+  teachingNeedStatusLabelFr,
+  type UiNeedStatusFilter,
 } from '../lib/needStatusMapping';
-import type { MyNeedResponse, TeachingNeedStatus } from '../types/needs';
+import type { MyNeedResponse, TeachingNeedResponse, TeachingNeedStatus } from '../types/needs';
 import type { SessionResponse } from '../types/sessions';
+import type { LaboratoryLookupResponse, OSResponse, PhysicalServerResponse, SoftwareResponse } from '../types/admin';
 
 type FilterValue = 'all';
 
@@ -22,18 +23,48 @@ function canDelete(status: TeachingNeedStatus) {
   return status !== 'Approved';
 }
 
+const EMPTY_LOOKUPS: NeedItemLookups = {
+  softwareNames: [],
+  osOptions: [],
+  laboratoryOptions: [],
+  serverOptions: [],
+};
+
+function formatDateTime(iso: string | undefined): string {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString('fr-CA', { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+function ChevronIcon({ expanded }: { expanded: boolean }) {
+  return (
+    <svg
+      className={`h-4 w-4 text-stone-400 transition-transform ${expanded ? 'rotate-180' : ''}`}
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={2}
+      stroke="currentColor"
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+    </svg>
+  );
+}
+
 export function MyRequestsPage() {
   const { apiFetch } = useAuth();
   const [searchParams] = useSearchParams();
 
   const [sessions, setSessions] = useState<SessionResponse[]>([]);
   const [requests, setRequests] = useState<MyNeedResponse[]>([]);
+  const [requestDetails, setRequestDetails] = useState<Record<number, TeachingNeedResponse>>({});
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+  const [detailLoadingId, setDetailLoadingId] = useState<number | null>(null);
+  const [lookups, setLookups] = useState<NeedItemLookups>(EMPTY_LOOKUPS);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   const [selectedSessionId, setSelectedSessionId] = useState<number | FilterValue>('all');
   const [selectedCourseId, setSelectedCourseId] = useState<number | FilterValue>('all');
-  const [selectedUiStatus, setSelectedUiStatus] = useState<UiNeedStatus | FilterValue>('all');
+  const [selectedStatus, setSelectedStatus] = useState<UiNeedStatusFilter>('all');
 
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -58,6 +89,26 @@ export function MyRequestsPage() {
     }
   }, [apiFetch]);
 
+  const loadLookups = useCallback(async () => {
+    try {
+      const [softwaresData, osData, laboratoriesData, serversData] = await Promise.all([
+        apiFetch<SoftwareResponse[]>('/softwares'),
+        apiFetch<OSResponse[]>('/operatingsystems'),
+        apiFetch<LaboratoryLookupResponse[]>('/laboratories'),
+        apiFetch<PhysicalServerResponse[]>('/physicalservers'),
+      ]);
+
+      setLookups({
+        softwareNames: softwaresData.map((s) => s.name),
+        osOptions: osData.map((os) => ({ value: String(os.id), label: os.name })),
+        laboratoryOptions: laboratoriesData.map((lab) => ({ value: String(lab.id), label: lab.name })),
+        serverOptions: serversData.map((server) => ({ value: String(server.id), label: server.hostname })),
+      });
+    } catch {
+      setLookups(EMPTY_LOOKUPS);
+    }
+  }, [apiFetch]);
+
   useEffect(() => {
     let active = true;
 
@@ -65,7 +116,7 @@ export function MyRequestsPage() {
       setLoading(true);
       setError('');
 
-      const [loadedSessions] = await Promise.all([loadSessions(), loadRequests()]);
+      const [loadedSessions] = await Promise.all([loadSessions(), loadRequests(), loadLookups()]);
 
       if (!active) return;
 
@@ -88,7 +139,39 @@ export function MyRequestsPage() {
 
     void init();
     return () => { active = false; };
-  }, [loadSessions, loadRequests, searchParams]);
+  }, [loadSessions, loadRequests, loadLookups, searchParams]);
+
+  const toggleExpand = useCallback(async (request: MyNeedResponse) => {
+    const isExpanded = expandedIds.has(request.id);
+    if (isExpanded) {
+      setExpandedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(request.id);
+        return next;
+      });
+      return;
+    }
+
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      next.add(request.id);
+      return next;
+    });
+
+    if (requestDetails[request.id]) {
+      return;
+    }
+
+    setDetailLoadingId(request.id);
+    try {
+      const detail = await apiFetch<TeachingNeedResponse>(`/sessions/${request.sessionId}/needs/${request.id}`);
+      setRequestDetails((prev) => ({ ...prev, [request.id]: detail }));
+    } catch (err) {
+      setActionError(getErrorMessage(err, 'Impossible de charger le détail de la demande.'));
+    } finally {
+      setDetailLoadingId(null);
+    }
+  }, [apiFetch, expandedIds, requestDetails]);
 
   const handleDelete = useCallback(async (r: MyNeedResponse) => {
     setDeletingId(r.id);
@@ -96,6 +179,16 @@ export function MyRequestsPage() {
     try {
       await apiFetch(`/sessions/${r.sessionId}/needs/${r.id}`, { method: 'DELETE' });
       setRequests((prev) => prev.filter((x) => x.id !== r.id));
+      setRequestDetails((prev) => {
+        const next = { ...prev };
+        delete next[r.id];
+        return next;
+      });
+      setExpandedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(r.id);
+        return next;
+      });
       setConfirmDeleteId(null);
     } catch (err) {
       setActionError(getErrorMessage(err, 'Impossible de supprimer la demande.'));
@@ -118,10 +211,10 @@ export function MyRequestsPage() {
     return requests.filter((r) => {
       if (selectedSessionId !== 'all' && r.sessionId !== selectedSessionId) return false;
       if (selectedCourseId !== 'all' && r.courseId !== selectedCourseId) return false;
-      if (selectedUiStatus !== 'all' && toUiStatus(r.status) !== selectedUiStatus) return false;
+      if (selectedStatus !== 'all' && r.status !== selectedStatus) return false;
       return true;
     });
-  }, [requests, selectedSessionId, selectedCourseId, selectedUiStatus]);
+  }, [requests, selectedSessionId, selectedCourseId, selectedStatus]);
 
   return (
     <div className="space-y-6">
@@ -172,12 +265,11 @@ export function MyRequestsPage() {
           </select>
 
           <select
-            value={selectedUiStatus}
-            onChange={(e) => setSelectedUiStatus(e.target.value as UiNeedStatus | FilterValue)}
-            className="input-field max-w-[180px] text-xs"
+            value={selectedStatus}
+            onChange={(e) => setSelectedStatus(e.target.value as UiNeedStatusFilter)}
+            className="input-field max-w-[200px] text-xs"
           >
-            <option value="all">Tous les statuts</option>
-            {UI_STATUS_OPTIONS.map((o) => (
+            {MINE_STATUS_FILTER_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select>
@@ -190,9 +282,11 @@ export function MyRequestsPage() {
         ) : (
           <div className="divide-y divide-stone-100">
             {filtered.map((r) => {
-              const ui = toUiStatus(r.status);
+              const st = r.status as TeachingNeedStatus;
               const isConfirming = confirmDeleteId === r.id;
               const isDeleting = deletingId === r.id;
+              const isExpanded = expandedIds.has(r.id);
+              const detail = requestDetails[r.id];
 
               return (
                 <div key={r.id} className="px-6 py-4">
@@ -202,15 +296,29 @@ export function MyRequestsPage() {
                         {r.courseCode}{r.courseName ? ` – ${r.courseName}` : ''}
                       </p>
                       <p className="mt-0.5 text-xs text-stone-500">{r.sessionTitle}</p>
+                      {r.status === 'Rejected' && r.rejectionReason ? (
+                        <p className="mt-1 line-clamp-2 text-xs text-rose-600">
+                          Motif&nbsp;: {r.rejectionReason}
+                        </p>
+                      ) : null}
                     </div>
 
-                    <span className={`shrink-0 rounded-xl border px-2.5 py-0.5 text-xs font-medium ${uiStatusStyle(ui)}`}>
-                      {uiStatusLabel(ui)}
+                    <span className={`shrink-0 rounded-xl border px-2.5 py-0.5 text-xs font-medium ${teachingNeedStatusBadgeClass(st)}`}>
+                      {teachingNeedStatusLabelFr(st)}
                     </span>
 
                     <p className="shrink-0 text-xs text-stone-400">
                       {new Date(r.createdAt).toLocaleDateString('fr-FR')}
                     </p>
+
+                    <button
+                      type="button"
+                      onClick={() => void toggleExpand(r)}
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-stone-200 text-stone-500 transition hover:bg-stone-50"
+                      aria-label={isExpanded ? 'Réduire le détail' : 'Afficher le détail'}
+                    >
+                      <ChevronIcon expanded={isExpanded} />
+                    </button>
 
                     <div className="flex shrink-0 items-center gap-2">
                       {canEdit(r.status) ? (
@@ -258,6 +366,43 @@ export function MyRequestsPage() {
                       >
                         Retour
                       </button>
+                    </div>
+                  ) : null}
+
+                  {isExpanded ? (
+                    <div className="mt-3 rounded-2xl border border-stone-200 bg-stone-50/70 px-4 py-3">
+                      {detailLoadingId === r.id ? (
+                        <p className="text-sm text-stone-500">Chargement du détail...</p>
+                      ) : detail ? (
+                        <>
+                          <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-[11px] text-stone-500">
+                            <span>Créé: {formatDateTime(detail.createdAt)}</span>
+                            <span>Soumis: {formatDateTime(detail.submittedAt)}</span>
+                            <span>Révisé: {formatDateTime(detail.reviewedAt)}</span>
+                          </div>
+
+                          <p className="mt-3 text-sm font-semibold text-stone-800">Besoins ({detail.items.length})</p>
+                          {detail.items.length > 0 ? (
+                            <ul className="mt-2 space-y-1.5">
+                              {detail.items.map((item) => {
+                                const { label, summary } = summarizeNeedItem(item, lookups);
+                                return (
+                                  <li key={item.id} className="rounded-xl bg-white px-3 py-2 text-sm text-stone-700">
+                                    <span className="mr-2 inline-flex rounded-md border border-stone-200 bg-stone-100 px-1.5 py-0.5 text-[10px] font-medium text-stone-500">
+                                      {label}
+                                    </span>
+                                    {summary}
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          ) : (
+                            <p className="mt-2 text-sm text-stone-500">Aucun besoin spécifique.</p>
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-sm text-stone-500">Détail indisponible pour cette demande.</p>
+                      )}
                     </div>
                   ) : null}
                 </div>
