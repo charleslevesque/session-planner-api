@@ -92,6 +92,11 @@ export interface AddNeedItemRequest {
   detailsJson?: string | null;
 }
 
+export interface SubmitTeachingNeedResponse {
+  need: TeachingNeedResponse;
+  warnings: string[];
+}
+
 export interface MyNeedResponse {
   id: number;
   sessionId: number;

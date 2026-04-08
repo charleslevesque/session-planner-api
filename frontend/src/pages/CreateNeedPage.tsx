@@ -14,7 +14,7 @@ import {
   type NeedItemLookups,
   type TeacherNeedItemType,
 } from '../lib/needItemSchemas';
-import type { CourseResponse, TeachingNeedResponse, TeachingNeedStatus } from '../types/needs';
+import type { CourseResponse, SubmitTeachingNeedResponse, TeachingNeedResponse, TeachingNeedStatus } from '../types/needs';
 import type { SessionResponse } from '../types/sessions';
 import type { OSResponse, LaboratoryLookupResponse, PhysicalServerResponse, SoftwareResponse } from '../types/admin';
 
@@ -50,6 +50,7 @@ export function CreateNeedPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [submitWarnings, setSubmitWarnings] = useState<string[]>([]);
 
   const [items, setItems] = useState<NeedItemDraft[]>([]);
   const [selectedType, setSelectedType] = useState<TeacherNeedItemType>('software');
@@ -254,7 +255,10 @@ export function CreateNeedPage() {
           if (existingStatus === 'Rejected') {
             await apiFetch(`/sessions/${sId}/needs/${nId}/revise`, { method: 'POST' });
           }
-          await apiFetch(`/sessions/${sId}/needs/${nId}/submit`, { method: 'POST' });
+          const submitResult = await apiFetch<SubmitTeachingNeedResponse>(`/sessions/${sId}/needs/${nId}/submit`, { method: 'POST' });
+          if (submitResult.warnings?.length > 0) {
+            setSubmitWarnings(submitResult.warnings);
+          }
         }
 
         setSuccess(mode === 'submit' ? 'Besoin re-soumis avec succès.' : 'Modifications sauvegardées.');
@@ -274,7 +278,10 @@ export function CreateNeedPage() {
         );
 
         if (mode === 'submit') {
-          await apiFetch(`/sessions/${sId}/needs/${need.id}/submit`, { method: 'POST' });
+          const submitResult = await apiFetch<SubmitTeachingNeedResponse>(`/sessions/${sId}/needs/${need.id}/submit`, { method: 'POST' });
+          if (submitResult.warnings?.length > 0) {
+            setSubmitWarnings(submitResult.warnings);
+          }
         }
 
         setSuccess(mode === 'submit' ? 'Besoin soumis avec succès.' : 'Brouillon sauvegardé.');
@@ -330,6 +337,15 @@ export function CreateNeedPage() {
 
           {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
           {success ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{success}</div> : null}
+          {submitWarnings.length > 0 ? (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <p className="font-semibold mb-1">Conflits détectés avec d'autres demandes du même cours :</p>
+              <ul className="list-disc list-inside space-y-0.5">
+                {submitWarnings.map((w, i) => <li key={i}>{w}</li>)}
+              </ul>
+              <p className="mt-2 text-xs text-amber-600">Votre demande a quand même été soumise. L'administrateur en sera informé.</p>
+            </div>
+          ) : null}
 
           <section className="surface-card p-6 sm:p-8">
             {/*
