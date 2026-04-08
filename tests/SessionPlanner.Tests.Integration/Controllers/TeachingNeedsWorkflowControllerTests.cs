@@ -70,8 +70,8 @@ public class TeachingNeedsWorkflowControllerTests : IClassFixture<TeachingNeedWo
         SetRole("professor");
         var submitResponse = await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need.Id}/submit", null);
         submitResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-        var submitted = await submitResponse.Content.ReadFromJsonAsync<TeachingNeedResponse>();
-        submitted!.Status.Should().Be("Submitted");
+        var submitted = await submitResponse.Content.ReadFromJsonAsync<SubmitTeachingNeedResponse>();
+        submitted!.Need.Status.Should().Be("Submitted");
 
         SetRole("admin");
         var reviewResponse = await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need.Id}/review", null);
@@ -189,8 +189,8 @@ public class TeachingNeedsWorkflowControllerTests : IClassFixture<TeachingNeedWo
 
         var submitAgain = await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need.Id}/submit", null);
         submitAgain.StatusCode.Should().Be(HttpStatusCode.OK);
-        var resubmitted = await submitAgain.Content.ReadFromJsonAsync<TeachingNeedResponse>();
-        resubmitted!.Status.Should().Be("Submitted");
+        var resubmitted = await submitAgain.Content.ReadFromJsonAsync<SubmitTeachingNeedResponse>();
+        resubmitted!.Need.Status.Should().Be("Submitted");
 
         SetRole("admin");
         (await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need.Id}/review", null)).StatusCode.Should().Be(HttpStatusCode.OK);
