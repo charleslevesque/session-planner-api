@@ -29,8 +29,8 @@ public interface ITeachingNeedService
     /// <summary>Removes an item from a need. Returns false if need or item not found. Throws InvalidOperationException if status is not Draft, Submitted, or Rejected.</summary>
     Task<bool> RemoveItemAsync(int sessionId, int needId, int itemId);
 
-    /// <summary>Transitions Draft -> Submitted. Returns null if not found.</summary>
-    Task<TeachingNeed?> SubmitAsync(int sessionId, int id);
+    /// <summary>Transitions Draft -> Submitted. Returns null if not found. Warnings list contains conflict messages (non-blocking).</summary>
+    Task<(TeachingNeed? Need, IReadOnlyList<string> Warnings)> SubmitAsync(int sessionId, int id);
 
     /// <summary>Transitions Submitted -> UnderReview. Returns null if not found.</summary>
     Task<TeachingNeed?> ReviewAsync(int sessionId, int id);

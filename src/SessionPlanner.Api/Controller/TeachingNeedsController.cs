@@ -498,12 +498,12 @@ public class TeachingNeedsController : ControllerBase
     [SwaggerResponseExample(StatusCodes.Status403Forbidden, typeof(ForbiddenErrorExample))]
     [SwaggerResponseExample(StatusCodes.Status404NotFound, typeof(NotFoundErrorExample))]
     [SwaggerResponseExample(StatusCodes.Status409Conflict, typeof(InvalidTeachingNeedTransitionExample))]
-    [ProducesResponseType(typeof(TeachingNeedResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(SubmitTeachingNeedResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<TeachingNeedResponse>> Submit(int sessionId, int id)
+    public async Task<ActionResult<SubmitTeachingNeedResponse>> Submit(int sessionId, int id)
     {
         if (!IsTeachingRole()) return Forbid();
 
@@ -520,7 +520,7 @@ public class TeachingNeedsController : ControllerBase
 
         try
         {
-            var submitted = await _needService.SubmitAsync(sessionId, id);
+            var (submitted, warnings) = await _needService.SubmitAsync(sessionId, id);
             if (submitted is null)
             {
                 return NotFound(new ApiErrorResponse(
@@ -529,7 +529,7 @@ public class TeachingNeedsController : ControllerBase
                 ));
             }
 
-            return Ok(submitted.ToResponse());
+            return Ok(new SubmitTeachingNeedResponse(submitted.ToResponse(), warnings));
         }
         catch (InvalidOperationException ex)
         {

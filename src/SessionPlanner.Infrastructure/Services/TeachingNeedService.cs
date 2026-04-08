@@ -290,12 +290,12 @@ public class TeachingNeedService : ITeachingNeedService
         return true;
     }
 
-    public async Task<TeachingNeed?> SubmitAsync(int sessionId, int id)
+    public async Task<(TeachingNeed? Need, IReadOnlyList<string> Warnings)> SubmitAsync(int sessionId, int id)
     {
         var need = await _db.TeachingNeeds
             .FirstOrDefaultAsync(n => n.SessionId == sessionId && n.Id == id);
 
-        if (need is null) return null;
+        if (need is null) return (null, Array.Empty<string>());
 
         EnsureStatus(need, NeedStatus.Draft, "Need can only be submitted from Draft status.");
 
@@ -303,7 +303,54 @@ public class TeachingNeedService : ITeachingNeedService
         need.SubmittedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
-        return await GetByIdAsync(sessionId, id);
+
+        var submitted = await GetByIdAsync(sessionId, id);
+        var warnings = await DetectConflictsAsync(submitted!);
+
+        return (submitted, warnings);
+    }
+
+    private async Task<IReadOnlyList<string>> DetectConflictsAsync(TeachingNeed need)
+    {
+        var conflictStatuses = new[] { NeedStatus.Submitted, NeedStatus.UnderReview, NeedStatus.Approved };
+
+        var otherNeeds = await _db.TeachingNeeds
+            .Include(n => n.Items).ThenInclude(i => i.Software)
+            .Include(n => n.Items).ThenInclude(i => i.SoftwareVersion)
+            .Where(n =>
+                n.SessionId == need.SessionId &&
+                n.CourseId == need.CourseId &&
+                n.Id != need.Id &&
+                conflictStatuses.Contains(n.Status))
+            .ToListAsync();
+
+        var warnings = new List<string>();
+
+        var softwareItems = need.Items
+            .Where(i => (i.ItemType ?? string.Empty).Trim().Equals("software", StringComparison.OrdinalIgnoreCase)
+                        && i.SoftwareId.HasValue)
+            .ToList();
+
+        foreach (var item in softwareItems)
+        {
+            foreach (var other in otherNeeds)
+            {
+                var conflicting = other.Items.FirstOrDefault(oi =>
+                    (oi.ItemType ?? string.Empty).Trim().Equals("software", StringComparison.OrdinalIgnoreCase)
+                    && oi.SoftwareId == item.SoftwareId
+                    && oi.SoftwareVersionId != item.SoftwareVersionId);
+
+                if (conflicting is not null)
+                {
+                    var softwareName = item.Software?.Name ?? $"Software #{item.SoftwareId}";
+                    var otherVersion = conflicting.SoftwareVersion?.VersionNumber ?? $"version #{conflicting.SoftwareVersionId}";
+                    warnings.Add($"Conflit: {softwareName} est demandé en version {otherVersion} par un autre enseignant de ce cours.");
+                    break;
+                }
+            }
+        }
+
+        return warnings;
     }
 
     public async Task<TeachingNeed?> ReviewAsync(int sessionId, int id)
