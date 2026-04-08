@@ -14,9 +14,9 @@ import {
   type NeedItemLookups,
   type TeacherNeedItemType,
 } from '../lib/needItemSchemas';
-import type { CourseResponse, TeachingNeedResponse, TeachingNeedStatus } from '../types/needs';
+import type { CourseResponse, SubmitTeachingNeedResponse, TeachingNeedResponse, TeachingNeedStatus } from '../types/needs';
 import type { SessionResponse } from '../types/sessions';
-import type { OSResponse, LaboratoryLookupResponse, PhysicalServerResponse, SoftwareResponse } from '../types/admin';
+import type { OSResponse, LaboratoryLookupResponse, PhysicalServerResponse, SoftwareResponse, SoftwareVersionResponse } from '../types/admin';
 
 const EMPTY_LOOKUPS: NeedItemLookups = {
   softwareNames: [],
@@ -42,6 +42,8 @@ export function CreateNeedPage() {
   const [session, setSession] = useState<SessionResponse | null>(null);
   const [course, setCourse] = useState<CourseResponse | null>(null);
   const [lookups, setLookups] = useState<NeedItemLookups>(EMPTY_LOOKUPS);
+  const [softwareCatalog, setSoftwareCatalog] = useState<SoftwareResponse[]>([]);
+  const [softwareVersions, setSoftwareVersions] = useState<SoftwareVersionResponse[]>([]);
   const [existingStatus, setExistingStatus] = useState<TeachingNeedStatus | null>(null);
   const [rejectionReason, setRejectionReason] = useState<string | null>(null);
   const [originalItemIds, setOriginalItemIds] = useState<Set<number>>(new Set());
@@ -50,6 +52,7 @@ export function CreateNeedPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [submitWarnings, setSubmitWarnings] = useState<string[]>([]);
 
   const [items, setItems] = useState<NeedItemDraft[]>([]);
   const [selectedType, setSelectedType] = useState<TeacherNeedItemType>('software');
@@ -95,6 +98,14 @@ export function CreateNeedPage() {
 
       setSession(sessionData);
       setCourse(courseData);
+      setSoftwareCatalog(softwaresData);
+      try {
+        const softwareVersionsData = await apiFetch<SoftwareVersionResponse[]>('/softwareversions');
+        setSoftwareVersions(softwareVersionsData);
+      } catch {
+        // Some teacher roles cannot read /softwareversions; keep page usable.
+        setSoftwareVersions([]);
+      }
 
       const resolvedLookups: NeedItemLookups = {
         softwareNames: softwaresData.map((s) => s.name),
@@ -194,36 +205,32 @@ export function CreateNeedPage() {
   function createApiPayloadFromDraft(item: NeedItemDraft) {
     const payload = createNeedItemPayload(item.itemType, item.values) as Record<string, unknown>;
 
-    if (item.itemType !== 'software') {
-      return payload;
-    }
+    if (item.itemType === 'software') {
+      const softwareName = (item.values.softwareName ?? '').trim().toLowerCase();
+      const versionNumber = (item.values.versionNumber ?? '').trim().toLowerCase();
+      const osId = Number(item.values.osId);
+      const parsedOsId = Number.isFinite(osId) ? osId : undefined;
 
-    const softwareName = (item.values.softwareName ?? '').trim().toLowerCase();
-    const versionNumber = (item.values.versionNumber ?? '').trim().toLowerCase();
-    const osId = Number(item.values.osId);
-    const hasOsId = Number.isFinite(osId);
-
-    const matchedSoftware = lookups.softwareCatalog?.find(
-      (s) => s.name.trim().toLowerCase() === softwareName,
-    );
-
-    if (matchedSoftware) {
-      payload.softwareId = matchedSoftware.id;
-    }
-
-    if (matchedSoftware && versionNumber) {
-      const matchedVersion = matchedSoftware.versions.find(
-        (v) =>
-          v.versionNumber.trim().toLowerCase() === versionNumber
-          && (!hasOsId || v.osId === osId),
-      );
-      if (matchedVersion) {
-        payload.softwareVersionId = matchedVersion.id;
+      const software = softwareCatalog.find((s) => s.name.trim().toLowerCase() === softwareName);
+      if (software) {
+        payload.softwareId = software.id;
       }
-    }
 
-    if (hasOsId) {
-      payload.osId = osId;
+      if (software && versionNumber) {
+        const matchedVersion = softwareVersions.find((sv) =>
+          sv.softwareId === software.id
+          && sv.versionNumber.trim().toLowerCase() === versionNumber
+          && (parsedOsId == null || sv.osId === parsedOsId),
+        );
+
+        if (matchedVersion) {
+          payload.softwareVersionId = matchedVersion.id;
+        }
+      }
+
+      if (parsedOsId != null) {
+        payload.osId = parsedOsId;
+      }
     }
 
     return payload;
@@ -233,8 +240,11 @@ export function CreateNeedPage() {
     setSaving(true);
     setError('');
     setSuccess('');
+    setSubmitWarnings([]);
 
     try {
+      let submitWarningsFromSubmit: string[] = [];
+
       if (isEditMode) {
         // Compare two value maps, ignoring empty-string fields.
         function hasValueChanged(orig: Record<string, string>, curr: Record<string, string>): boolean {
@@ -292,7 +302,9 @@ export function CreateNeedPage() {
           if (existingStatus === 'Rejected') {
             await apiFetch(`/sessions/${sId}/needs/${nId}/revise`, { method: 'POST' });
           }
-          await apiFetch(`/sessions/${sId}/needs/${nId}/submit`, { method: 'POST' });
+          const submitResult = await apiFetch<SubmitTeachingNeedResponse>(`/sessions/${sId}/needs/${nId}/submit`, { method: 'POST' });
+          submitWarningsFromSubmit = submitResult.warnings ?? [];
+          if (submitWarningsFromSubmit.length > 0) setSubmitWarnings(submitWarningsFromSubmit);
         }
 
         setSuccess(mode === 'submit' ? 'Besoin re-soumis avec succès.' : 'Modifications sauvegardées.');
@@ -312,15 +324,21 @@ export function CreateNeedPage() {
         );
 
         if (mode === 'submit') {
-          await apiFetch(`/sessions/${sId}/needs/${need.id}/submit`, { method: 'POST' });
+          const submitResult = await apiFetch<SubmitTeachingNeedResponse>(`/sessions/${sId}/needs/${need.id}/submit`, { method: 'POST' });
+          submitWarningsFromSubmit = submitResult.warnings ?? [];
+          if (submitWarningsFromSubmit.length > 0) setSubmitWarnings(submitWarningsFromSubmit);
         }
 
         setSuccess(mode === 'submit' ? 'Besoin soumis avec succès.' : 'Brouillon sauvegardé.');
       }
 
-      setTimeout(() => {
-        void navigate(isEditMode ? '/mes-demandes' : `/sessions/${sId}/courses/${cId}`);
-      }, 1200);
+      const shouldAutoRedirect = !(mode === 'submit' && submitWarningsFromSubmit.length > 0);
+
+      if (shouldAutoRedirect) {
+        setTimeout(() => {
+          void navigate(isEditMode ? '/mes-demandes' : `/sessions/${sId}/courses/${cId}`);
+        }, 1200);
+      }
     } catch (err) {
       setError(getErrorMessage(err, "Impossible d'enregistrer ce besoin."));
     } finally {
@@ -368,6 +386,24 @@ export function CreateNeedPage() {
 
           {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
           {success ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{success}</div> : null}
+          {submitWarnings.length > 0 ? (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <p className="font-semibold mb-1">Conflits détectés avec d&apos;autres demandes du même cours :</p>
+              <ul className="list-disc list-inside space-y-0.5">
+                {submitWarnings.map((w, i) => <li key={i}>{w}</li>)}
+              </ul>
+              <p className="mt-2 text-xs text-amber-600">Votre demande a quand même été soumise. L&apos;équipe de révision en sera informée.</p>
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={() => void navigate(isEditMode ? '/mes-demandes' : `/sessions/${sId}/courses/${cId}`)}
+                  className="rounded-xl border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100 transition"
+                >
+                  Continuer
+                </button>
+              </div>
+            </div>
+          ) : null}
 
           <section className="surface-card p-6 sm:p-8">
             {/*

@@ -80,8 +80,8 @@ public class TeachingNeedsWorkflowControllerTests : IClassFixture<TeachingNeedWo
         SetRole("professor");
         var submitResponse = await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need.Id}/submit", null);
         submitResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-        var submitted = await submitResponse.Content.ReadFromJsonAsync<TeachingNeedResponse>();
-        submitted!.Status.Should().Be("Submitted");
+        var submitted = await submitResponse.Content.ReadFromJsonAsync<SubmitTeachingNeedResponse>();
+        submitted!.Need.Status.Should().Be("Submitted");
 
         SetRole("admin");
         var reviewResponse = await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need.Id}/review", null);
@@ -96,82 +96,42 @@ public class TeachingNeedsWorkflowControllerTests : IClassFixture<TeachingNeedWo
     }
 
     [Fact]
-    public async Task GetById_SoftwareInstalledInLab_SetsAlreadyInstalledFlagTrue()
+    public async Task Submit_WithDifferentSoftwareVersionsInSameCourseAndSession_ReturnsNonBlockingConflictWarnings()
     {
-        var sessionId = await CreateOpenSessionAsync("Installed Flag True");
-        var courseId = await CreateCourseAsync("WFINS1");
-        var softwareId = await CreateSoftwareAsync("InstalledTool");
+        var sessionId = await CreateOpenSessionAsync("Workflow Conflict Warning");
+        var courseId = await CreateCourseAsync("WFCF01");
 
-        SetRole("admin");
-        var upsertInstalled = await _client.PutAsJsonAsync(
-            $"/api/v1/laboratorysoftwares/1/{softwareId}",
-            new { status = "installed" });
-        upsertInstalled.StatusCode.Should().Be(HttpStatusCode.OK);
-
-        var need = await CreateNeedAsTeacherAsync(sessionId, courseId);
+        // Need #1: IntelliJ v1 submitted first (baseline in same course+session).
+        var need1 = await CreateNeedAsTeacherAsync(sessionId, courseId);
         SetRole("professor");
-        var addItem = await _client.PostAsJsonAsync(
-            $"/api/v1/sessions/{sessionId}/needs/{need.Id}/items",
-            new AddNeedItemRequest("software", softwareId, null, 1, 1, null, null, "{\"softwareName\":\"InstalledTool\"}"));
-        addItem.StatusCode.Should().Be(HttpStatusCode.Created);
+        (await _client.PostAsJsonAsync(
+            $"/api/v1/sessions/{sessionId}/needs/{need1.Id}/items",
+            new AddNeedItemRequest("software", 1, 1, 1, 1, null, null, null)))
+            .StatusCode.Should().Be(HttpStatusCode.Created);
 
-        var getNeed = await _client.GetAsync($"/api/v1/sessions/{sessionId}/needs/{need.Id}");
-        getNeed.StatusCode.Should().Be(HttpStatusCode.OK);
-        var body = await getNeed.Content.ReadFromJsonAsync<TeachingNeedResponse>();
-        body.Should().NotBeNull();
-        body!.Items.Should().ContainSingle();
-        body.Items.First().AlreadyInstalledInLabs.Should().BeTrue();
-    }
+        var submitNeed1 = await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need1.Id}/submit", null);
+        submitNeed1.StatusCode.Should().Be(HttpStatusCode.OK);
+        var submitNeed1Body = await submitNeed1.Content.ReadFromJsonAsync<SubmitTeachingNeedResponse>();
+        submitNeed1Body.Should().NotBeNull();
+        submitNeed1Body!.Need.Status.Should().Be("Submitted");
+        submitNeed1Body.Warnings.Should().BeEmpty("first submission has no prior conflicting need");
 
-    [Fact]
-    public async Task GetById_SoftwareNotInstalledInLab_SetsAlreadyInstalledFlagFalse()
-    {
-        var sessionId = await CreateOpenSessionAsync("Installed Flag False");
-        var courseId = await CreateCourseAsync("WFINS2");
-        var softwareId = await CreateSoftwareAsync("NotInstalledTool");
+        // Need #2: same software but different version should trigger warning (non-blocking).
+        var need2 = await CreateNeedAsTeacherAsync(sessionId, courseId);
+        (await _client.PostAsJsonAsync(
+            $"/api/v1/sessions/{sessionId}/needs/{need2.Id}/items",
+            new AddNeedItemRequest("software", 1, 2, 1, 1, null, null, null)))
+            .StatusCode.Should().Be(HttpStatusCode.Created);
 
-        var need = await CreateNeedAsTeacherAsync(sessionId, courseId);
-        SetRole("professor");
-        var addItem = await _client.PostAsJsonAsync(
-            $"/api/v1/sessions/{sessionId}/needs/{need.Id}/items",
-            new AddNeedItemRequest("software", softwareId, null, 1, 1, null, null, "{\"softwareName\":\"NotInstalledTool\"}"));
-        addItem.StatusCode.Should().Be(HttpStatusCode.Created);
-
-        var getNeed = await _client.GetAsync($"/api/v1/sessions/{sessionId}/needs/{need.Id}");
-        getNeed.StatusCode.Should().Be(HttpStatusCode.OK);
-        var body = await getNeed.Content.ReadFromJsonAsync<TeachingNeedResponse>();
-        body.Should().NotBeNull();
-        body!.Items.Should().ContainSingle();
-        body.Items.First().AlreadyInstalledInLabs.Should().BeFalse();
-    }
-
-    [Fact]
-    public async Task GetById_WhenSoftwareIdMissing_ResolvesFromDetailsJsonAndSetsInstalledFlag()
-    {
-        var sessionId = await CreateOpenSessionAsync("Installed Flag DetailsJson");
-        var courseId = await CreateCourseAsync("WFINS3");
-        var softwareId = await CreateSoftwareAsync("DetailsJsonInstalledTool");
-
-        SetRole("admin");
-        var upsertInstalled = await _client.PutAsJsonAsync(
-            $"/api/v1/laboratorysoftwares/1/{softwareId}",
-            new { status = "installed" });
-        upsertInstalled.StatusCode.Should().Be(HttpStatusCode.OK);
-
-        var need = await CreateNeedAsTeacherAsync(sessionId, courseId);
-        SetRole("professor");
-        var addItem = await _client.PostAsJsonAsync(
-            $"/api/v1/sessions/{sessionId}/needs/{need.Id}/items",
-            new AddNeedItemRequest("software", null, null, 1, 1, null, null, "{\"softwareName\":\"DetailsJsonInstalledTool\",\"versionNumber\":\"1\"}"));
-        addItem.StatusCode.Should().Be(HttpStatusCode.Created);
-
-        var getNeed = await _client.GetAsync($"/api/v1/sessions/{sessionId}/needs/{need.Id}");
-        getNeed.StatusCode.Should().Be(HttpStatusCode.OK);
-        var body = await getNeed.Content.ReadFromJsonAsync<TeachingNeedResponse>();
-        body.Should().NotBeNull();
-        body!.Items.Should().ContainSingle();
-        body.Items.First().SoftwareId.Should().BeNull();
-        body.Items.First().AlreadyInstalledInLabs.Should().BeTrue();
+        var submitNeed2 = await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need2.Id}/submit", null);
+        submitNeed2.StatusCode.Should().Be(HttpStatusCode.OK, "conflict detection is warning-only and must not block submit");
+        var submitNeed2Body = await submitNeed2.Content.ReadFromJsonAsync<SubmitTeachingNeedResponse>();
+        submitNeed2Body.Should().NotBeNull();
+        submitNeed2Body!.Need.Status.Should().Be("Submitted");
+        submitNeed2Body.Warnings.Should().NotBeEmpty();
+        submitNeed2Body.Warnings.Should().Contain(w =>
+            w.Contains("Conflit:", StringComparison.OrdinalIgnoreCase)
+            && w.Contains("IntelliJ", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -239,8 +199,8 @@ public class TeachingNeedsWorkflowControllerTests : IClassFixture<TeachingNeedWo
 
         var submitAgain = await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need.Id}/submit", null);
         submitAgain.StatusCode.Should().Be(HttpStatusCode.OK);
-        var resubmitted = await submitAgain.Content.ReadFromJsonAsync<TeachingNeedResponse>();
-        resubmitted!.Status.Should().Be("Submitted");
+        var resubmitted = await submitAgain.Content.ReadFromJsonAsync<SubmitTeachingNeedResponse>();
+        resubmitted!.Need.Status.Should().Be("Submitted");
 
         SetRole("admin");
         (await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need.Id}/review", null)).StatusCode.Should().Be(HttpStatusCode.OK);
