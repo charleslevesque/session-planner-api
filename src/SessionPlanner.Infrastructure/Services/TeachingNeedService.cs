@@ -752,6 +752,75 @@ public class TeachingNeedService : ITeachingNeedService
         return await GetByIdAsync(sessionId, id);
     }
 
+    public async Task<List<TeachingNeed>> GetApprovedHistoryByCourseAsync(int courseId)
+    {
+        return await _db.TeachingNeeds
+            .Include(n => n.Personnel)
+            .Include(n => n.Course)
+            .Include(n => n.Session)
+            .Include(n => n.Items).ThenInclude(i => i.Software)
+            .Include(n => n.Items).ThenInclude(i => i.SoftwareVersion)
+            .Include(n => n.Items).ThenInclude(i => i.OS)
+            .Where(n => n.CourseId == courseId && n.Status == NeedStatus.Approved)
+            .OrderByDescending(n => n.CreatedAt)
+            .ToListAsync();
+    }
+
+    public async Task<TeachingNeed> CloneFromTemplateAsync(int sessionId, int personnelId, int sourceNeedId)
+    {
+        var session = await _db.Sessions.FindAsync(sessionId)
+            ?? throw new InvalidOperationException("Session not found.");
+
+        if (session.Status != SessionStatus.Open)
+            throw new InvalidOperationException("Cannot create a need: the session is not open.");
+
+        var source = await _db.TeachingNeeds
+            .Include(n => n.Items)
+            .FirstOrDefaultAsync(n => n.Id == sourceNeedId)
+            ?? throw new InvalidOperationException("Source teaching need not found.");
+
+        if (source.Status != NeedStatus.Approved)
+            throw new InvalidOperationException("Only approved needs can be used as templates.");
+
+        var cloned = new TeachingNeed
+        {
+            SessionId = sessionId,
+            PersonnelId = personnelId,
+            CourseId = source.CourseId,
+            Notes = source.Notes,
+            ExpectedStudents = source.ExpectedStudents,
+            HasTechNeeds = source.HasTechNeeds,
+            FoundAllCourses = source.FoundAllCourses,
+            DesiredModifications = source.DesiredModifications,
+            AllowsUpdates = source.AllowsUpdates,
+            AdditionalComments = source.AdditionalComments,
+        };
+
+        _db.TeachingNeeds.Add(cloned);
+        await _db.SaveChangesAsync();
+
+        foreach (var item in source.Items)
+        {
+            _db.TeachingNeedItems.Add(new TeachingNeedItem
+            {
+                TeachingNeedId = cloned.Id,
+                ItemType = item.ItemType,
+                SoftwareId = item.SoftwareId,
+                SoftwareVersionId = item.SoftwareVersionId,
+                OSId = item.OSId,
+                Quantity = item.Quantity,
+                Description = item.Description,
+                Notes = item.Notes,
+                DetailsJson = item.DetailsJson,
+            });
+        }
+
+        await _db.SaveChangesAsync();
+
+        return await GetByIdAsync(sessionId, cloned.Id)
+            ?? throw new InvalidOperationException("Failed to reload cloned teaching need.");
+    }
+
     private static void EnsureStatus(TeachingNeed need, NeedStatus expectedStatus, string message)
     {
         if (need.Status != expectedStatus)
