@@ -152,6 +152,25 @@ public class TeachingNeedWorkflowWebApplicationFactory : WebApplicationFactory<P
             });
 
             db.OperatingSystems.Add(new OS { Id = 1, Name = "Test OS" });
+            db.Softwares.Add(new Software
+            {
+                Id = 1,
+                Name = "IntelliJ"
+            });
+            db.SoftwareVersions.Add(new SoftwareVersion
+            {
+                Id = 1,
+                SoftwareId = 1,
+                OsId = 1,
+                VersionNumber = "v1"
+            });
+            db.SoftwareVersions.Add(new SoftwareVersion
+            {
+                Id = 2,
+                SoftwareId = 1,
+                OsId = 1,
+                VersionNumber = "v2"
+            });
             db.Laboratories.Add(new Laboratory
             {
                 Id = 1,

@@ -86,6 +86,45 @@ public class TeachingNeedsWorkflowControllerTests : IClassFixture<TeachingNeedWo
     }
 
     [Fact]
+    public async Task Submit_WithDifferentSoftwareVersionsInSameCourseAndSession_ReturnsNonBlockingConflictWarnings()
+    {
+        var sessionId = await CreateOpenSessionAsync("Workflow Conflict Warning");
+        var courseId = await CreateCourseAsync("WFCF01");
+
+        // Need #1: IntelliJ v1 submitted first (baseline in same course+session).
+        var need1 = await CreateNeedAsTeacherAsync(sessionId, courseId);
+        SetRole("professor");
+        (await _client.PostAsJsonAsync(
+            $"/api/v1/sessions/{sessionId}/needs/{need1.Id}/items",
+            new AddNeedItemRequest("software", 1, 1, 1, 1, null, null, null)))
+            .StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var submitNeed1 = await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need1.Id}/submit", null);
+        submitNeed1.StatusCode.Should().Be(HttpStatusCode.OK);
+        var submitNeed1Body = await submitNeed1.Content.ReadFromJsonAsync<SubmitTeachingNeedResponse>();
+        submitNeed1Body.Should().NotBeNull();
+        submitNeed1Body!.Need.Status.Should().Be("Submitted");
+        submitNeed1Body.Warnings.Should().BeEmpty("first submission has no prior conflicting need");
+
+        // Need #2: same software but different version should trigger warning (non-blocking).
+        var need2 = await CreateNeedAsTeacherAsync(sessionId, courseId);
+        (await _client.PostAsJsonAsync(
+            $"/api/v1/sessions/{sessionId}/needs/{need2.Id}/items",
+            new AddNeedItemRequest("software", 1, 2, 1, 1, null, null, null)))
+            .StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var submitNeed2 = await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need2.Id}/submit", null);
+        submitNeed2.StatusCode.Should().Be(HttpStatusCode.OK, "conflict detection is warning-only and must not block submit");
+        var submitNeed2Body = await submitNeed2.Content.ReadFromJsonAsync<SubmitTeachingNeedResponse>();
+        submitNeed2Body.Should().NotBeNull();
+        submitNeed2Body!.Need.Status.Should().Be("Submitted");
+        submitNeed2Body.Warnings.Should().NotBeEmpty();
+        submitNeed2Body.Warnings.Should().Contain(w =>
+            w.Contains("Conflit:", StringComparison.OrdinalIgnoreCase)
+            && w.Contains("IntelliJ", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public async Task Workflow_Approve_Propagates_SoftwareVersion_To_Course_Resources()
     {
         var sessionId = await CreateOpenSessionAsync("Workflow Approve Propagate");

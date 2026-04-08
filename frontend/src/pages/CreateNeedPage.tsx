@@ -16,7 +16,7 @@ import {
 } from '../lib/needItemSchemas';
 import type { CourseResponse, SubmitTeachingNeedResponse, TeachingNeedResponse, TeachingNeedStatus } from '../types/needs';
 import type { SessionResponse } from '../types/sessions';
-import type { OSResponse, LaboratoryLookupResponse, PhysicalServerResponse, SoftwareResponse } from '../types/admin';
+import type { OSResponse, LaboratoryLookupResponse, PhysicalServerResponse, SoftwareResponse, SoftwareVersionResponse } from '../types/admin';
 
 const EMPTY_LOOKUPS: NeedItemLookups = {
   softwareNames: [],
@@ -42,6 +42,8 @@ export function CreateNeedPage() {
   const [session, setSession] = useState<SessionResponse | null>(null);
   const [course, setCourse] = useState<CourseResponse | null>(null);
   const [lookups, setLookups] = useState<NeedItemLookups>(EMPTY_LOOKUPS);
+  const [softwareCatalog, setSoftwareCatalog] = useState<SoftwareResponse[]>([]);
+  const [softwareVersions, setSoftwareVersions] = useState<SoftwareVersionResponse[]>([]);
   const [existingStatus, setExistingStatus] = useState<TeachingNeedStatus | null>(null);
   const [rejectionReason, setRejectionReason] = useState<string | null>(null);
   const [originalItemIds, setOriginalItemIds] = useState<Set<number>>(new Set());
@@ -80,12 +82,13 @@ export function CreateNeedPage() {
         apiFetch<SessionResponse>(`/sessions/${sId}`),
         apiFetch<CourseResponse>(`/courses/${cId}`),
         apiFetch<SoftwareResponse[]>('/softwares'),
+        apiFetch<SoftwareVersionResponse[]>('/softwareversions'),
         apiFetch<OSResponse[]>('/operatingsystems'),
         apiFetch<LaboratoryLookupResponse[]>('/laboratories'),
         apiFetch<PhysicalServerResponse[]>('/physicalservers'),
       ] as const;
 
-      const [sessionData, courseData, softwaresData, osData, laboratoriesData, serversData] =
+      const [sessionData, courseData, softwaresData, softwareVersionsData, osData, laboratoriesData, serversData] =
         await Promise.all(baseRequests);
 
       if (sessionData.status !== 'Open') {
@@ -96,6 +99,8 @@ export function CreateNeedPage() {
 
       setSession(sessionData);
       setCourse(courseData);
+      setSoftwareCatalog(softwaresData);
+      setSoftwareVersions(softwareVersionsData);
 
       const resolvedLookups: NeedItemLookups = {
         softwareNames: softwaresData.map((s) => s.name),
@@ -192,12 +197,49 @@ export function CreateNeedPage() {
     }
   }
 
+  function createApiPayloadFromDraft(item: NeedItemDraft) {
+    const payload = createNeedItemPayload(item.itemType, item.values) as Record<string, unknown>;
+
+    if (item.itemType === 'software') {
+      const softwareName = (item.values.softwareName ?? '').trim().toLowerCase();
+      const versionNumber = (item.values.versionNumber ?? '').trim().toLowerCase();
+      const osId = Number(item.values.osId);
+      const parsedOsId = Number.isFinite(osId) ? osId : undefined;
+
+      const software = softwareCatalog.find((s) => s.name.trim().toLowerCase() === softwareName);
+      if (software) {
+        payload.softwareId = software.id;
+      }
+
+      if (software && versionNumber) {
+        const matchedVersion = softwareVersions.find((sv) =>
+          sv.softwareId === software.id
+          && sv.versionNumber.trim().toLowerCase() === versionNumber
+          && (parsedOsId == null || sv.osId === parsedOsId),
+        );
+
+        if (matchedVersion) {
+          payload.softwareVersionId = matchedVersion.id;
+        }
+      }
+
+      if (parsedOsId != null) {
+        payload.osId = parsedOsId;
+      }
+    }
+
+    return payload;
+  }
+
   async function persistNeed(mode: 'draft' | 'submit') {
     setSaving(true);
     setError('');
     setSuccess('');
+    setSubmitWarnings([]);
 
     try {
+      let submitWarningsFromSubmit: string[] = [];
+
       if (isEditMode) {
         // Compare two value maps, ignoring empty-string fields.
         function hasValueChanged(orig: Record<string, string>, curr: Record<string, string>): boolean {
@@ -246,7 +288,7 @@ export function CreateNeedPage() {
           toAdd.map((item) =>
             apiFetch(`/sessions/${sId}/needs/${nId}/items`, {
               method: 'POST',
-              body: JSON.stringify(createNeedItemPayload(item.itemType, item.values)),
+              body: JSON.stringify(createApiPayloadFromDraft(item)),
             }),
           ),
         );
@@ -256,9 +298,8 @@ export function CreateNeedPage() {
             await apiFetch(`/sessions/${sId}/needs/${nId}/revise`, { method: 'POST' });
           }
           const submitResult = await apiFetch<SubmitTeachingNeedResponse>(`/sessions/${sId}/needs/${nId}/submit`, { method: 'POST' });
-          if (submitResult.warnings?.length > 0) {
-            setSubmitWarnings(submitResult.warnings);
-          }
+          submitWarningsFromSubmit = submitResult.warnings ?? [];
+          if (submitWarningsFromSubmit.length > 0) setSubmitWarnings(submitWarningsFromSubmit);
         }
 
         setSuccess(mode === 'submit' ? 'Besoin re-soumis avec succès.' : 'Modifications sauvegardées.');
@@ -272,24 +313,27 @@ export function CreateNeedPage() {
           items.map((item) =>
             apiFetch(`/sessions/${sId}/needs/${need.id}/items`, {
               method: 'POST',
-              body: JSON.stringify(createNeedItemPayload(item.itemType, item.values)),
+              body: JSON.stringify(createApiPayloadFromDraft(item)),
             }),
           ),
         );
 
         if (mode === 'submit') {
           const submitResult = await apiFetch<SubmitTeachingNeedResponse>(`/sessions/${sId}/needs/${need.id}/submit`, { method: 'POST' });
-          if (submitResult.warnings?.length > 0) {
-            setSubmitWarnings(submitResult.warnings);
-          }
+          submitWarningsFromSubmit = submitResult.warnings ?? [];
+          if (submitWarningsFromSubmit.length > 0) setSubmitWarnings(submitWarningsFromSubmit);
         }
 
         setSuccess(mode === 'submit' ? 'Besoin soumis avec succès.' : 'Brouillon sauvegardé.');
       }
 
-      setTimeout(() => {
-        void navigate(isEditMode ? '/mes-demandes' : `/sessions/${sId}/courses/${cId}`);
-      }, 1200);
+      const shouldAutoRedirect = !(mode === 'submit' && submitWarningsFromSubmit.length > 0);
+
+      if (shouldAutoRedirect) {
+        setTimeout(() => {
+          void navigate(isEditMode ? '/mes-demandes' : `/sessions/${sId}/courses/${cId}`);
+        }, 1200);
+      }
     } catch (err) {
       setError(getErrorMessage(err, "Impossible d'enregistrer ce besoin."));
     } finally {
@@ -344,6 +388,15 @@ export function CreateNeedPage() {
                 {submitWarnings.map((w, i) => <li key={i}>{w}</li>)}
               </ul>
               <p className="mt-2 text-xs text-amber-600">Votre demande a quand même été soumise. L'administrateur en sera informé.</p>
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={() => void navigate(isEditMode ? '/mes-demandes' : `/sessions/${sId}/courses/${cId}`)}
+                  className="rounded-xl border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100 transition"
+                >
+                  Continuer
+                </button>
+              </div>
             </div>
           ) : null}
 

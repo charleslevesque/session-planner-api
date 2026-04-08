@@ -327,23 +327,54 @@ public class TeachingNeedService : ITeachingNeedService
         var warnings = new List<string>();
 
         var softwareItems = need.Items
-            .Where(i => (i.ItemType ?? string.Empty).Trim().Equals("software", StringComparison.OrdinalIgnoreCase)
-                        && i.SoftwareId.HasValue)
+            .Where(i => (i.ItemType ?? string.Empty).Trim().Equals("software", StringComparison.OrdinalIgnoreCase))
             .ToList();
 
         foreach (var item in softwareItems)
         {
+            var itemSoftwareName = item.Software?.Name ?? ReadDetailString(item.DetailsJson, "softwareName");
+            var itemVersionNumber = item.SoftwareVersion?.VersionNumber ?? ReadDetailString(item.DetailsJson, "versionNumber");
+
             foreach (var other in otherNeeds)
             {
                 var conflicting = other.Items.FirstOrDefault(oi =>
-                    (oi.ItemType ?? string.Empty).Trim().Equals("software", StringComparison.OrdinalIgnoreCase)
-                    && oi.SoftwareId == item.SoftwareId
-                    && oi.SoftwareVersionId != item.SoftwareVersionId);
+                {
+                    if (!(oi.ItemType ?? string.Empty).Trim().Equals("software", StringComparison.OrdinalIgnoreCase))
+                        return false;
+
+                    var sameSoftware = false;
+                    if (oi.SoftwareId.HasValue && item.SoftwareId.HasValue)
+                    {
+                        sameSoftware = oi.SoftwareId == item.SoftwareId;
+                    }
+                    else
+                    {
+                        var otherSoftwareName = oi.Software?.Name ?? ReadDetailString(oi.DetailsJson, "softwareName");
+                        sameSoftware = !string.IsNullOrWhiteSpace(itemSoftwareName)
+                                       && !string.IsNullOrWhiteSpace(otherSoftwareName)
+                                       && string.Equals(itemSoftwareName, otherSoftwareName, StringComparison.OrdinalIgnoreCase);
+                    }
+
+                    if (!sameSoftware)
+                        return false;
+
+                    if (oi.SoftwareVersionId.HasValue && item.SoftwareVersionId.HasValue)
+                        return oi.SoftwareVersionId != item.SoftwareVersionId;
+
+                    var otherVersionNumber = oi.SoftwareVersion?.VersionNumber ?? ReadDetailString(oi.DetailsJson, "versionNumber");
+                    return !string.IsNullOrWhiteSpace(itemVersionNumber)
+                           && !string.IsNullOrWhiteSpace(otherVersionNumber)
+                           && !string.Equals(itemVersionNumber, otherVersionNumber, StringComparison.OrdinalIgnoreCase);
+                });
 
                 if (conflicting is not null)
                 {
-                    var softwareName = item.Software?.Name ?? $"Software #{item.SoftwareId}";
-                    var otherVersion = conflicting.SoftwareVersion?.VersionNumber ?? $"version #{conflicting.SoftwareVersionId}";
+                    var softwareName = itemSoftwareName
+                        ?? item.Software?.Name
+                        ?? $"Software #{item.SoftwareId}";
+                    var otherVersion = conflicting.SoftwareVersion?.VersionNumber
+                        ?? ReadDetailString(conflicting.DetailsJson, "versionNumber")
+                        ?? $"version #{conflicting.SoftwareVersionId}";
                     warnings.Add($"Conflit: {softwareName} est demandé en version {otherVersion} par un autre enseignant de ce cours.");
                     break;
                 }
@@ -351,6 +382,25 @@ public class TeachingNeedService : ITeachingNeedService
         }
 
         return warnings;
+    }
+
+    private static string? ReadDetailString(string? detailsJson, string propertyName)
+    {
+        if (string.IsNullOrWhiteSpace(detailsJson))
+            return null;
+
+        try
+        {
+            using var document = JsonDocument.Parse(detailsJson);
+            if (!document.RootElement.TryGetProperty(propertyName, out var element))
+                return null;
+            var value = element.GetString();
+            return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     public async Task<TeachingNeed?> ReviewAsync(int sessionId, int id)
