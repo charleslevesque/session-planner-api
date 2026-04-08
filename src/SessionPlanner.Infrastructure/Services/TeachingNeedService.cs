@@ -290,12 +290,12 @@ public class TeachingNeedService : ITeachingNeedService
         return true;
     }
 
-    public async Task<TeachingNeed?> SubmitAsync(int sessionId, int id)
+    public async Task<(TeachingNeed? Need, IReadOnlyList<string> Warnings)> SubmitAsync(int sessionId, int id)
     {
         var need = await _db.TeachingNeeds
             .FirstOrDefaultAsync(n => n.SessionId == sessionId && n.Id == id);
 
-        if (need is null) return null;
+        if (need is null) return (null, Array.Empty<string>());
 
         EnsureStatus(need, NeedStatus.Draft, "Need can only be submitted from Draft status.");
 
@@ -303,7 +303,104 @@ public class TeachingNeedService : ITeachingNeedService
         need.SubmittedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
-        return await GetByIdAsync(sessionId, id);
+
+        var submitted = await GetByIdAsync(sessionId, id);
+        var warnings = await DetectConflictsAsync(submitted!);
+
+        return (submitted, warnings);
+    }
+
+    private async Task<IReadOnlyList<string>> DetectConflictsAsync(TeachingNeed need)
+    {
+        var conflictStatuses = new[] { NeedStatus.Submitted, NeedStatus.UnderReview, NeedStatus.Approved };
+
+        var otherNeeds = await _db.TeachingNeeds
+            .Include(n => n.Items).ThenInclude(i => i.Software)
+            .Include(n => n.Items).ThenInclude(i => i.SoftwareVersion)
+            .Where(n =>
+                n.SessionId == need.SessionId &&
+                n.CourseId == need.CourseId &&
+                n.Id != need.Id &&
+                conflictStatuses.Contains(n.Status))
+            .ToListAsync();
+
+        var warnings = new List<string>();
+
+        var softwareItems = need.Items
+            .Where(i => (i.ItemType ?? string.Empty).Trim().Equals("software", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        foreach (var item in softwareItems)
+        {
+            var itemSoftwareName = item.Software?.Name ?? ReadDetailString(item.DetailsJson, "softwareName");
+            var itemVersionNumber = item.SoftwareVersion?.VersionNumber ?? ReadDetailString(item.DetailsJson, "versionNumber");
+
+            foreach (var other in otherNeeds)
+            {
+                var conflicting = other.Items.FirstOrDefault(oi =>
+                {
+                    if (!(oi.ItemType ?? string.Empty).Trim().Equals("software", StringComparison.OrdinalIgnoreCase))
+                        return false;
+
+                    var sameSoftware = false;
+                    if (oi.SoftwareId.HasValue && item.SoftwareId.HasValue)
+                    {
+                        sameSoftware = oi.SoftwareId == item.SoftwareId;
+                    }
+                    else
+                    {
+                        var otherSoftwareName = oi.Software?.Name ?? ReadDetailString(oi.DetailsJson, "softwareName");
+                        sameSoftware = !string.IsNullOrWhiteSpace(itemSoftwareName)
+                                       && !string.IsNullOrWhiteSpace(otherSoftwareName)
+                                       && string.Equals(itemSoftwareName, otherSoftwareName, StringComparison.OrdinalIgnoreCase);
+                    }
+
+                    if (!sameSoftware)
+                        return false;
+
+                    if (oi.SoftwareVersionId.HasValue && item.SoftwareVersionId.HasValue)
+                        return oi.SoftwareVersionId != item.SoftwareVersionId;
+
+                    var otherVersionNumber = oi.SoftwareVersion?.VersionNumber ?? ReadDetailString(oi.DetailsJson, "versionNumber");
+                    return !string.IsNullOrWhiteSpace(itemVersionNumber)
+                           && !string.IsNullOrWhiteSpace(otherVersionNumber)
+                           && !string.Equals(itemVersionNumber, otherVersionNumber, StringComparison.OrdinalIgnoreCase);
+                });
+
+                if (conflicting is not null)
+                {
+                    var softwareName = itemSoftwareName
+                        ?? item.Software?.Name
+                        ?? $"Software #{item.SoftwareId}";
+                    var otherVersion = conflicting.SoftwareVersion?.VersionNumber
+                        ?? ReadDetailString(conflicting.DetailsJson, "versionNumber")
+                        ?? $"version #{conflicting.SoftwareVersionId}";
+                    warnings.Add($"Conflit: {softwareName} est demandé en version {otherVersion} dans une autre demande de ce cours.");
+                    break;
+                }
+            }
+        }
+
+        return warnings;
+    }
+
+    private static string? ReadDetailString(string? detailsJson, string propertyName)
+    {
+        if (string.IsNullOrWhiteSpace(detailsJson))
+            return null;
+
+        try
+        {
+            using var document = JsonDocument.Parse(detailsJson);
+            if (!document.RootElement.TryGetProperty(propertyName, out var element))
+                return null;
+            var value = element.GetString();
+            return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     public async Task<TeachingNeed?> ReviewAsync(int sessionId, int id)

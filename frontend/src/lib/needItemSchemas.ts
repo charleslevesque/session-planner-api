@@ -10,7 +10,16 @@ export interface LookupOption {
 
 export interface NeedItemLookups {
   softwareNames: string[];
-  softwareCatalog?: Array<{ id: number; name: string; versions: Array<{ id: number; versionNumber: string; osId: number; osName: string }> }>;
+  softwareCatalog?: Array<{
+    id: number;
+    name: string;
+    versions: Array<{
+      id: number;
+      versionNumber: string;
+      osId: number;
+      osName: string;
+    }>;
+  }>;
   osOptions: LookupOption[];
   laboratoryOptions: LookupOption[];
   serverOptions: LookupOption[];
