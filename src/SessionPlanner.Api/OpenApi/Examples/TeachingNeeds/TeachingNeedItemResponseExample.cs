@@ -19,7 +19,8 @@ public sealed class TeachingNeedItemExample : IExamplesProvider<TeachingNeedItem
             OSName: "Windows",
             Quantity: 30,
             Notes: "Installed on all machines",
-            DetailsJson: "{\"name\":\"Example\"}"
+            DetailsJson: "{\"name\":\"Example\"}",
+            AlreadyInstalledInLabs: true
         );
     }
 }

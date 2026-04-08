@@ -76,7 +76,7 @@ public class TeachingNeedsController : ControllerBase
         var needs = await _needService.GetAllBySessionAsync(sessionId, filterByPersonnelId);
 
         var allItems = needs.SelectMany(n => n.Items)
-            .Select(i => (i.Id, i.SoftwareId));
+            .Select(i => (i.Id, i.SoftwareId, i.DetailsJson));
         var installedMap = await _installationCheckService.GetInstalledMapAsync(allItems);
 
         return Ok(needs.Select(n => n.ToResponse(installedMap)));
@@ -119,7 +119,7 @@ public class TeachingNeedsController : ControllerBase
             return Forbid();
 
         var installedMap = await _installationCheckService.GetInstalledMapAsync(
-            need.Items.Select(i => (i.Id, i.SoftwareId)));
+            need.Items.Select(i => (i.Id, i.SoftwareId, i.DetailsJson)));
 
         return Ok(need.ToResponse(installedMap));
     }
