@@ -14,9 +14,9 @@ import {
   type NeedItemLookups,
   type TeacherNeedItemType,
 } from '../lib/needItemSchemas';
-import type { CourseResponse, SubmitTeachingNeedResponse, TeachingNeedResponse, TeachingNeedStatus } from '../types/needs';
+import type { CourseResponse, SoftwareCatalogEntry, SoftwareResponse, TeachingNeedResponse, TeachingNeedStatus } from '../types/needs';
 import type { SessionResponse } from '../types/sessions';
-import type { OSResponse, LaboratoryLookupResponse, PhysicalServerResponse, SoftwareResponse, SoftwareVersionResponse } from '../types/admin';
+import type { OSResponse, LaboratoryLookupResponse, PhysicalServerResponse } from '../types/admin';
 
 const EMPTY_LOOKUPS: NeedItemLookups = {
   softwareNames: [],
@@ -81,13 +81,12 @@ export function CreateNeedPage() {
       const baseRequests = [
         apiFetch<SessionResponse>(`/sessions/${sId}`),
         apiFetch<CourseResponse>(`/courses/${cId}`),
-        apiFetch<SoftwareResponse[]>('/softwares'),
         apiFetch<OSResponse[]>('/operatingsystems'),
         apiFetch<LaboratoryLookupResponse[]>('/laboratories'),
         apiFetch<PhysicalServerResponse[]>('/physicalservers'),
       ] as const;
 
-      const [sessionData, courseData, softwaresData, osData, laboratoriesData, serversData] =
+      const [sessionData, courseData, osData, laboratoriesData, serversData] =
         await Promise.all(baseRequests);
 
       if (sessionData.status !== 'Open') {
@@ -107,8 +106,28 @@ export function CreateNeedPage() {
         setSoftwareVersions([]);
       }
 
+      let catalogData: SoftwareCatalogEntry[] = [];
+      try {
+        catalogData = await apiFetch<SoftwareCatalogEntry[]>('/softwares/catalog');
+      } catch {
+        // Fallback for roles/environments where the catalog endpoint is unavailable.
+        const softwares = await apiFetch<SoftwareResponse[]>('/softwares');
+        catalogData = softwares.map((s) => ({
+          id: s.id,
+          name: s.name,
+          versions: (s.softwareVersions ?? []).map((v) => ({
+            id: v.id,
+            versionNumber: v.versionNumber,
+            osId: v.osId,
+            osName: '',
+            installationDetails: v.installationDetails,
+          })),
+        }));
+      }
+
       const resolvedLookups: NeedItemLookups = {
-        softwareNames: softwaresData.map((s) => s.name),
+        softwareNames: catalogData.map((s) => s.name),
+        softwareCatalog: catalogData,
         osOptions: osData.map((os) => ({ value: String(os.id), label: os.name })),
         laboratoryOptions: laboratoriesData.map((lab) => ({ value: String(lab.id), label: lab.name })),
         serverOptions: serversData.map((server) => ({ value: String(server.id), label: server.hostname })),

@@ -9,4 +9,7 @@ public interface ISoftwareService
     Task<Software?> GetByIdAsync(int id);
     Task<bool> UpdateAsync(int id, string name);
     Task<bool> DeleteAsync(int id);
+
+    /// <summary>Returns all softwares that have at least one version, with their versions and OS info, ordered by name.</summary>
+    Task<List<Software>> GetCatalogAsync();
 }
