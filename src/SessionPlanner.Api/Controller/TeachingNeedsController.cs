@@ -210,6 +210,40 @@ public class TeachingNeedsController : ControllerBase
     }
 
     /// <summary>
+    /// Creates a new teaching need by cloning a previously approved need.
+    /// </summary>
+    // POST /api/v1/sessions/{sessionId}/needs/from-template/{sourceNeedId}
+    [HttpPost("from-template/{sourceNeedId:int}")]
+    [HasPermission(Permissions.TeachingNeeds.Create)]
+    [ProducesResponseType(typeof(TeachingNeedResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<TeachingNeedResponse>> CloneFromTemplate(int sessionId, int sourceNeedId)
+    {
+        if (!IsTeachingRole()) return Forbid();
+
+        var userId = GetCurrentUserId();
+        if (userId is null)
+            return Unauthorized(new ApiErrorResponse("Unauthorized.", ErrorCodes.Unauthorized));
+
+        var personnelId = await _needService.GetOrCreatePersonnelIdForUserAsync(userId.Value);
+        if (personnelId is null)
+            return BadRequest(new ApiErrorResponse(
+                "Your account is not linked to any personnel record.", ErrorCodes.BadRequest));
+
+        try
+        {
+            var cloned = await _needService.CloneFromTemplateAsync(sessionId, personnelId.Value, sourceNeedId);
+            return CreatedAtAction(nameof(GetById), new { sessionId, id = cloned.Id }, cloned.ToResponse());
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new ApiErrorResponse(ex.Message, ErrorCodes.InvalidTeachingNeedTransition));
+        }
+    }
+
+    /// <summary>
     /// Updates a teaching need.
     /// </summary>
     /// <param name="sessionId">The session identifier.</param>

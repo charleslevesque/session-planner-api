@@ -93,19 +93,15 @@ export interface AddNeedItemRequest {
   detailsJson?: string | null;
 }
 
-export interface SoftwareVersionCatalogEntry {
+export interface NeedHistoryEntry {
   id: number;
-  versionNumber: string;
-  osId: number;
-  osName: string;
-  installationDetails?: string;
-}
-
-export interface SoftwareCatalogEntry {
-  id: number;
-  name: string;
-  installCommand?: string;
-  versions: SoftwareVersionCatalogEntry[];
+  sessionId: number;
+  courseId: number;
+  courseCode: string;
+  courseName?: string;
+  status: TeachingNeedStatus;
+  createdAt: string;
+  items: TeachingNeedItemResponse[];
 }
 
 export interface MyNeedResponse {

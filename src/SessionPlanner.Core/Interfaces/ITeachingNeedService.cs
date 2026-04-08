@@ -47,6 +47,12 @@ public interface ITeachingNeedService
     /// <summary>Returns all needs belonging to a personnel, with optional filters on session, course and backend statuses.</summary>
     Task<List<TeachingNeed>> GetMyNeedsAsync(int personnelId, int? sessionId = null, int? courseId = null, IEnumerable<NeedStatus>? statuses = null);
 
+    /// <summary>Returns all approved teaching needs for a course across all sessions, ordered by most recent first.</summary>
+    Task<List<TeachingNeed>> GetApprovedHistoryByCourseAsync(int courseId);
+
+    /// <summary>Creates a new Draft need in the given session by cloning items from a previously approved need. Throws InvalidOperationException if session not Open or source need not found/not Approved.</summary>
+    Task<TeachingNeed> CloneFromTemplateAsync(int sessionId, int personnelId, int sourceNeedId);
+
     /// <summary>Returns the PersonnelId linked to the given userId, or null if none.</summary>
     Task<int?> GetPersonnelIdForUserAsync(int userId);
 
