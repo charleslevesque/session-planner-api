@@ -92,11 +92,18 @@ function NeedDetailPanel({ need, lookups }: NeedDetailPanelProps) {
   );
 }
 
-function NeedStatusBadge({ status }: { status: TeachingNeedStatus }) {
+function NeedStatusBadge({ status, isFastTrack }: { status: TeachingNeedStatus; isFastTrack?: boolean }) {
   return (
-    <span className={`inline-flex rounded-xl border px-2.5 py-0.5 text-xs font-medium ${teachingNeedStatusBadgeClass(status)}`}>
-      {teachingNeedStatusLabelFr(status)}
-    </span>
+    <div className="flex items-center gap-1.5">
+      {isFastTrack ? (
+        <span className="inline-flex rounded-xl border border-violet-200 bg-violet-50 px-2.5 py-0.5 text-xs font-medium text-violet-700" title="Tous les items correspondent à une demande précédemment approuvée">
+          ⚡ FastTrack
+        </span>
+      ) : null}
+      <span className={`inline-flex rounded-xl border px-2.5 py-0.5 text-xs font-medium ${teachingNeedStatusBadgeClass(status)}`}>
+        {teachingNeedStatusLabelFr(status)}
+      </span>
+    </div>
   );
 }
 
@@ -700,7 +707,7 @@ function TeacherNeedsView({ sessionId, startInCreateMode = false }: { sessionId:
                       <NeedTimestamps need={need} />
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
-                      <NeedStatusBadge status={need.status} />
+                      <NeedStatusBadge status={need.status} isFastTrack={need.isFastTrack} />
                       <ChevronIcon expanded={isExpanded} />
                     </div>
                   </button>

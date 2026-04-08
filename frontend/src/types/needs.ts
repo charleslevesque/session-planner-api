@@ -67,6 +67,7 @@ export interface TeachingNeedResponse {
   allowsUpdates?: boolean;
   additionalComments?: string;
   items: TeachingNeedItemResponse[];
+  isFastTrack: boolean;
 }
 
 export interface CreateTeachingNeedRequest {
