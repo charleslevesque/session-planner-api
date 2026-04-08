@@ -82,13 +82,12 @@ export function CreateNeedPage() {
         apiFetch<SessionResponse>(`/sessions/${sId}`),
         apiFetch<CourseResponse>(`/courses/${cId}`),
         apiFetch<SoftwareResponse[]>('/softwares'),
-        apiFetch<SoftwareVersionResponse[]>('/softwareversions'),
         apiFetch<OSResponse[]>('/operatingsystems'),
         apiFetch<LaboratoryLookupResponse[]>('/laboratories'),
         apiFetch<PhysicalServerResponse[]>('/physicalservers'),
       ] as const;
 
-      const [sessionData, courseData, softwaresData, softwareVersionsData, osData, laboratoriesData, serversData] =
+      const [sessionData, courseData, softwaresData, osData, laboratoriesData, serversData] =
         await Promise.all(baseRequests);
 
       if (sessionData.status !== 'Open') {
@@ -100,7 +99,13 @@ export function CreateNeedPage() {
       setSession(sessionData);
       setCourse(courseData);
       setSoftwareCatalog(softwaresData);
-      setSoftwareVersions(softwareVersionsData);
+      try {
+        const softwareVersionsData = await apiFetch<SoftwareVersionResponse[]>('/softwareversions');
+        setSoftwareVersions(softwareVersionsData);
+      } catch {
+        // Some teacher roles cannot read /softwareversions; keep page usable.
+        setSoftwareVersions([]);
+      }
 
       const resolvedLookups: NeedItemLookups = {
         softwareNames: softwaresData.map((s) => s.name),
