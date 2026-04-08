@@ -387,11 +387,16 @@ export function MyRequestsPage() {
                               {detail.items.map((item) => {
                                 const { label, summary } = summarizeNeedItem(item, lookups);
                                 return (
-                                  <li key={item.id} className="rounded-xl bg-white px-3 py-2 text-sm text-stone-700">
-                                    <span className="mr-2 inline-flex rounded-md border border-stone-200 bg-stone-100 px-1.5 py-0.5 text-[10px] font-medium text-stone-500">
+                                  <li key={item.id} className="rounded-xl bg-white px-3 py-2 text-sm text-stone-700 flex items-center gap-2 flex-wrap">
+                                    <span className="inline-flex rounded-md border border-stone-200 bg-stone-100 px-1.5 py-0.5 text-[10px] font-medium text-stone-500">
                                       {label}
                                     </span>
                                     {summary}
+                                    {item.alreadyInstalledInLabs === true ? (
+                                      <span className="inline-flex rounded-md border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
+                                        Déjà installé
+                                      </span>
+                                    ) : null}
                                   </li>
                                 );
                               })}

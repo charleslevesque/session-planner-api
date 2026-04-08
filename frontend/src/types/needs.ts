@@ -43,6 +43,7 @@ export interface TeachingNeedItemResponse {
   description?: string;
   notes?: string;
   detailsJson?: string | null;
+  alreadyInstalledInLabs?: boolean | null;
 }
 
 export interface TeachingNeedResponse {
