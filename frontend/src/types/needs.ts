@@ -92,6 +92,17 @@ export interface AddNeedItemRequest {
   detailsJson?: string | null;
 }
 
+export interface NeedHistoryEntry {
+  id: number;
+  sessionId: number;
+  courseId: number;
+  courseCode: string;
+  courseName?: string;
+  status: TeachingNeedStatus;
+  createdAt: string;
+  items: TeachingNeedItemResponse[];
+}
+
 export interface MyNeedResponse {
   id: number;
   sessionId: number;

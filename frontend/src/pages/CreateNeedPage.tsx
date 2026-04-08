@@ -14,7 +14,7 @@ import {
   type NeedItemLookups,
   type TeacherNeedItemType,
 } from '../lib/needItemSchemas';
-import type { CourseResponse, TeachingNeedResponse, TeachingNeedStatus } from '../types/needs';
+import type { CourseResponse, NeedHistoryEntry, TeachingNeedResponse, TeachingNeedStatus } from '../types/needs';
 import type { SessionResponse } from '../types/sessions';
 import type { OSResponse, LaboratoryLookupResponse, PhysicalServerResponse, SoftwareResponse } from '../types/admin';
 
@@ -50,6 +50,10 @@ export function CreateNeedPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  const [history, setHistory] = useState<NeedHistoryEntry[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [cloning, setCloning] = useState(false);
 
   const [items, setItems] = useState<NeedItemDraft[]>([]);
   const [selectedType, setSelectedType] = useState<TeacherNeedItemType>('software');
@@ -95,6 +99,15 @@ export function CreateNeedPage() {
 
       setSession(sessionData);
       setCourse(courseData);
+
+      if (!isEditMode) {
+        try {
+          const historyData = await apiFetch<NeedHistoryEntry[]>(`/courses/${cId}/needs/history`);
+          setHistory(historyData);
+        } catch {
+          // history is optional, ignore errors
+        }
+      }
 
       const resolvedLookups: NeedItemLookups = {
         softwareNames: softwaresData.map((s) => s.name),
@@ -317,6 +330,63 @@ export function CreateNeedPage() {
             </h1>
             <p className="mt-2 text-sm text-stone-600">Session: {session?.title}</p>
           </section>
+
+          {!isEditMode && history.length > 0 ? (
+            <section className="surface-card p-4 sm:p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-stone-800">Réutiliser une demande précédente</p>
+                  <p className="text-xs text-stone-500 mt-0.5">{history.length} demande{history.length > 1 ? 's' : ''} approuvée{history.length > 1 ? 's' : ''} pour ce cours</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowHistory((v) => !v)}
+                  className="rounded-xl border border-stone-200 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-50 transition"
+                >
+                  {showHistory ? 'Masquer' : 'Voir l\'historique'}
+                </button>
+              </div>
+
+              {showHistory ? (
+                <ul className="mt-4 space-y-2">
+                  {history.map((h) => (
+                    <li key={h.id} className="flex items-center justify-between gap-4 rounded-xl border border-stone-200 bg-stone-50 px-4 py-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-stone-800">
+                          {h.items.length} besoin{h.items.length > 1 ? 's' : ''} — approuvé le{' '}
+                          {new Date(h.createdAt).toLocaleDateString('fr-CA')}
+                        </p>
+                        <p className="text-xs text-stone-500 mt-0.5">
+                          {h.items.map((i) => i.softwareName ?? i.description ?? i.itemType).filter(Boolean).join(', ')}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={cloning}
+                        onClick={async () => {
+                          setCloning(true);
+                          setError('');
+                          try {
+                            const cloned = await apiFetch<TeachingNeedResponse>(
+                              `/sessions/${sId}/needs/from-template/${h.id}`,
+                              { method: 'POST' }
+                            );
+                            void navigate(`/sessions/${sId}/courses/${cId}/needs/${cloned.id}/edit`);
+                          } catch (err) {
+                            setError(getErrorMessage(err, 'Impossible de réutiliser cette demande.'));
+                            setCloning(false);
+                          }
+                        }}
+                        className="shrink-0 rounded-xl bg-[var(--ets-primary)] px-3 py-1.5 text-xs font-medium text-white hover:bg-[var(--ets-primary-hover)] disabled:opacity-50 transition"
+                      >
+                        {cloning ? 'Chargement…' : 'Réutiliser'}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </section>
+          ) : null}
 
           {isEditMode && existingStatus === 'Rejected' && rejectionReason ? (
             <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
