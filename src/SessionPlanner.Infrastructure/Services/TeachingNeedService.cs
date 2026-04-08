@@ -375,7 +375,7 @@ public class TeachingNeedService : ITeachingNeedService
                     var otherVersion = conflicting.SoftwareVersion?.VersionNumber
                         ?? ReadDetailString(conflicting.DetailsJson, "versionNumber")
                         ?? $"version #{conflicting.SoftwareVersionId}";
-                    warnings.Add($"Conflit: {softwareName} est demandé en version {otherVersion} par un autre enseignant de ce cours.");
+                    warnings.Add($"Conflit: {softwareName} est demandé en version {otherVersion} dans une autre demande de ce cours.");
                     break;
                 }
             }

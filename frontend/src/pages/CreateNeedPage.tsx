@@ -388,11 +388,11 @@ export function CreateNeedPage() {
           {success ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{success}</div> : null}
           {submitWarnings.length > 0 ? (
             <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              <p className="font-semibold mb-1">Conflits détectés avec d'autres demandes du même cours :</p>
+              <p className="font-semibold mb-1">Conflits détectés avec d&apos;autres demandes du même cours :</p>
               <ul className="list-disc list-inside space-y-0.5">
                 {submitWarnings.map((w, i) => <li key={i}>{w}</li>)}
               </ul>
-              <p className="mt-2 text-xs text-amber-600">Votre demande a quand même été soumise. L'administrateur en sera informé.</p>
+              <p className="mt-2 text-xs text-amber-600">Votre demande a quand même été soumise. L&apos;équipe de révision en sera informée.</p>
               <div className="mt-3">
                 <button
                   type="button"
