@@ -128,7 +128,7 @@ public class SoftwaresController : ControllerBase
     /// <response code="401">The caller is not authenticated.</response>
     /// <response code="403">The caller is not allowed to read software products.</response>
     /// <response code="404">No software product exists with the supplied identifier.</response>
-    [HttpGet("{id}")]
+    [HttpGet("{id:int}")]
     [HasPermission(Permissions.Softwares.Read)]
     [SwaggerOperation(
         Summary = "Get a software product by id",
@@ -166,7 +166,7 @@ public class SoftwaresController : ControllerBase
     /// <response code="401">The caller is not authenticated.</response>
     /// <response code="403">The caller is not allowed to update software products.</response>
     /// <response code="404">No software product exists with the supplied identifier.</response>
-    [HttpPut("{id}")]
+    [HttpPut("{id:int}")]
     [HasPermission(Permissions.Softwares.Update)]
     [SwaggerOperation(
         Summary = "Update a software product",
@@ -195,7 +195,7 @@ public class SoftwaresController : ControllerBase
         return NoContent();
     }
 
-    [HttpDelete("{id}")]
+    [HttpDelete("{id:int}")]
     [HasPermission(Permissions.Softwares.Delete)]
     public async Task<IActionResult> Delete(int id)
     {
