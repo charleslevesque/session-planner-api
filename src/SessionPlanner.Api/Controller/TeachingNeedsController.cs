@@ -25,10 +25,12 @@ namespace SessionPlanner.Api.Controllers;
 public class TeachingNeedsController : ControllerBase
 {
     private readonly ITeachingNeedService _needService;
+    private readonly IInstallationCheckService _installationCheckService;
 
-    public TeachingNeedsController(ITeachingNeedService needService)
+    public TeachingNeedsController(ITeachingNeedService needService, IInstallationCheckService installationCheckService)
     {
         _needService = needService;
+        _installationCheckService = installationCheckService;
     }
 
     /// <summary>
@@ -72,7 +74,12 @@ public class TeachingNeedsController : ControllerBase
         }
 
         var needs = await _needService.GetAllBySessionAsync(sessionId, filterByPersonnelId);
-        return Ok(needs.Select(n => n.ToResponse()));
+
+        var allItems = needs.SelectMany(n => n.Items)
+            .Select(i => (i.Id, i.SoftwareId));
+        var installedMap = await _installationCheckService.GetInstalledMapAsync(allItems);
+
+        return Ok(needs.Select(n => n.ToResponse(installedMap)));
     }
 
     /// <summary>
@@ -111,7 +118,10 @@ public class TeachingNeedsController : ControllerBase
         if (IsTeachingRole() && !await IsOwner(need.PersonnelId))
             return Forbid();
 
-        return Ok(need.ToResponse());
+        var installedMap = await _installationCheckService.GetInstalledMapAsync(
+            need.Items.Select(i => (i.Id, i.SoftwareId)));
+
+        return Ok(need.ToResponse(installedMap));
     }
 
     /// <summary>
