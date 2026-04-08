@@ -92,6 +92,21 @@ export interface AddNeedItemRequest {
   detailsJson?: string | null;
 }
 
+export interface SoftwareVersionCatalogEntry {
+  id: number;
+  versionNumber: string;
+  osId: number;
+  osName: string;
+  installationDetails?: string;
+}
+
+export interface SoftwareCatalogEntry {
+  id: number;
+  name: string;
+  installCommand?: string;
+  versions: SoftwareVersionCatalogEntry[];
+}
+
 export interface MyNeedResponse {
   id: number;
   sessionId: number;
