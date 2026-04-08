@@ -191,6 +191,44 @@ export function CreateNeedPage() {
     }
   }
 
+  function createApiPayloadFromDraft(item: NeedItemDraft) {
+    const payload = createNeedItemPayload(item.itemType, item.values) as Record<string, unknown>;
+
+    if (item.itemType !== 'software') {
+      return payload;
+    }
+
+    const softwareName = (item.values.softwareName ?? '').trim().toLowerCase();
+    const versionNumber = (item.values.versionNumber ?? '').trim().toLowerCase();
+    const osId = Number(item.values.osId);
+    const hasOsId = Number.isFinite(osId);
+
+    const matchedSoftware = lookups.softwareCatalog?.find(
+      (s) => s.name.trim().toLowerCase() === softwareName,
+    );
+
+    if (matchedSoftware) {
+      payload.softwareId = matchedSoftware.id;
+    }
+
+    if (matchedSoftware && versionNumber) {
+      const matchedVersion = matchedSoftware.versions.find(
+        (v) =>
+          v.versionNumber.trim().toLowerCase() === versionNumber
+          && (!hasOsId || v.osId === osId),
+      );
+      if (matchedVersion) {
+        payload.softwareVersionId = matchedVersion.id;
+      }
+    }
+
+    if (hasOsId) {
+      payload.osId = osId;
+    }
+
+    return payload;
+  }
+
   async function persistNeed(mode: 'draft' | 'submit') {
     setSaving(true);
     setError('');
@@ -245,7 +283,7 @@ export function CreateNeedPage() {
           toAdd.map((item) =>
             apiFetch(`/sessions/${sId}/needs/${nId}/items`, {
               method: 'POST',
-              body: JSON.stringify(createNeedItemPayload(item.itemType, item.values)),
+              body: JSON.stringify(createApiPayloadFromDraft(item)),
             }),
           ),
         );
@@ -268,7 +306,7 @@ export function CreateNeedPage() {
           items.map((item) =>
             apiFetch(`/sessions/${sId}/needs/${need.id}/items`, {
               method: 'POST',
-              body: JSON.stringify(createNeedItemPayload(item.itemType, item.values)),
+              body: JSON.stringify(createApiPayloadFromDraft(item)),
             }),
           ),
         );

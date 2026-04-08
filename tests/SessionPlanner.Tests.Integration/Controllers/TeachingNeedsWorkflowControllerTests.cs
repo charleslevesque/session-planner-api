@@ -5,6 +5,7 @@ using FluentAssertions;
 using SessionPlanner.Api.Dtos.CourseResources;
 using SessionPlanner.Api.Dtos.Courses;
 using SessionPlanner.Api.Dtos.Sessions;
+using SessionPlanner.Api.Dtos.Softwares;
 using SessionPlanner.Api.Dtos.TeachingNeeds;
 using SessionPlanner.Tests.Integration.Fixtures;
 
@@ -60,6 +61,15 @@ public class TeachingNeedsWorkflowControllerTests : IClassFixture<TeachingNeedWo
         return (await response.Content.ReadFromJsonAsync<TeachingNeedResponse>())!;
     }
 
+    private async Task<int> CreateSoftwareAsync(string name)
+    {
+        SetRole("admin");
+        var response = await _client.PostAsJsonAsync("/api/v1/softwares", new { name });
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        var created = await response.Content.ReadFromJsonAsync<SoftwareResponse>();
+        return created!.Id;
+    }
+
     [Fact]
     public async Task Workflow_Approve_Path_EndToEnd_Works()
     {
@@ -83,6 +93,85 @@ public class TeachingNeedsWorkflowControllerTests : IClassFixture<TeachingNeedWo
         approveResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         var approved = await approveResponse.Content.ReadFromJsonAsync<TeachingNeedResponse>();
         approved!.Status.Should().Be("Approved");
+    }
+
+    [Fact]
+    public async Task GetById_SoftwareInstalledInLab_SetsAlreadyInstalledFlagTrue()
+    {
+        var sessionId = await CreateOpenSessionAsync("Installed Flag True");
+        var courseId = await CreateCourseAsync("WFINS1");
+        var softwareId = await CreateSoftwareAsync("InstalledTool");
+
+        SetRole("admin");
+        var upsertInstalled = await _client.PutAsJsonAsync(
+            $"/api/v1/laboratorysoftwares/1/{softwareId}",
+            new { status = "installed" });
+        upsertInstalled.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var need = await CreateNeedAsTeacherAsync(sessionId, courseId);
+        SetRole("professor");
+        var addItem = await _client.PostAsJsonAsync(
+            $"/api/v1/sessions/{sessionId}/needs/{need.Id}/items",
+            new AddNeedItemRequest("software", softwareId, null, 1, 1, null, null, "{\"softwareName\":\"InstalledTool\"}"));
+        addItem.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var getNeed = await _client.GetAsync($"/api/v1/sessions/{sessionId}/needs/{need.Id}");
+        getNeed.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await getNeed.Content.ReadFromJsonAsync<TeachingNeedResponse>();
+        body.Should().NotBeNull();
+        body!.Items.Should().ContainSingle();
+        body.Items.First().AlreadyInstalledInLabs.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GetById_SoftwareNotInstalledInLab_SetsAlreadyInstalledFlagFalse()
+    {
+        var sessionId = await CreateOpenSessionAsync("Installed Flag False");
+        var courseId = await CreateCourseAsync("WFINS2");
+        var softwareId = await CreateSoftwareAsync("NotInstalledTool");
+
+        var need = await CreateNeedAsTeacherAsync(sessionId, courseId);
+        SetRole("professor");
+        var addItem = await _client.PostAsJsonAsync(
+            $"/api/v1/sessions/{sessionId}/needs/{need.Id}/items",
+            new AddNeedItemRequest("software", softwareId, null, 1, 1, null, null, "{\"softwareName\":\"NotInstalledTool\"}"));
+        addItem.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var getNeed = await _client.GetAsync($"/api/v1/sessions/{sessionId}/needs/{need.Id}");
+        getNeed.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await getNeed.Content.ReadFromJsonAsync<TeachingNeedResponse>();
+        body.Should().NotBeNull();
+        body!.Items.Should().ContainSingle();
+        body.Items.First().AlreadyInstalledInLabs.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GetById_WhenSoftwareIdMissing_ResolvesFromDetailsJsonAndSetsInstalledFlag()
+    {
+        var sessionId = await CreateOpenSessionAsync("Installed Flag DetailsJson");
+        var courseId = await CreateCourseAsync("WFINS3");
+        var softwareId = await CreateSoftwareAsync("DetailsJsonInstalledTool");
+
+        SetRole("admin");
+        var upsertInstalled = await _client.PutAsJsonAsync(
+            $"/api/v1/laboratorysoftwares/1/{softwareId}",
+            new { status = "installed" });
+        upsertInstalled.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var need = await CreateNeedAsTeacherAsync(sessionId, courseId);
+        SetRole("professor");
+        var addItem = await _client.PostAsJsonAsync(
+            $"/api/v1/sessions/{sessionId}/needs/{need.Id}/items",
+            new AddNeedItemRequest("software", null, null, 1, 1, null, null, "{\"softwareName\":\"DetailsJsonInstalledTool\",\"versionNumber\":\"1\"}"));
+        addItem.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var getNeed = await _client.GetAsync($"/api/v1/sessions/{sessionId}/needs/{need.Id}");
+        getNeed.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await getNeed.Content.ReadFromJsonAsync<TeachingNeedResponse>();
+        body.Should().NotBeNull();
+        body!.Items.Should().ContainSingle();
+        body.Items.First().SoftwareId.Should().BeNull();
+        body.Items.First().AlreadyInstalledInLabs.Should().BeTrue();
     }
 
     [Fact]
