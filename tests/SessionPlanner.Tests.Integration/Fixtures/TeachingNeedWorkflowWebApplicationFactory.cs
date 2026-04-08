@@ -59,7 +59,10 @@ public class TeachingNeedWorkflowAuthHandler : AuthenticationHandler<Authenticat
             new("perm", Permissions.TeachingNeeds.Read),
             new("perm", Permissions.TeachingNeeds.Create),
             new("perm", Permissions.TeachingNeeds.Update),
-            new("perm", Permissions.TeachingNeeds.Delete)
+            new("perm", Permissions.TeachingNeeds.Delete),
+
+            new("perm", Permissions.Softwares.Read),
+            new("perm", Permissions.Softwares.Create)
         };
 
         if (!isTeacher)

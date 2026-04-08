@@ -12,4 +12,5 @@ public record TeachingNeedItemResponse(
     int? Quantity,
     string? Description,
     string? Notes,
-    string? DetailsJson);
+    string? DetailsJson,
+    bool? AlreadyInstalledInLabs);

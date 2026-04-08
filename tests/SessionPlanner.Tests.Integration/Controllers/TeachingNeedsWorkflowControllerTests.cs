@@ -5,6 +5,7 @@ using FluentAssertions;
 using SessionPlanner.Api.Dtos.CourseResources;
 using SessionPlanner.Api.Dtos.Courses;
 using SessionPlanner.Api.Dtos.Sessions;
+using SessionPlanner.Api.Dtos.Softwares;
 using SessionPlanner.Api.Dtos.TeachingNeeds;
 using SessionPlanner.Tests.Integration.Fixtures;
 
@@ -58,6 +59,15 @@ public class TeachingNeedsWorkflowControllerTests : IClassFixture<TeachingNeedWo
 
         response.StatusCode.Should().Be(HttpStatusCode.Created);
         return (await response.Content.ReadFromJsonAsync<TeachingNeedResponse>())!;
+    }
+
+    private async Task<int> CreateSoftwareAsync(string name)
+    {
+        SetRole("admin");
+        var response = await _client.PostAsJsonAsync("/api/v1/softwares", new { name });
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        var created = await response.Content.ReadFromJsonAsync<SoftwareResponse>();
+        return created!.Id;
     }
 
     [Fact]
