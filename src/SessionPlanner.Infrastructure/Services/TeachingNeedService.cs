@@ -303,7 +303,70 @@ public class TeachingNeedService : ITeachingNeedService
         need.SubmittedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
+
+        need.IsFastTrack = await ComputeIsFastTrackAsync(need);
+        await _db.SaveChangesAsync();
+
         return await GetByIdAsync(sessionId, id);
+    }
+
+    private async Task<bool> ComputeIsFastTrackAsync(TeachingNeed need)
+    {
+        var currentItems = await _db.TeachingNeedItems
+            .Where(i => i.TeachingNeedId == need.Id)
+            .ToListAsync();
+
+        if (currentItems.Count == 0)
+            return false;
+
+        var approvedItems = await _db.TeachingNeeds
+            .Include(n => n.Items)
+            .Where(n => n.CourseId == need.CourseId
+                     && n.SessionId != need.SessionId
+                     && n.Status == NeedStatus.Approved)
+            .SelectMany(n => n.Items)
+            .ToListAsync();
+
+        foreach (var item in currentItems)
+        {
+            var type = (item.ItemType ?? string.Empty).Trim().ToLowerInvariant();
+            bool matched = false;
+
+            foreach (var approved in approvedItems)
+            {
+                var approvedType = (approved.ItemType ?? string.Empty).Trim().ToLowerInvariant();
+                if (approvedType != type) continue;
+
+                if (type == "software")
+                {
+                    if (item.SoftwareId.HasValue && item.SoftwareVersionId.HasValue
+                        && item.SoftwareId == approved.SoftwareId
+                        && item.SoftwareVersionId == approved.SoftwareVersionId)
+                    {
+                        matched = true;
+                        break;
+                    }
+                }
+                else
+                {
+                    bool descriptionMatch = !string.IsNullOrWhiteSpace(item.Description)
+                        && item.Description == approved.Description;
+                    bool detailsMatch = !string.IsNullOrWhiteSpace(item.DetailsJson)
+                        && item.DetailsJson == approved.DetailsJson;
+
+                    if (descriptionMatch || detailsMatch)
+                    {
+                        matched = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!matched)
+                return false;
+        }
+
+        return true;
     }
 
     public async Task<TeachingNeed?> ReviewAsync(int sessionId, int id)

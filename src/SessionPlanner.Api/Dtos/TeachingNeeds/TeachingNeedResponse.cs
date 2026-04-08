@@ -21,4 +21,5 @@ public record TeachingNeedResponse(
     string? DesiredModifications,
     bool? AllowsUpdates,
     string? AdditionalComments,
-    IEnumerable<TeachingNeedItemResponse> Items);
+    IEnumerable<TeachingNeedItemResponse> Items,
+    bool IsFastTrack);

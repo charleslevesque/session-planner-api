@@ -708,6 +708,9 @@ namespace SessionPlanner.Infrastructure.Migrations
                     b.Property<bool?>("HasTechNeeds")
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("IsFastTrack")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Notes")
                         .HasColumnType("TEXT");
 
