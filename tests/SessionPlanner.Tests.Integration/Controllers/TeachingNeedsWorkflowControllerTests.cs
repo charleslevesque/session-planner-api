@@ -5,6 +5,7 @@ using FluentAssertions;
 using SessionPlanner.Api.Dtos.CourseResources;
 using SessionPlanner.Api.Dtos.Courses;
 using SessionPlanner.Api.Dtos.Sessions;
+using SessionPlanner.Api.Dtos.Softwares;
 using SessionPlanner.Api.Dtos.TeachingNeeds;
 using SessionPlanner.Tests.Integration.Fixtures;
 
@@ -60,6 +61,15 @@ public class TeachingNeedsWorkflowControllerTests : IClassFixture<TeachingNeedWo
         return (await response.Content.ReadFromJsonAsync<TeachingNeedResponse>())!;
     }
 
+    private async Task<int> CreateSoftwareAsync(string name)
+    {
+        SetRole("admin");
+        var response = await _client.PostAsJsonAsync("/api/v1/softwares", new { name });
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        var created = await response.Content.ReadFromJsonAsync<SoftwareResponse>();
+        return created!.Id;
+    }
+
     [Fact]
     public async Task Workflow_Approve_Path_EndToEnd_Works()
     {
@@ -70,8 +80,8 @@ public class TeachingNeedsWorkflowControllerTests : IClassFixture<TeachingNeedWo
         SetRole("professor");
         var submitResponse = await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need.Id}/submit", null);
         submitResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-        var submitted = await submitResponse.Content.ReadFromJsonAsync<TeachingNeedResponse>();
-        submitted!.Status.Should().Be("Submitted");
+        var submitted = await submitResponse.Content.ReadFromJsonAsync<SubmitTeachingNeedResponse>();
+        submitted!.Need.Status.Should().Be("Submitted");
 
         SetRole("admin");
         var reviewResponse = await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need.Id}/review", null);
@@ -83,6 +93,45 @@ public class TeachingNeedsWorkflowControllerTests : IClassFixture<TeachingNeedWo
         approveResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         var approved = await approveResponse.Content.ReadFromJsonAsync<TeachingNeedResponse>();
         approved!.Status.Should().Be("Approved");
+    }
+
+    [Fact]
+    public async Task Submit_WithDifferentSoftwareVersionsInSameCourseAndSession_ReturnsNonBlockingConflictWarnings()
+    {
+        var sessionId = await CreateOpenSessionAsync("Workflow Conflict Warning");
+        var courseId = await CreateCourseAsync("WFCF01");
+
+        // Need #1: IntelliJ v1 submitted first (baseline in same course+session).
+        var need1 = await CreateNeedAsTeacherAsync(sessionId, courseId);
+        SetRole("professor");
+        (await _client.PostAsJsonAsync(
+            $"/api/v1/sessions/{sessionId}/needs/{need1.Id}/items",
+            new AddNeedItemRequest("software", 1, 1, 1, 1, null, null, null)))
+            .StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var submitNeed1 = await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need1.Id}/submit", null);
+        submitNeed1.StatusCode.Should().Be(HttpStatusCode.OK);
+        var submitNeed1Body = await submitNeed1.Content.ReadFromJsonAsync<SubmitTeachingNeedResponse>();
+        submitNeed1Body.Should().NotBeNull();
+        submitNeed1Body!.Need.Status.Should().Be("Submitted");
+        submitNeed1Body.Warnings.Should().BeEmpty("first submission has no prior conflicting need");
+
+        // Need #2: same software but different version should trigger warning (non-blocking).
+        var need2 = await CreateNeedAsTeacherAsync(sessionId, courseId);
+        (await _client.PostAsJsonAsync(
+            $"/api/v1/sessions/{sessionId}/needs/{need2.Id}/items",
+            new AddNeedItemRequest("software", 1, 2, 1, 1, null, null, null)))
+            .StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var submitNeed2 = await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need2.Id}/submit", null);
+        submitNeed2.StatusCode.Should().Be(HttpStatusCode.OK, "conflict detection is warning-only and must not block submit");
+        var submitNeed2Body = await submitNeed2.Content.ReadFromJsonAsync<SubmitTeachingNeedResponse>();
+        submitNeed2Body.Should().NotBeNull();
+        submitNeed2Body!.Need.Status.Should().Be("Submitted");
+        submitNeed2Body.Warnings.Should().NotBeEmpty();
+        submitNeed2Body.Warnings.Should().Contain(w =>
+            w.Contains("Conflit:", StringComparison.OrdinalIgnoreCase)
+            && w.Contains("IntelliJ", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -150,8 +199,8 @@ public class TeachingNeedsWorkflowControllerTests : IClassFixture<TeachingNeedWo
 
         var submitAgain = await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need.Id}/submit", null);
         submitAgain.StatusCode.Should().Be(HttpStatusCode.OK);
-        var resubmitted = await submitAgain.Content.ReadFromJsonAsync<TeachingNeedResponse>();
-        resubmitted!.Status.Should().Be("Submitted");
+        var resubmitted = await submitAgain.Content.ReadFromJsonAsync<SubmitTeachingNeedResponse>();
+        resubmitted!.Need.Status.Should().Be("Submitted");
 
         SetRole("admin");
         (await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need.Id}/review", null)).StatusCode.Should().Be(HttpStatusCode.OK);

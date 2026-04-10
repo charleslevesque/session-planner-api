@@ -5,7 +5,8 @@ namespace SessionPlanner.Api.Mappings;
 
 public static class TeachingNeedMappings
 {
-    public static TeachingNeedItemResponse ToResponse(this TeachingNeedItem item) => new(
+    public static TeachingNeedItemResponse ToResponse(this TeachingNeedItem item,
+        IReadOnlyDictionary<int, bool>? installedMap = null) => new(
         item.Id,
         item.ItemType,
         item.SoftwareId,
@@ -17,9 +18,11 @@ public static class TeachingNeedMappings
         item.Quantity,
         item.Description,
         item.Notes,
-        item.DetailsJson);
+        item.DetailsJson,
+        installedMap is not null && installedMap.TryGetValue(item.Id, out var installed) ? installed : null);
 
-    public static TeachingNeedResponse ToResponse(this TeachingNeed need) => new(
+    public static TeachingNeedResponse ToResponse(this TeachingNeed need,
+        IReadOnlyDictionary<int, bool>? installedMap = null) => new(
         need.Id,
         need.SessionId,
         need.PersonnelId,
@@ -40,8 +43,7 @@ public static class TeachingNeedMappings
         need.DesiredModifications,
         need.AllowsUpdates,
         need.AdditionalComments,
-        need.Items.Select(i => i.ToResponse()),
-        need.IsFastTrack);
+        need.Items.Select(i => i.ToResponse(installedMap)));
 
     public static MyNeedResponse ToMyNeedResponse(this TeachingNeed need) => new(
         need.Id,

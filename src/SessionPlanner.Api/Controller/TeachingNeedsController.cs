@@ -25,10 +25,12 @@ namespace SessionPlanner.Api.Controllers;
 public class TeachingNeedsController : ControllerBase
 {
     private readonly ITeachingNeedService _needService;
+    private readonly IInstallationCheckService _installationCheckService;
 
-    public TeachingNeedsController(ITeachingNeedService needService)
+    public TeachingNeedsController(ITeachingNeedService needService, IInstallationCheckService installationCheckService)
     {
         _needService = needService;
+        _installationCheckService = installationCheckService;
     }
 
     /// <summary>
@@ -72,7 +74,12 @@ public class TeachingNeedsController : ControllerBase
         }
 
         var needs = await _needService.GetAllBySessionAsync(sessionId, filterByPersonnelId);
-        return Ok(needs.Select(n => n.ToResponse()));
+
+        var allItems = needs.SelectMany(n => n.Items)
+            .Select(i => (i.Id, i.SoftwareId, i.DetailsJson));
+        var installedMap = await _installationCheckService.GetInstalledMapAsync(allItems);
+
+        return Ok(needs.Select(n => n.ToResponse(installedMap)));
     }
 
     /// <summary>
@@ -111,7 +118,10 @@ public class TeachingNeedsController : ControllerBase
         if (IsTeachingRole() && !await IsOwner(need.PersonnelId))
             return Forbid();
 
-        return Ok(need.ToResponse());
+        var installedMap = await _installationCheckService.GetInstalledMapAsync(
+            need.Items.Select(i => (i.Id, i.SoftwareId, i.DetailsJson)));
+
+        return Ok(need.ToResponse(installedMap));
     }
 
     /// <summary>
@@ -196,6 +206,40 @@ public class TeachingNeedsController : ControllerBase
                 Error: ex.Message,
                 Code: ErrorCodes.InvalidTeachingNeedTransition
             ));
+        }
+    }
+
+    /// <summary>
+    /// Creates a new teaching need by cloning a previously approved need.
+    /// </summary>
+    // POST /api/v1/sessions/{sessionId}/needs/from-template/{sourceNeedId}
+    [HttpPost("from-template/{sourceNeedId:int}")]
+    [HasPermission(Permissions.TeachingNeeds.Create)]
+    [ProducesResponseType(typeof(TeachingNeedResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<TeachingNeedResponse>> CloneFromTemplate(int sessionId, int sourceNeedId)
+    {
+        if (!IsTeachingRole()) return Forbid();
+
+        var userId = GetCurrentUserId();
+        if (userId is null)
+            return Unauthorized(new ApiErrorResponse("Unauthorized.", ErrorCodes.Unauthorized));
+
+        var personnelId = await _needService.GetOrCreatePersonnelIdForUserAsync(userId.Value);
+        if (personnelId is null)
+            return BadRequest(new ApiErrorResponse(
+                "Your account is not linked to any personnel record.", ErrorCodes.BadRequest));
+
+        try
+        {
+            var cloned = await _needService.CloneFromTemplateAsync(sessionId, personnelId.Value, sourceNeedId);
+            return CreatedAtAction(nameof(GetById), new { sessionId, id = cloned.Id }, cloned.ToResponse());
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new ApiErrorResponse(ex.Message, ErrorCodes.InvalidTeachingNeedTransition));
         }
     }
 
@@ -498,12 +542,12 @@ public class TeachingNeedsController : ControllerBase
     [SwaggerResponseExample(StatusCodes.Status403Forbidden, typeof(ForbiddenErrorExample))]
     [SwaggerResponseExample(StatusCodes.Status404NotFound, typeof(NotFoundErrorExample))]
     [SwaggerResponseExample(StatusCodes.Status409Conflict, typeof(InvalidTeachingNeedTransitionExample))]
-    [ProducesResponseType(typeof(TeachingNeedResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(SubmitTeachingNeedResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<TeachingNeedResponse>> Submit(int sessionId, int id)
+    public async Task<ActionResult<SubmitTeachingNeedResponse>> Submit(int sessionId, int id)
     {
         if (!IsTeachingRole()) return Forbid();
 
@@ -520,7 +564,7 @@ public class TeachingNeedsController : ControllerBase
 
         try
         {
-            var submitted = await _needService.SubmitAsync(sessionId, id);
+            var (submitted, warnings) = await _needService.SubmitAsync(sessionId, id);
             if (submitted is null)
             {
                 return NotFound(new ApiErrorResponse(
@@ -529,7 +573,7 @@ public class TeachingNeedsController : ControllerBase
                 ));
             }
 
-            return Ok(submitted.ToResponse());
+            return Ok(new SubmitTeachingNeedResponse(submitted.ToResponse(), warnings));
         }
         catch (InvalidOperationException ex)
         {

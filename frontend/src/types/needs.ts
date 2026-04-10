@@ -43,6 +43,7 @@ export interface TeachingNeedItemResponse {
   description?: string;
   notes?: string;
   detailsJson?: string | null;
+  alreadyInstalledInLabs?: boolean | null;
 }
 
 export interface TeachingNeedResponse {
@@ -91,6 +92,17 @@ export interface AddNeedItemRequest {
   description?: string;
   notes?: string;
   detailsJson?: string | null;
+}
+
+export interface NeedHistoryEntry {
+  id: number;
+  sessionId: number;
+  courseId: number;
+  courseCode: string;
+  courseName?: string;
+  status: TeachingNeedStatus;
+  createdAt: string;
+  items: TeachingNeedItemResponse[];
 }
 
 export interface MyNeedResponse {

@@ -29,8 +29,8 @@ public interface ITeachingNeedService
     /// <summary>Removes an item from a need. Returns false if need or item not found. Throws InvalidOperationException if status is not Draft, Submitted, or Rejected.</summary>
     Task<bool> RemoveItemAsync(int sessionId, int needId, int itemId);
 
-    /// <summary>Transitions Draft -> Submitted. Returns null if not found.</summary>
-    Task<TeachingNeed?> SubmitAsync(int sessionId, int id);
+    /// <summary>Transitions Draft -> Submitted. Returns null if not found. Warnings list contains conflict messages (non-blocking).</summary>
+    Task<(TeachingNeed? Need, IReadOnlyList<string> Warnings)> SubmitAsync(int sessionId, int id);
 
     /// <summary>Transitions Submitted -> UnderReview. Returns null if not found.</summary>
     Task<TeachingNeed?> ReviewAsync(int sessionId, int id);
@@ -46,6 +46,12 @@ public interface ITeachingNeedService
 
     /// <summary>Returns all needs belonging to a personnel, with optional filters on session, course and backend statuses.</summary>
     Task<List<TeachingNeed>> GetMyNeedsAsync(int personnelId, int? sessionId = null, int? courseId = null, IEnumerable<NeedStatus>? statuses = null);
+
+    /// <summary>Returns all approved teaching needs for a course across all sessions, ordered by most recent first.</summary>
+    Task<List<TeachingNeed>> GetApprovedHistoryByCourseAsync(int courseId);
+
+    /// <summary>Creates a new Draft need in the given session by cloning items from a previously approved need. Throws InvalidOperationException if session not Open or source need not found/not Approved.</summary>
+    Task<TeachingNeed> CloneFromTemplateAsync(int sessionId, int personnelId, int sourceNeedId);
 
     /// <summary>Returns the PersonnelId linked to the given userId, or null if none.</summary>
     Task<int?> GetPersonnelIdForUserAsync(int userId);

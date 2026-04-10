@@ -64,4 +64,13 @@ public class SoftwareService : ISoftwareService
 
         return true;
     }
+
+    public async Task<List<Software>> GetCatalogAsync()
+    {
+        return await _db.Softwares
+            .Include(s => s.SoftwareVersions).ThenInclude(v => v.OS)
+            .Where(s => s.SoftwareVersions.Any())
+            .OrderBy(s => s.Name)
+            .ToListAsync();
+    }
 }
