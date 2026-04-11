@@ -16,6 +16,26 @@ public class SessionsControllerTests : IClassFixture<CustomWebApplicationFactory
         _client = factory.CreateClient();
     }
 
+    #region Helper
+
+    private async Task<SessionResponse> CreateDraftSession(string title = "Test", List<int>? courseIds = null)
+    {
+        var request = new CreateSessionRequest(title, DateTime.UtcNow, DateTime.UtcNow.AddMonths(4), courseIds);
+        var response = await _client.PostAsJsonAsync(BaseUrl, request);
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        return (await response.Content.ReadFromJsonAsync<SessionResponse>())!;
+    }
+
+    private async Task<int> CreateCourse(string code)
+    {
+        var response = await _client.PostAsJsonAsync("/api/v1/Courses", new { code, name = code });
+        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadFromJsonAsync<SessionCourseResponse>();
+        return body!.Id;
+    }
+
+    #endregion
+
     #region GET Tests
 
     [Fact]
@@ -70,6 +90,36 @@ public class SessionsControllerTests : IClassFixture<CustomWebApplicationFactory
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
+    [Fact]
+    public async Task Create_WithCourseIds_AssociatesCourses()
+    {
+        var cid1 = await CreateCourse("LOG100");
+        var cid2 = await CreateCourse("LOG200");
+
+        var request = new CreateSessionRequest("WithCourses", DateTime.UtcNow, DateTime.UtcNow.AddMonths(4), new List<int> { cid1, cid2 });
+        var response = await _client.PostAsJsonAsync(BaseUrl, request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        var session = await response.Content.ReadFromJsonAsync<SessionResponse>();
+        session!.CourseIds.Should().BeEquivalentTo(new[] { cid1, cid2 });
+    }
+
+    [Fact]
+    public async Task Create_WithCopyFromSessionId_CopiesCourses()
+    {
+        var cid1 = await CreateCourse("LOG300");
+        var cid2 = await CreateCourse("LOG400");
+
+        var source = await CreateDraftSession("Source", new List<int> { cid1, cid2 });
+
+        var request = new CreateSessionRequest("Copied", DateTime.UtcNow, DateTime.UtcNow.AddMonths(4), CopyFromSessionId: source.Id);
+        var response = await _client.PostAsJsonAsync(BaseUrl, request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        var session = await response.Content.ReadFromJsonAsync<SessionResponse>();
+        session!.CourseIds.Should().BeEquivalentTo(new[] { cid1, cid2 });
+    }
+
     #endregion
 
     #region PUT Tests
@@ -112,6 +162,85 @@ public class SessionsControllerTests : IClassFixture<CustomWebApplicationFactory
         var response = await _client.DeleteAsync($"{BaseUrl}/{created!.Id}");
 
         response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+    }
+
+    #endregion
+
+    #region Session Courses Tests
+
+    [Fact]
+    public async Task GetCourses_ReturnsAssociatedCourses()
+    {
+        var cid = await CreateCourse("LOG500");
+        var session = await CreateDraftSession("HasCourse", new List<int> { cid });
+
+        var response = await _client.GetAsync($"{BaseUrl}/{session.Id}/courses");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var courses = await response.Content.ReadFromJsonAsync<List<SessionCourseResponse>>();
+        courses.Should().ContainSingle(c => c.Id == cid);
+    }
+
+    [Fact]
+    public async Task GetCourses_NonExistentSession_Returns404()
+    {
+        var response = await _client.GetAsync($"{BaseUrl}/9999/courses");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task ReplaceCourses_DraftSession_ReturnsOk()
+    {
+        var cid1 = await CreateCourse("LOG600");
+        var cid2 = await CreateCourse("LOG700");
+        var session = await CreateDraftSession("Replace");
+
+        var response = await _client.PutAsJsonAsync($"{BaseUrl}/{session.Id}/courses",
+            new UpdateSessionCoursesRequest(new List<int> { cid1, cid2 }));
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var courses = await response.Content.ReadFromJsonAsync<List<SessionCourseResponse>>();
+        courses.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task ReplaceCourses_OpenSession_ReturnsOk()
+    {
+        var cid = await CreateCourse("LOG800");
+        var session = await CreateDraftSession("OpenReplace");
+
+        await _client.PostAsync($"{BaseUrl}/{session.Id}/open", null);
+
+        var response = await _client.PutAsJsonAsync($"{BaseUrl}/{session.Id}/courses",
+            new UpdateSessionCoursesRequest(new List<int> { cid }));
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var courses = await response.Content.ReadFromJsonAsync<List<SessionCourseResponse>>();
+        courses.Should().ContainSingle(c => c.Id == cid);
+    }
+
+    [Fact]
+    public async Task ReplaceCourses_ClosedSession_ReturnsConflict()
+    {
+        var session = await CreateDraftSession("ClosedReplace");
+
+        await _client.PostAsync($"{BaseUrl}/{session.Id}/open", null);
+        await _client.PostAsync($"{BaseUrl}/{session.Id}/close", null);
+
+        var response = await _client.PutAsJsonAsync($"{BaseUrl}/{session.Id}/courses",
+            new UpdateSessionCoursesRequest(new List<int> { 1 }));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task ReplaceCourses_NonExistentSession_Returns404()
+    {
+        var response = await _client.PutAsJsonAsync($"{BaseUrl}/9999/courses",
+            new UpdateSessionCoursesRequest(new List<int> { 1 }));
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     #endregion

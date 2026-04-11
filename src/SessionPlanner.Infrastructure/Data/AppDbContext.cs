@@ -35,6 +35,7 @@ public class AppDbContext : DbContext
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<LaboratorySoftware> LaboratorySoftwares => Set<LaboratorySoftware>();
+    public DbSet<SessionCourse> SessionCourses => Set<SessionCourse>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -114,6 +115,9 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<ConfigurationOS>()
             .HasKey(co => new { co.ConfigurationId, co.OSId });
+
+        modelBuilder.Entity<SessionCourse>()
+            .HasKey(sc => new { sc.SessionId, sc.CourseId });
         modelBuilder.Entity<UserPermission>()
             .HasKey(x => new { x.UserId, x.PermissionId });  
         

@@ -12,5 +12,6 @@ public record SessionResponse(
     DateTime? OpenedAt,
     DateTime? ClosedAt,
     DateTime? ArchivedAt,
-    int? CreatedByUserId
+    int? CreatedByUserId,
+    IReadOnlyList<int>? CourseIds = null
 );

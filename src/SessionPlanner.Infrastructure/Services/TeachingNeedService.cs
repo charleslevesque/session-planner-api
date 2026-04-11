@@ -175,6 +175,16 @@ public class TeachingNeedService : ITeachingNeedService
         if (session.Status != SessionStatus.Open)
             throw new InvalidOperationException("Cannot create a need: the session is not open.");
 
+        var hasSessionCourses = await _db.SessionCourses.AnyAsync(sc => sc.SessionId == sessionId);
+        if (hasSessionCourses)
+        {
+            var courseAssociated = await _db.SessionCourses
+                .AnyAsync(sc => sc.SessionId == sessionId && sc.CourseId == courseId);
+            if (!courseAssociated)
+                throw new InvalidOperationException(
+                    $"Course {courseId} is not associated with session {sessionId}. Cannot create a teaching need for a non-associated course.");
+        }
+
         var need = new TeachingNeed
         {
             SessionId = sessionId,

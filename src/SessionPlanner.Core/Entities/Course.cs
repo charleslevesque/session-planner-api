@@ -16,5 +16,6 @@ public class Course
     public ICollection<CourseSaaSProduct> CourseSaaSProducts { get; set; } = new List<CourseSaaSProduct>();
     public ICollection<CourseEquipmentModel> CourseEquipmentModels { get; set; } = new List<CourseEquipmentModel>();
     public ICollection<CoursePersonnel> CoursePersonnels { get; set; } = new List<CoursePersonnel>();
-    public ICollection<TeachingNeed> TeachingNeeds { get; set; } = new List<TeachingNeed>();    
+    public ICollection<TeachingNeed> TeachingNeeds { get; set; } = new List<TeachingNeed>();
+    public ICollection<SessionCourse> SessionCourses { get; set; } = new List<SessionCourse>();
 }
