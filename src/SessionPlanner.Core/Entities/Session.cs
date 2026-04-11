@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using SessionPlanner.Core.Entities.Joins;
 using SessionPlanner.Core.Enums;
 
 namespace SessionPlanner.Core.Entities;
@@ -31,6 +32,7 @@ public class Session
     public User? CreatedByUser { get; set; }
 
     public ICollection<TeachingNeed> TeachingNeeds { get; set; } = new List<TeachingNeed>();
+    public ICollection<SessionCourse> SessionCourses { get; set; } = new List<SessionCourse>();
 
     public void TransitionTo(SessionStatus target)
     {

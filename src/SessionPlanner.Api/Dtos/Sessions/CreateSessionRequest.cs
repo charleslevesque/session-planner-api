@@ -10,5 +10,9 @@ public record CreateSessionRequest(
     DateTime StartDate,
 
     [Required]
-    DateTime EndDate
+    DateTime EndDate,
+
+    IReadOnlyList<int>? CourseIds = null,
+
+    int? CopyFromSessionId = null
 );

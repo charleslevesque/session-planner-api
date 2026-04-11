@@ -1,5 +1,7 @@
 using System.Net;
+using System.Net.Http.Json;
 using FluentAssertions;
+using SessionPlanner.Api.Dtos.Sessions;
 using SessionPlanner.Tests.Integration.Fixtures;
 
 namespace SessionPlanner.Tests.Integration.Controllers;
@@ -34,6 +36,15 @@ public class SessionsAuthorizationTests : IClassFixture<RestrictedWebApplication
     public async Task Archive_WithoutUpdatePermission_ReturnsForbidden()
     {
         var response = await _client.PostAsync($"{BaseUrl}/1/archive", null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task ReplaceCourses_WithoutUpdatePermission_ReturnsForbidden()
+    {
+        var response = await _client.PutAsJsonAsync($"{BaseUrl}/1/courses",
+            new UpdateSessionCoursesRequest(new List<int> { 1 }));
 
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }

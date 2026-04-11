@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getErrorMessage } from '../lib/api';
 import type { SessionResponse, SessionStatus } from '../types/sessions';
@@ -376,6 +377,13 @@ export function SessionsManagementPage() {
                           Éditer
                         </button>
                       ) : null}
+
+                      <Link
+                        to={`/sessions/${session.id}/courses`}
+                        className="rounded-xl border border-stone-300 px-3 py-1.5 text-xs text-stone-700 hover:bg-stone-100"
+                      >
+                        Cours ({session.courseIds?.length ?? 0})
+                      </Link>
 
                       {canUpdateSessions && session.status === 'Draft' ? (
                         <button

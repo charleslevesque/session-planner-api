@@ -11,14 +11,15 @@ public sealed class SessionResponseExample : IExamplesProvider<SessionResponse>
         return new SessionResponse(
             Id: 1,
             Title: "H2026",
+            Status: SessionStatus.Draft,
             StartDate: new DateTime(2026, 1, 05),
             EndDate: new DateTime(2026, 4, 26),
-            Status: SessionStatus.Draft,
             CreatedAt: DateTime.Now,
             OpenedAt: null,
             ClosedAt: null,
             ArchivedAt: null,
-            CreatedByUserId: 3
+            CreatedByUserId: 3,
+            CourseIds: [1, 2, 3]
         );
     }
 }

@@ -10,7 +10,8 @@ public sealed class CreateSessionRequestExample : IExamplesProvider<CreateSessio
         return new CreateSessionRequest(
             Title: "H2026",
             StartDate: new DateTime(2026, 1, 05),
-            EndDate: new DateTime(2026, 4, 26)
+            EndDate: new DateTime(2026, 4, 26),
+            CourseIds: [1, 2, 3]
         );
     }
 }

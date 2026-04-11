@@ -11,4 +11,11 @@ export interface SessionResponse {
   closedAt?: string;
   archivedAt?: string;
   createdByUserId?: number;
+  courseIds?: number[];
+}
+
+export interface SessionCourseResponse {
+  id: number;
+  code: string;
+  name: string | null;
 }

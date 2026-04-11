@@ -128,7 +128,9 @@ public class SessionsController : ControllerBase
         }
 
         int? userId = int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var uid) ? uid : null;
-        var session = await _sessionService.CreateAsync(request.Title, request.StartDate, request.EndDate, userId);
+        var session = await _sessionService.CreateAsync(
+            request.Title, request.StartDate, request.EndDate, userId,
+            request.CourseIds, request.CopyFromSessionId);
         return CreatedAtAction(nameof(GetById), new { id = session.Id }, session.ToResponse());
     }
 
@@ -227,6 +229,69 @@ public class SessionsController : ControllerBase
             return BadRequest(new ApiErrorResponse(
                 Error: ex.Message,
                 Code: ErrorCodes.SessionDeleteNotAllowed
+            ));
+        }
+    }
+
+    /// <summary>
+    /// Returns the courses associated with a session.
+    /// </summary>
+    [HttpGet("{id:int}/courses")]
+    [HasPermission(Permissions.Sessions.Read)]
+    [SwaggerOperation(
+        Summary = "Get session courses",
+        Description = "Returns all courses associated with a session."
+    )]
+    [ProducesResponseType(typeof(IEnumerable<SessionCourseResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IEnumerable<SessionCourseResponse>>> GetCourses(int id)
+    {
+        var session = await _sessionService.GetByIdAsync(id);
+        if (session is null)
+        {
+            return NotFound(new ApiErrorResponse(
+                Error: "Session not found.",
+                Code: ErrorCodes.NotFound,
+                Details: $"No session exists with id {id}."
+            ));
+        }
+
+        var courses = await _sessionService.GetSessionCoursesAsync(id);
+        return Ok(courses.Select(c => c.ToCourseResponse()));
+    }
+
+    /// <summary>
+    /// Replaces the courses associated with a session.
+    /// </summary>
+    [HttpPut("{id:int}/courses")]
+    [HasPermission(Permissions.Sessions.Update)]
+    [SwaggerOperation(
+        Summary = "Replace session courses",
+        Description = "Replaces the full list of courses associated with a session. Only allowed for Draft and Open sessions."
+    )]
+    [ProducesResponseType(typeof(IEnumerable<SessionCourseResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<IEnumerable<SessionCourseResponse>>> ReplaceCourses(int id, UpdateSessionCoursesRequest request)
+    {
+        try
+        {
+            var courses = await _sessionService.ReplaceSessionCoursesAsync(id, request.CourseIds);
+            return Ok(courses.Select(c => c.ToCourseResponse()));
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new ApiErrorResponse(
+                Error: "Session not found.",
+                Code: ErrorCodes.NotFound,
+                Details: $"No session exists with id {id}."
+            ));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new ApiErrorResponse(
+                Error: ex.Message,
+                Code: ErrorCodes.SessionCoursesNotModifiable
             ));
         }
     }

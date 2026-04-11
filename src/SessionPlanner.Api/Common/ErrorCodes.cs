@@ -23,6 +23,8 @@ public static class ErrorCodes
     public const string InvalidSessionTransition = "INVALID_SESSION_TRANSITION";
     public const string SessionDeleteNotAllowed = "SESSION_DELETE_NOT_ALLOWED";
 
+    public const string SessionCoursesNotModifiable = "SESSION_COURSES_NOT_MODIFIABLE";
+
     // TeachingNeedsController Errors
     public const string RejectionReasonRequired = "REJECTION_REASON_REQUIRED";
     public const string InvalidTeachingNeedTransition = "INVALID_TEACHING_NEED_TRANSITION";
