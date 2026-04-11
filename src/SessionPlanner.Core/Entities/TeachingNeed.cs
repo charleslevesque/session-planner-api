@@ -26,6 +26,7 @@ public class TeachingNeed
 
     public string? RejectionReason { get; set; }
     public string? Notes { get; set; }
+    public bool IsFastTrack { get; set; } = false;
 
     public int? ExpectedStudents { get; set; }
     public bool? HasTechNeeds { get; set; }

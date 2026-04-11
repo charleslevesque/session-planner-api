@@ -21,6 +21,23 @@ export interface SoftwareResponse {
   softwareVersions?: SoftwareVersionResponse[];
 }
 
+/** Matches GET /softwares/catalog (SoftwareCatalogEntry). */
+export interface SoftwareVersionCatalogEntry {
+  id: number;
+  versionNumber: string;
+  osId: number;
+  osName: string;
+  installationDetails?: string | null;
+  notes?: string | null;
+}
+
+export interface SoftwareCatalogEntry {
+  id: number;
+  name: string;
+  installCommand?: string | null;
+  versions: SoftwareVersionCatalogEntry[];
+}
+
 export type NeedItemType =
   | 'saas'
   | 'software'
@@ -68,6 +85,13 @@ export interface TeachingNeedResponse {
   allowsUpdates?: boolean;
   additionalComments?: string;
   items: TeachingNeedItemResponse[];
+  isFastTrack: boolean;
+}
+
+/** POST .../needs/{id}/submit response body. */
+export interface SubmitTeachingNeedResponse {
+  need: TeachingNeedResponse;
+  warnings: string[];
 }
 
 export interface CreateTeachingNeedRequest {

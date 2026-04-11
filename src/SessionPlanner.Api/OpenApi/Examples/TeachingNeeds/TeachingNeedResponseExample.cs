@@ -45,7 +45,8 @@ public sealed class TeachingNeedResponseExample : IExamplesProvider<TeachingNeed
                     DetailsJson: "{\"name\":\"Example\"}",
                     AlreadyInstalledInLabs: true
                 )
-            }
+            },
+            IsFastTrack: false
         );
     }
 }
