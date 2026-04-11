@@ -301,6 +301,7 @@ public class TeachingNeedService : ITeachingNeedService
 
         need.Status = NeedStatus.Submitted;
         need.SubmittedAt = DateTime.UtcNow;
+        need.IsFastTrack = await ComputeIsFastTrackAsync(need);
 
         await _db.SaveChangesAsync();
 
