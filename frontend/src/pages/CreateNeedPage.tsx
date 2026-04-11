@@ -14,7 +14,16 @@ import {
   type NeedItemLookups,
   type TeacherNeedItemType,
 } from '../lib/needItemSchemas';
-import type { CourseResponse, SoftwareCatalogEntry, SoftwareResponse, TeachingNeedResponse, TeachingNeedStatus } from '../types/needs';
+import type {
+  CourseResponse,
+  SoftwareCatalogEntry,
+  SoftwareResponse,
+  SoftwareVersionResponse,
+  SubmitTeachingNeedResponse,
+  TeachingNeedItemResponse,
+  TeachingNeedResponse,
+  TeachingNeedStatus,
+} from '../types/needs';
 import type { SessionResponse } from '../types/sessions';
 import type { OSResponse, LaboratoryLookupResponse, PhysicalServerResponse } from '../types/admin';
 
@@ -54,7 +63,7 @@ export function CreateNeedPage() {
   const [success, setSuccess] = useState('');
   const [submitWarnings, setSubmitWarnings] = useState<string[]>([]);
 
-  const [history, setHistory] = useState<NeedHistoryEntry[]>([]);
+  const [history, setHistory] = useState<TeachingNeedResponse[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [cloning, setCloning] = useState(false);
 
@@ -101,7 +110,6 @@ export function CreateNeedPage() {
 
       setSession(sessionData);
       setCourse(courseData);
-      setSoftwareCatalog(softwaresData);
       try {
         const softwareVersionsData = await apiFetch<SoftwareVersionResponse[]>('/softwareversions');
         setSoftwareVersions(softwareVersionsData);
@@ -127,6 +135,32 @@ export function CreateNeedPage() {
             installationDetails: v.installationDetails,
           })),
         }));
+      }
+
+      setSoftwareCatalog(
+        catalogData.map((s) => ({
+          id: s.id,
+          name: s.name,
+          softwareVersions: s.versions.map((v) => ({
+            id: v.id,
+            softwareId: s.id,
+            osId: v.osId,
+            versionNumber: v.versionNumber,
+            installationDetails: v.installationDetails ?? undefined,
+            notes: v.notes ?? undefined,
+          })),
+        })),
+      );
+
+      if (!isEditMode) {
+        try {
+          const hist = await apiFetch<TeachingNeedResponse[]>(`/courses/${cId}/needs/history`);
+          setHistory(hist);
+        } catch {
+          setHistory([]);
+        }
+      } else {
+        setHistory([]);
       }
 
       const resolvedLookups: NeedItemLookups = {
@@ -423,7 +457,10 @@ export function CreateNeedPage() {
                           {new Date(h.createdAt).toLocaleDateString('fr-CA')}
                         </p>
                         <p className="text-xs text-stone-500 mt-0.5">
-                          {h.items.map((i) => i.softwareName ?? i.description ?? i.itemType).filter(Boolean).join(', ')}
+                          {h.items
+                            .map((i: TeachingNeedItemResponse) => i.softwareName ?? i.description ?? i.itemType)
+                            .filter(Boolean)
+                            .join(', ')}
                         </p>
                       </div>
                       <button

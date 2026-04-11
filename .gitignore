@@ -18,6 +18,9 @@
 .vscode/
 .idea/
 
+# Local agent / worktree artifacts
+.claude/
+
 #SQLite
 Database/*.db
 *.db

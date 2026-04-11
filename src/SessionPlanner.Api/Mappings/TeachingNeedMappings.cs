@@ -43,7 +43,8 @@ public static class TeachingNeedMappings
         need.DesiredModifications,
         need.AllowsUpdates,
         need.AdditionalComments,
-        need.Items.Select(i => i.ToResponse(installedMap)));
+        need.Items.Select(i => i.ToResponse(installedMap)),
+        need.IsFastTrack);
 
     public static MyNeedResponse ToMyNeedResponse(this TeachingNeed need) => new(
         need.Id,

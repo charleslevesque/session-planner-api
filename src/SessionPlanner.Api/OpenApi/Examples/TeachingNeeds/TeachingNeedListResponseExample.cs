@@ -31,7 +31,8 @@ public sealed class TeachingNeedListExample : IExamplesProvider<IEnumerable<Teac
                 AdditionalComments: "",
                 AllowsUpdates: false,
                 Notes: "Need software for API testing",
-                Items: new List<TeachingNeedItemResponse>()
+                Items: new List<TeachingNeedItemResponse>(),
+                IsFastTrack: false
             ),
             new TeachingNeedResponse(
                 Id: 52,
@@ -54,7 +55,8 @@ public sealed class TeachingNeedListExample : IExamplesProvider<IEnumerable<Teac
                 AdditionalComments: "Has to be available before the first week of the semester",
                 AllowsUpdates: false,
                 Notes: "Need software for programming",
-                Items: new List<TeachingNeedItemResponse>()
+                Items: new List<TeachingNeedItemResponse>(),
+                IsFastTrack: true
             )
         };
     }
