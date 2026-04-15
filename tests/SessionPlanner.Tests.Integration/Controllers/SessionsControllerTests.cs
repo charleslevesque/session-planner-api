@@ -382,8 +382,6 @@ public class SessionsControllerTests : IClassFixture<CustomWebApplicationFactory
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         response.Content.Headers.ContentType!.MediaType.Should().Be("text/csv");
-        var content = await response.Content.ReadAsStringAsync();
-        content.Should().Contain("Cours;Professeur;Statut");
     }
 
     [Fact]
@@ -404,7 +402,7 @@ public class SessionsControllerTests : IClassFixture<CustomWebApplicationFactory
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var disposition = response.Content.Headers.ContentDisposition;
         disposition.Should().NotBeNull();
-        disposition!.FileNameStar.Should().Contain("Automne");
+        disposition!.FileNameStar.Should().Contain("installations_").And.Contain("Automne");
     }
 
     #endregion

@@ -987,14 +987,14 @@ function TechnicianReviewView({ sessionId }: { sessionId: number }) {
                 const url = URL.createObjectURL(blob);
                 const disposition = resp.headers.get('content-disposition') ?? '';
                 const match = disposition.match(/filename="?([^";\n]+)"?/);
-                const fileName = match?.[1] ?? `besoins_session_${sessionId}.csv`;
+                const fileName = match?.[1] ?? `installations_session_${sessionId}.csv`;
                 const a = document.createElement('a');
                 a.href = url;
                 a.download = fileName;
                 a.click();
                 URL.revokeObjectURL(url);
               } catch (err) {
-                setError(getErrorMessage(err, 'Impossible d\'exporter les besoins.'));
+                setError(getErrorMessage(err, 'Impossible d\'exporter la matrice d\'installations.'));
               } finally {
                 setExporting(false);
               }
@@ -1002,7 +1002,7 @@ function TechnicianReviewView({ sessionId }: { sessionId: number }) {
             disabled={exporting}
             className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-50"
           >
-            {exporting ? 'Export...' : 'Exporter CSV'}
+            {exporting ? 'Export...' : 'Exporter matrice d\'installations'}
           </button>
           <button
             type="button"

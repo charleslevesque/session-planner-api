@@ -408,8 +408,8 @@ public class SessionsController : ControllerBase
     [HttpGet("{id:int}/export")]
     [HasPermission(Permissions.TeachingNeeds.Read)]
     [SwaggerOperation(
-        Summary = "Export session needs as CSV",
-        Description = "Downloads all submitted/approved teaching needs for a session as a CSV file, grouped by course and professor for technician use."
+        Summary = "Export installation matrix as CSV",
+        Description = "Downloads the full installation matrix for a session. Contains every software from the catalogue with its status in every lab, enriched with session-specific demand info (courses, professors)."
     )]
     [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
@@ -419,81 +419,115 @@ public class SessionsController : ControllerBase
         if (session is null)
             return NotFound(new ApiErrorResponse("Session not found.", ErrorCodes.NotFound));
 
+        // 1. Full software catalogue with versions
+        var allSoftwares = await _db.Softwares
+            .Include(s => s.SoftwareVersions).ThenInclude(sv => sv.OS)
+            .OrderBy(s => s.Name)
+            .ToListAsync();
+
+        // 2. All labs
+        var labs = await _db.Laboratories
+            .OrderBy(l => l.Building).ThenBy(l => l.Name)
+            .ToListAsync();
+
+        // 3. Full LaboratorySoftware matrix (status per lab×software)
+        var allLabSw = await _db.LaboratorySoftwares.ToListAsync();
+        var statusLookup = allLabSw.ToDictionary(ls => (ls.LaboratoryId, ls.SoftwareId), ls => ls.Status);
+
+        // 4. OS lookup
+        var osMap = await _db.OperatingSystems.ToDictionaryAsync(o => o.Id, o => o.Name);
+
+        // 5. Session demand context: which software was requested, by whom, for which course
         var needs = await _db.TeachingNeeds
             .Include(n => n.Personnel)
             .Include(n => n.Course)
-                .ThenInclude(c => c.CourseLaboratories)
-                    .ThenInclude(cl => cl.Laboratory)
-            .Include(n => n.Items).ThenInclude(i => i.Software)
-            .Include(n => n.Items).ThenInclude(i => i.SoftwareVersion)
-            .Include(n => n.Items).ThenInclude(i => i.OS)
+            .Include(n => n.Items)
             .Where(n => n.SessionId == id)
             .Where(n => n.Status != Core.Enums.NeedStatus.Draft)
-            .OrderBy(n => n.Course.Code)
-            .ThenBy(n => n.Personnel.LastName)
-            .ThenBy(n => n.Personnel.FirstName)
             .ToListAsync();
 
-        var sb = new StringBuilder();
-        // BOM for Excel UTF-8 recognition
-        sb.Append('\uFEFF');
-        sb.AppendLine("Cours;Professeur;Statut;Étudiants attendus;Laboratoire(s);Type;Logiciel;Version;Système d'exploitation;Quantité;Description;Notes;Date soumission;FastTrack");
-
+        var demandBySoftwareId = new Dictionary<int, SessionDemandInfo>();
         foreach (var need in needs)
         {
-            var courseCode = need.Course?.Code ?? "";
-            var prof = need.Personnel is not null
-                ? $"{need.Personnel.FirstName} {need.Personnel.LastName}"
-                : "";
-            var status = need.Status.ToString();
-            var students = need.ExpectedStudents?.ToString() ?? "";
-            var labs = need.Course?.CourseLaboratories is { Count: > 0 }
-                ? string.Join(" | ", need.Course.CourseLaboratories
-                    .Select(cl => $"{cl.Laboratory.Name} ({cl.Laboratory.Building})"))
-                : "";
-            var submitted = need.SubmittedAt?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "";
-            var fastTrack = need.IsFastTrack ? "Oui" : "Non";
-
-            if (need.Items.Count == 0)
+            foreach (var item in need.Items.Where(i => i.SoftwareId.HasValue))
             {
-                sb.AppendLine(string.Join(";",
-                    Esc(courseCode), Esc(prof), Esc(status), students, Esc(labs),
-                    "", "", "", "", "", "", "",
-                    submitted, fastTrack));
-                continue;
-            }
-
-            foreach (var item in need.Items)
-            {
-                var itemType = item.ItemType switch
+                var swId = item.SoftwareId!.Value;
+                if (!demandBySoftwareId.TryGetValue(swId, out var info))
                 {
-                    "software" => "Logiciel",
-                    "hardware" => "Matériel",
-                    _ => item.ItemType
-                };
-                sb.AppendLine(string.Join(";",
-                    Esc(courseCode),
-                    Esc(prof),
-                    Esc(status),
-                    students,
-                    Esc(labs),
-                    Esc(itemType),
-                    Esc(item.Software?.Name ?? ""),
-                    Esc(item.SoftwareVersion?.VersionNumber ?? ""),
-                    Esc(item.OS?.Name ?? ""),
-                    item.Quantity?.ToString() ?? "",
-                    Esc(item.Description ?? ""),
-                    Esc(item.Notes ?? ""),
-                    submitted,
-                    fastTrack));
+                    info = new SessionDemandInfo(new HashSet<string>(), new HashSet<string>(), new HashSet<string>());
+                    demandBySoftwareId[swId] = info;
+                }
+                if (need.Course?.Code is { } code) info.Courses.Add(code);
+                if (need.Personnel is { } p) info.Professors.Add($"{p.FirstName} {p.LastName}");
+                if (!string.IsNullOrWhiteSpace(item.Notes)) info.RequestNotes.Add(item.Notes);
             }
         }
 
+        // 6. Build pivoted CSV: one row per software, one column per lab
+        var sb = new StringBuilder();
+        sb.Append('\uFEFF');
+
+        // Header row: software info columns + one column per lab (showing "LabName (Building) [NbPCs postes]")
+        var headerCols = new List<string>
+        {
+            "Logiciel", "Version(s)", "OS", "Commande d'installation", "Notes",
+            "Demandé session", "Cours", "Professeur(s)", "Notes demande"
+        };
+        foreach (var lab in labs)
+            headerCols.Add($"{lab.Name} ({lab.Building}) [{lab.NumberOfPCs}p]");
+
+        sb.AppendLine(string.Join(";", headerCols.Select(Esc)));
+
+        // One row per software
+        foreach (var sw in allSoftwares)
+        {
+            var versions = sw.SoftwareVersions
+                .Select(v => v.VersionNumber)
+                .Distinct()
+                .ToList();
+            var osList = sw.SoftwareVersions
+                .Select(v => v.OsId)
+                .Distinct()
+                .Select(oid => osMap.TryGetValue(oid, out var name) ? name : $"OS#{oid}")
+                .ToList();
+            var versionNotes = sw.SoftwareVersions
+                .Where(v => !string.IsNullOrWhiteSpace(v.Notes))
+                .Select(v => v.Notes!)
+                .Distinct()
+                .ToList();
+
+            var hasDemand = demandBySoftwareId.TryGetValue(sw.Id, out var demand);
+
+            var row = new List<string>
+            {
+                Esc(sw.Name),
+                Esc(string.Join(", ", versions)),
+                Esc(string.Join(", ", osList)),
+                Esc(sw.InstallCommand ?? ""),
+                Esc(string.Join(" | ", versionNotes)),
+                hasDemand ? "Oui" : "",
+                hasDemand ? Esc(string.Join(", ", demand!.Courses)) : "",
+                hasDemand ? Esc(string.Join(", ", demand!.Professors)) : "",
+                hasDemand ? Esc(string.Join(" | ", demand!.RequestNotes)) : ""
+            };
+
+            foreach (var lab in labs)
+            {
+                var status = statusLookup.TryGetValue((lab.Id, sw.Id), out var st) ? st : "";
+                row.Add(Esc(status));
+            }
+
+            sb.AppendLine(string.Join(";", row));
+        }
+
         var safeTitle = session.Title.Replace(" ", "_").Replace("/", "-");
-        var fileName = $"besoins_{safeTitle}_{DateTime.UtcNow:yyyyMMdd}.csv";
+        var fileName = $"installations_{safeTitle}_{DateTime.UtcNow:yyyyMMdd}.csv";
         var bytes = Encoding.UTF8.GetBytes(sb.ToString());
         return File(bytes, "text/csv; charset=utf-8", fileName);
     }
+
+    private record SessionDemandInfo(
+        HashSet<string> Courses, HashSet<string> Professors, HashSet<string> RequestNotes);
 
     private static string Esc(string value)
     {
