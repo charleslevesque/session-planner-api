@@ -12,6 +12,7 @@ public static class ErrorCodes
 
     // AuthController Errors
     public const string InvalidCredentials = "INVALID_CREDENTIALS";
+    public const string AccountDeactivated = "ACCOUNT_DEACTIVATED";
     public const string InvalidRefreshToken = "INVALID_REFRESH_TOKEN";
 
     // UserController Errors

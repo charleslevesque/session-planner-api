@@ -102,18 +102,21 @@ public class AuthService : IAuthService
         return await GenerateTokensAsync(user);
     }
 
-    public async Task<LoginTokenResponse?> LoginAsync(string username, string password)
+    public async Task<LoginResult> LoginAsync(string username, string password)
     {
         var user = await UsersWithRolesAndPermissions()
-            .FirstOrDefaultAsync(u => u.Username == username && u.IsActive);
+            .FirstOrDefaultAsync(u => u.Username == username);
 
         if (user is null)
-            return null;
+            return new LoginResult(LoginStatus.InvalidCredentials);
 
         if (!_passwordService.VerifyPassword(user, user.PasswordHash, password))
-            return null;
+            return new LoginResult(LoginStatus.InvalidCredentials);
 
-        return await GenerateTokensAsync(user);
+        if (!user.IsActive)
+            return new LoginResult(LoginStatus.AccountDeactivated);
+
+        return new LoginResult(LoginStatus.Success, await GenerateTokensAsync(user));
     }
 
     public async Task<User?> GetCurrentUserAsync(int userId)

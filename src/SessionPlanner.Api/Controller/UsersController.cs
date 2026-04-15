@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using SessionPlanner.Api.Dtos.Users;
 using SessionPlanner.Api.Dtos.Common;
 using SessionPlanner.Api.Mappings;
@@ -10,6 +11,7 @@ using SessionPlanner.Core.Interfaces;
 using SessionPlanner.Api.Common;
 using SessionPlanner.Api.OpenApi.Examples.Users;
 using SessionPlanner.Api.OpenApi.Examples.Common;
+using SessionPlanner.Infrastructure.Data;
 using Swashbuckle.AspNetCore.Annotations;
 using Swashbuckle.AspNetCore.Filters;
 using System.Security.Claims;
@@ -23,10 +25,12 @@ namespace SessionPlanner.Api.Controllers;
 public class UsersController : ControllerBase
 {
     private readonly IUserService _userService;
+    private readonly AppDbContext _db;
 
-    public UsersController(IUserService userService)
+    public UsersController(IUserService userService, AppDbContext db)
     {
         _userService = userService;
+        _db = db;
     }
 
     /// <summary>
@@ -48,9 +52,11 @@ public class UsersController : ControllerBase
     [ProducesResponseType(typeof(IEnumerable<UserResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status403Forbidden)]
-    public async Task<ActionResult<IEnumerable<UserResponse>>> GetAll()
+    public async Task<ActionResult<IEnumerable<UserResponse>>> GetAll([FromQuery] bool includeInactive = false)
     {
-        var users = await _userService.GetAllActiveWithRolesAsync();
+        var users = includeInactive
+            ? await _userService.GetAllWithRolesAsync(includeInactive: true)
+            : await _userService.GetAllActiveWithRolesAsync();
         return Ok(users.Select(u => u.ToResponse()));
     }
 
@@ -79,14 +85,14 @@ public class UsersController : ControllerBase
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<UserResponse>> GetById(int id)
     {
-        var user = await _userService.GetByIdActiveWithRolesAsync(id);
+        var user = await _userService.GetByIdWithRolesAsync(id);
 
         if (user is null)
         {
             return NotFound(new ApiErrorResponse(
                 Error: "User not found.",
                 Code: ErrorCodes.NotFound,
-                Details: $"No active user exists with id {id}."
+                Details: $"No user exists with id {id}."
             ));
         }
 
@@ -258,6 +264,119 @@ public class UsersController : ControllerBase
         }
 
         return NoContent();
+    }
+
+    // POST /api/v1/users/{id}/deactivate
+    [HttpPost("{id:int}/deactivate")]
+    [HasPermission(Permissions.Users.Update)]
+    [SwaggerOperation(
+        Summary = "Deactivate a user account",
+        Description = "Sets the user as inactive. The account data and history are preserved. Revokes active sessions."
+    )]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Deactivate(int id)
+    {
+        var status = await _userService.DeactivateAsync(id);
+
+        if (status == DeactivateUserStatus.UserNotFound)
+            return NotFound(new ApiErrorResponse("User not found.", ErrorCodes.NotFound, $"No user exists with id {id}."));
+
+        if (status == DeactivateUserStatus.CannotDeactivateAdmin)
+            return BadRequest(new ApiErrorResponse("Cannot deactivate an admin account.", ErrorCodes.Conflict));
+
+        return NoContent();
+    }
+
+    // POST /api/v1/users/{id}/reactivate
+    [HttpPost("{id:int}/reactivate")]
+    [HasPermission(Permissions.Users.Update)]
+    [SwaggerOperation(
+        Summary = "Reactivate a user account",
+        Description = "Restores a previously deactivated user account. The user will be able to log in again."
+    )]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Reactivate(int id)
+    {
+        var status = await _userService.ReactivateAsync(id);
+
+        if (status == ReactivateUserStatus.UserNotFound)
+            return NotFound(new ApiErrorResponse("User not found.", ErrorCodes.NotFound, $"No user exists with id {id}."));
+
+        if (status == ReactivateUserStatus.AlreadyActive)
+            return BadRequest(new ApiErrorResponse("User is already active.", ErrorCodes.Conflict));
+
+        return NoContent();
+    }
+
+    // GET /api/v1/users/{id}/activity
+    [HttpGet("{id:int}/activity")]
+    [HasPermission(Permissions.Users.Read)]
+    [SwaggerOperation(
+        Summary = "Get user activity summary",
+        Description = "Returns user profile info and their teaching needs history. Works for both active and inactive users."
+    )]
+    [ProducesResponseType(typeof(UserActivityResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<UserActivityResponse>> GetActivity(int id)
+    {
+        var user = await _userService.GetByIdWithFullProfileAsync(id);
+
+        if (user is null)
+            return NotFound(new ApiErrorResponse("User not found.", ErrorCodes.NotFound, $"No user exists with id {id}."));
+
+        var teachingNeeds = user.PersonnelId.HasValue
+            ? await _db.TeachingNeeds
+                .Include(tn => tn.Course)
+                .Include(tn => tn.Session)
+                .Include(tn => tn.Items).ThenInclude(i => i.Software)
+                .Include(tn => tn.Items).ThenInclude(i => i.SoftwareVersion)
+                .Include(tn => tn.Items).ThenInclude(i => i.OS)
+                .Where(tn => tn.PersonnelId == user.PersonnelId.Value)
+                .OrderByDescending(tn => tn.CreatedAt)
+                .ToListAsync()
+            : [];
+
+        var roleName = user.UserRoles.Select(ur => ur.Role.Name).FirstOrDefault() ?? "";
+        var fullName = user.Personnel is not null
+            ? $"{user.Personnel.FirstName} {user.Personnel.LastName}"
+            : null;
+
+        return Ok(new UserActivityResponse(
+            user.Id,
+            user.Username,
+            fullName,
+            roleName,
+            user.IsActive,
+            teachingNeeds.Select(tn => new UserTeachingNeedDetail(
+                tn.Id,
+                tn.Course?.Code ?? "—",
+                tn.Session?.Title ?? "—",
+                tn.Status.ToString(),
+                tn.CreatedAt,
+                tn.SubmittedAt,
+                tn.ReviewedAt,
+                tn.RejectionReason,
+                tn.Notes,
+                tn.ExpectedStudents,
+                tn.DesiredModifications,
+                tn.AdditionalComments,
+                tn.IsFastTrack,
+                tn.Items.Select(i => new UserTeachingNeedItemDetail(
+                    i.Id,
+                    i.ItemType,
+                    i.Software?.Name,
+                    i.SoftwareVersion?.VersionNumber,
+                    i.OS?.Name,
+                    i.Quantity,
+                    i.Description,
+                    i.Notes
+                ))
+            ))
+        ));
     }
 
 }
