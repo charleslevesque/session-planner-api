@@ -89,6 +89,81 @@ cd frontend
 npm run build
 ```
 
+---
+
+## Docker Deployment
+
+Project containerization is centralized in the [docker](docker) folder.
+
+### Prerequisites
+
+- Docker Desktop (ou Docker Engine + Compose plugin)
+
+### Dev (main compose)
+
+From the repository root:
+
+```bash
+cp docker/.env.example docker/.env
+docker compose --env-file docker/.env -f docker/docker-compose.yml up --build -d
+```
+
+PowerShell (Windows):
+
+```powershell
+Copy-Item docker/.env.example docker/.env -Force
+docker compose --env-file docker/.env -f docker/docker-compose.yml up --build -d
+```
+
+macOS (bash/zsh):
+
+```bash
+cp -f docker/.env.example docker/.env
+docker compose --env-file docker/.env -f docker/docker-compose.yml up --build -d
+```
+
+Local access:
+- Frontend: `http://localhost:5173`
+- API Swagger: `http://localhost:5290/swagger`
+
+### Prod-like (override)
+
+From the repository root:
+
+```bash
+cp docker/.env.example docker/.env
+# Set a real JWT_KEY value in docker/.env
+docker compose --env-file docker/.env -f docker/docker-compose.yml -f docker/docker-compose.prod.yml up --build -d
+```
+
+PowerShell (Windows):
+
+```powershell
+Copy-Item docker/.env.example docker/.env -Force
+# Set a real JWT_KEY value in docker/.env
+docker compose --env-file docker/.env -f docker/docker-compose.yml -f docker/docker-compose.prod.yml up --build -d
+```
+
+macOS (bash/zsh):
+
+```bash
+cp -f docker/.env.example docker/.env
+# Set a real JWT_KEY value in docker/.env
+docker compose --env-file docker/.env -f docker/docker-compose.yml -f docker/docker-compose.prod.yml up --build -d
+```
+
+### Stop / Logs
+
+```bash
+docker compose --env-file docker/.env -f docker/docker-compose.yml logs -f
+docker compose --env-file docker/.env -f docker/docker-compose.yml down
+```
+
+### SQLite Behavior
+
+- Dev: local bind mount (each developer keeps their own local database)
+- Prod-like: named Docker volume `sqlite_data`
+
 ### Logo ÉTS
 
 Pour afficher le logo de l'École de technologie supérieure dans la barre latérale, placez le fichier `ets-logo.png` dans le dossier `frontend/public/`. Si le fichier est absent, un badge « ÉTS » sera affiché à la place.

@@ -1,0 +1,15 @@
+services:
+  api:
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      Jwt__Key: ${JWT_KEY:?JWT_KEY is required in production}
+      ConnectionStrings__DefaultConnection: Data Source=${SQLITE_PATH:-/app/data/SessionPlanner.db}
+    volumes:
+      - sqlite_data:/app/data
+    restart: unless-stopped
+
+  frontend:
+    restart: unless-stopped
+
+volumes:
+  sqlite_data:

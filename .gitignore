@@ -51,5 +51,6 @@ packages/
 # Environment / secrets
 .env
 .env.*
+!docker/.env.example
 appsettings.Local.json
 appsettings.*.Local.json

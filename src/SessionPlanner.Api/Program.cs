@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json.Serialization;
 using Asp.Versioning;
+using Microsoft.Data.Sqlite;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -56,8 +57,25 @@ builder.Services.AddApiVersioning(options =>
     options.ApiVersionReader = new UrlSegmentApiVersionReader();
 });
 
+var defaultConnectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? "Data Source=SessionPlanner.db";
+
+var sqliteConnectionBuilder = new SqliteConnectionStringBuilder(defaultConnectionString);
+
+// Resolve relative SQLite paths from the app content root to avoid
+// accidental DB location changes when the process working directory differs.
+if (!string.IsNullOrWhiteSpace(sqliteConnectionBuilder.DataSource)
+    && !sqliteConnectionBuilder.DataSource.Equals(":memory:", StringComparison.OrdinalIgnoreCase)
+    && !Path.IsPathRooted(sqliteConnectionBuilder.DataSource))
+{
+    sqliteConnectionBuilder.DataSource = Path.GetFullPath(
+        sqliteConnectionBuilder.DataSource,
+        builder.Environment.ContentRootPath);
+    defaultConnectionString = sqliteConnectionBuilder.ToString();
+}
+
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite("Data Source=SessionPlanner.db"));
+    options.UseSqlite(defaultConnectionString));
 
 builder.Services.AddScoped<IPasswordService, PasswordService>();
 builder.Services.AddScoped<IJWTTokenService, JWTTokenService>();
