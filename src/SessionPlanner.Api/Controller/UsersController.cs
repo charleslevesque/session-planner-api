@@ -332,7 +332,9 @@ public class UsersController : ControllerBase
             ? await _db.TeachingNeeds
                 .Include(tn => tn.Course)
                 .Include(tn => tn.Session)
-                .Include(tn => tn.Items)
+                .Include(tn => tn.Items).ThenInclude(i => i.Software)
+                .Include(tn => tn.Items).ThenInclude(i => i.SoftwareVersion)
+                .Include(tn => tn.Items).ThenInclude(i => i.OS)
                 .Where(tn => tn.PersonnelId == user.PersonnelId.Value)
                 .OrderByDescending(tn => tn.CreatedAt)
                 .ToListAsync()
@@ -349,14 +351,30 @@ public class UsersController : ControllerBase
             fullName,
             roleName,
             user.IsActive,
-            teachingNeeds.Select(tn => new UserTeachingNeedSummary(
+            teachingNeeds.Select(tn => new UserTeachingNeedDetail(
                 tn.Id,
                 tn.Course?.Code ?? "—",
                 tn.Session?.Title ?? "—",
                 tn.Status.ToString(),
                 tn.CreatedAt,
                 tn.SubmittedAt,
-                tn.Items.Count
+                tn.ReviewedAt,
+                tn.RejectionReason,
+                tn.Notes,
+                tn.ExpectedStudents,
+                tn.DesiredModifications,
+                tn.AdditionalComments,
+                tn.IsFastTrack,
+                tn.Items.Select(i => new UserTeachingNeedItemDetail(
+                    i.Id,
+                    i.ItemType,
+                    i.Software?.Name,
+                    i.SoftwareVersion?.VersionNumber,
+                    i.OS?.Name,
+                    i.Quantity,
+                    i.Description,
+                    i.Notes
+                ))
             ))
         ));
     }

@@ -6,15 +6,33 @@ public record UserActivityResponse(
     string? FullName,
     string Role,
     bool IsActive,
-    IEnumerable<UserTeachingNeedSummary> TeachingNeeds
+    IEnumerable<UserTeachingNeedDetail> TeachingNeeds
 );
 
-public record UserTeachingNeedSummary(
+public record UserTeachingNeedDetail(
     int Id,
     string CourseName,
     string SessionName,
     string Status,
     DateTime CreatedAt,
     DateTime? SubmittedAt,
-    int ItemCount
+    DateTime? ReviewedAt,
+    string? RejectionReason,
+    string? Notes,
+    int? ExpectedStudents,
+    string? DesiredModifications,
+    string? AdditionalComments,
+    bool IsFastTrack,
+    IEnumerable<UserTeachingNeedItemDetail> Items
+);
+
+public record UserTeachingNeedItemDetail(
+    int Id,
+    string ItemType,
+    string? SoftwareName,
+    string? VersionNumber,
+    string? OsName,
+    int? Quantity,
+    string? Description,
+    string? Notes
 );

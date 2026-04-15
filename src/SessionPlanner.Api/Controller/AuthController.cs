@@ -86,10 +86,16 @@ public class AuthController : ControllerBase
     {
         var result = await _authService.LoginAsync(request.Email, request.Password);
 
-        if (result is null)
+        if (result.Status == LoginStatus.InvalidCredentials)
             return Unauthorized(new ApiErrorResponse("Invalid email or password.", ErrorCodes.InvalidCredentials));
 
-        return Ok(new AuthResponse(result.AccessToken, result.RefreshToken, result.ExpiresAtUtc));
+        if (result.Status == LoginStatus.AccountDeactivated)
+            return Unauthorized(new ApiErrorResponse(
+                "Votre compte est désactivé. Veuillez contacter l'administrateur.",
+                ErrorCodes.AccountDeactivated));
+
+        var tokens = result.Tokens!;
+        return Ok(new AuthResponse(tokens.AccessToken, tokens.RefreshToken, tokens.ExpiresAtUtc));
     }
 
     /// <summary>

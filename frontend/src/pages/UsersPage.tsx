@@ -10,14 +10,34 @@ import {
   type UserResponse,
 } from '../types/users';
 
-interface UserTeachingNeedSummary {
+/* ── Types for activity endpoint ── */
+
+interface UserTeachingNeedItemDetail {
+  id: number;
+  itemType: string;
+  softwareName: string | null;
+  versionNumber: string | null;
+  osName: string | null;
+  quantity: number | null;
+  description: string | null;
+  notes: string | null;
+}
+
+interface UserTeachingNeedDetail {
   id: number;
   courseName: string;
   sessionName: string;
   status: string;
   createdAt: string;
   submittedAt: string | null;
-  itemCount: number;
+  reviewedAt: string | null;
+  rejectionReason: string | null;
+  notes: string | null;
+  expectedStudents: number | null;
+  desiredModifications: string | null;
+  additionalComments: string | null;
+  isFastTrack: boolean;
+  items: UserTeachingNeedItemDetail[];
 }
 
 interface UserActivityResponse {
@@ -26,8 +46,10 @@ interface UserActivityResponse {
   fullName: string | null;
   role: string;
   isActive: boolean;
-  teachingNeeds: UserTeachingNeedSummary[];
+  teachingNeeds: UserTeachingNeedDetail[];
 }
+
+/* ── Constants ── */
 
 const STATUS_LABELS: Record<string, string> = {
   Draft: 'Brouillon',
@@ -36,11 +58,26 @@ const STATUS_LABELS: Record<string, string> = {
   Rejected: 'Rejeté',
 };
 
+const STATUS_COLORS: Record<string, string> = {
+  Approved: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  Rejected: 'bg-rose-50 text-rose-700 border-rose-200',
+  Submitted: 'bg-blue-50 text-blue-700 border-blue-200',
+  Draft: 'bg-stone-50 text-stone-600 border-stone-200',
+};
+
+const ITEM_TYPE_LABELS: Record<string, string> = {
+  software: 'Logiciel',
+  hardware: 'Matériel',
+  other: 'Autre',
+};
+
 const initialForm: CreateUserRequest = {
   username: '',
   password: '',
   roleName: 'professor',
 };
+
+/* ── Small components ── */
 
 function RoleBadge({ role }: { role: string }) {
   const colors: Record<string, string> = {
@@ -75,57 +112,168 @@ function StatusBadge({ isActive }: { isActive: boolean }) {
   );
 }
 
-function ActivityPanel({ activity }: { activity: UserActivityResponse }) {
+function NeedStatusBadge({ status }: { status: string }) {
+  const cls = STATUS_COLORS[status] ?? STATUS_COLORS.Draft;
   return (
-    <div className="mt-3 rounded-xl border border-stone-200 bg-white p-4">
-      <div className="mb-3 flex items-center gap-4 text-sm">
-        {activity.fullName && (
+    <span className={`inline-flex items-center rounded-lg border px-2 py-0.5 text-xs font-medium ${cls}`}>
+      {STATUS_LABELS[status] ?? status}
+    </span>
+  );
+}
+
+/* ── Modal ── */
+
+function ActivityModal({
+  activity,
+  onClose,
+}: {
+  activity: UserActivityResponse;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-[5vh]" onClick={onClose}>
+      <div
+        className="relative w-full max-w-3xl rounded-2xl border border-stone-200 bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between border-b border-stone-200 px-6 py-5">
           <div>
-            <span className="text-stone-500">Nom : </span>
-            <span className="font-medium text-stone-900">{activity.fullName}</span>
+            <h2 className="text-lg font-semibold text-stone-950">
+              {activity.fullName ?? activity.username}
+            </h2>
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-stone-500">
+              <span>{activity.username}</span>
+              <RoleBadge role={activity.role} />
+              <StatusBadge isActive={activity.isActive} />
+            </div>
           </div>
-        )}
-        <div>
-          <span className="text-stone-500">Rôle : </span>
-          <span className="font-medium text-stone-900">{ROLE_LABELS[activity.role as RoleName] ?? activity.role}</span>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl border border-stone-200 px-3 py-1.5 text-xs text-stone-500 transition hover:bg-stone-50"
+          >
+            Fermer
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="max-h-[70vh] overflow-y-auto px-6 py-5">
+          {activity.teachingNeeds.length === 0 ? (
+            <p className="py-8 text-center text-sm text-stone-400">
+              Aucune demande d&apos;enseignement enregistrée pour ce compte.
+            </p>
+          ) : (
+            <div className="space-y-5">
+              <p className="text-sm text-stone-500">
+                {activity.teachingNeeds.length} demande{activity.teachingNeeds.length !== 1 ? 's' : ''} d&apos;enseignement
+              </p>
+
+              {activity.teachingNeeds.map((need) => (
+                <div key={need.id} className="rounded-xl border border-stone-200 bg-stone-50/50">
+                  {/* Need header */}
+                  <div className="border-b border-stone-200 px-4 py-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-semibold text-stone-900">{need.courseName}</span>
+                      <span className="text-stone-300">·</span>
+                      <span className="text-sm text-stone-600">{need.sessionName}</span>
+                      <NeedStatusBadge status={need.status} />
+                      {need.isFastTrack && (
+                        <span className="rounded-lg bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-700 border border-violet-200">
+                          FastTrack
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-stone-400">
+                      <span>Créée le {new Date(need.createdAt).toLocaleDateString('fr-CA')}</span>
+                      {need.submittedAt && <span>Soumise le {new Date(need.submittedAt).toLocaleDateString('fr-CA')}</span>}
+                      {need.reviewedAt && <span>Révisée le {new Date(need.reviewedAt).toLocaleDateString('fr-CA')}</span>}
+                      {need.expectedStudents != null && <span>{need.expectedStudents} étudiants attendus</span>}
+                    </div>
+                  </div>
+
+                  {/* Need metadata */}
+                  {(need.notes || need.desiredModifications || need.additionalComments || need.rejectionReason) && (
+                    <div className="border-b border-stone-200 px-4 py-3 space-y-2">
+                      {need.rejectionReason && (
+                        <div className="rounded-lg bg-rose-50 px-3 py-2 text-sm">
+                          <span className="font-medium text-rose-700">Raison du rejet : </span>
+                          <span className="text-rose-600">{need.rejectionReason}</span>
+                        </div>
+                      )}
+                      {need.notes && (
+                        <div className="text-sm">
+                          <span className="font-medium text-stone-700">Notes : </span>
+                          <span className="text-stone-600">{need.notes}</span>
+                        </div>
+                      )}
+                      {need.desiredModifications && (
+                        <div className="text-sm">
+                          <span className="font-medium text-stone-700">Modifications souhaitées : </span>
+                          <span className="text-stone-600">{need.desiredModifications}</span>
+                        </div>
+                      )}
+                      {need.additionalComments && (
+                        <div className="text-sm">
+                          <span className="font-medium text-stone-700">Commentaires : </span>
+                          <span className="text-stone-600">{need.additionalComments}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Items */}
+                  {need.items.length > 0 && (
+                    <div className="px-4 py-3">
+                      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-400">
+                        Éléments ({need.items.length})
+                      </h4>
+                      <div className="divide-y divide-stone-100 rounded-lg border border-stone-200 bg-white">
+                        {need.items.map((item) => (
+                          <div key={item.id} className="px-3 py-2.5">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="rounded bg-stone-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-stone-500">
+                                {ITEM_TYPE_LABELS[item.itemType] ?? item.itemType}
+                              </span>
+                              {item.softwareName && (
+                                <span className="text-sm font-medium text-stone-900">{item.softwareName}</span>
+                              )}
+                              {item.versionNumber && (
+                                <span className="text-sm text-stone-500">v{item.versionNumber}</span>
+                              )}
+                              {item.osName && (
+                                <span className="rounded bg-sky-50 px-1.5 py-0.5 text-xs text-sky-700">{item.osName}</span>
+                              )}
+                              {item.quantity != null && (
+                                <span className="text-xs text-stone-400">Qté : {item.quantity}</span>
+                              )}
+                            </div>
+                            {(item.description || item.notes) && (
+                              <div className="mt-1 space-y-0.5 text-xs text-stone-500">
+                                {item.description && <p>{item.description}</p>}
+                                {item.notes && <p className="italic">{item.notes}</p>}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {need.items.length === 0 && (
+                    <div className="px-4 py-3 text-xs text-stone-400">Aucun élément dans cette demande.</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
-
-      {activity.teachingNeeds.length === 0 ? (
-        <p className="text-sm text-stone-400">Aucune demande d&apos;enseignement enregistrée.</p>
-      ) : (
-        <>
-          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">
-            Demandes d&apos;enseignement ({activity.teachingNeeds.length})
-          </h4>
-          <div className="divide-y divide-stone-100 rounded-lg border border-stone-100">
-            {activity.teachingNeeds.map((need) => (
-              <div key={need.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2 text-sm">
-                <span className="font-medium text-stone-800">{need.courseName}</span>
-                <span className="text-stone-400">·</span>
-                <span className="text-stone-600">{need.sessionName}</span>
-                <span className={`rounded-lg px-2 py-0.5 text-xs font-medium ${
-                  need.status === 'Approved' ? 'bg-emerald-50 text-emerald-700' :
-                  need.status === 'Rejected' ? 'bg-rose-50 text-rose-700' :
-                  need.status === 'Submitted' ? 'bg-blue-50 text-blue-700' :
-                  'bg-stone-50 text-stone-600'
-                }`}>
-                  {STATUS_LABELS[need.status] ?? need.status}
-                </span>
-                <span className="text-xs text-stone-400">
-                  {need.itemCount} item{need.itemCount !== 1 ? 's' : ''}
-                </span>
-                <span className="ml-auto text-xs text-stone-400">
-                  {new Date(need.createdAt).toLocaleDateString('fr-CA')}
-                </span>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
     </div>
   );
 }
+
+/* ── Main page ── */
 
 export function UsersPage() {
   const { apiFetch } = useAuth();
@@ -144,8 +292,7 @@ export function UsersPage() {
   const [deactivating, setDeactivating] = useState<Record<number, boolean>>({});
   const [reactivating, setReactivating] = useState<Record<number, boolean>>({});
 
-  const [activityOpen, setActivityOpen] = useState<Record<number, boolean>>({});
-  const [activityData, setActivityData] = useState<Record<number, UserActivityResponse>>({});
+  const [modalActivity, setModalActivity] = useState<UserActivityResponse | null>(null);
   const [activityLoading, setActivityLoading] = useState<Record<number, boolean>>({});
 
   const [form, setForm] = useState<CreateUserRequest>(initialForm);
@@ -217,7 +364,7 @@ export function UsersPage() {
       setUsers((prev) =>
         prev.map((u) => (u.id === userId ? { ...u, isActive: true } : u)),
       );
-      setActivityOpen((prev) => ({ ...prev, [userId]: false }));
+      setModalActivity(null);
     } catch (err) {
       setPageError(getErrorMessage(err, 'Impossible de réactiver le compte.'));
     } finally {
@@ -225,26 +372,16 @@ export function UsersPage() {
     }
   }
 
-  async function handleToggleActivity(userId: number) {
-    if (activityOpen[userId]) {
-      setActivityOpen((prev) => ({ ...prev, [userId]: false }));
-      return;
+  async function handleOpenActivity(userId: number) {
+    setActivityLoading((prev) => ({ ...prev, [userId]: true }));
+    try {
+      const data = await apiFetch<UserActivityResponse>(`/users/${userId}/activity`);
+      setModalActivity(data);
+    } catch (err) {
+      setPageError(getErrorMessage(err, 'Impossible de charger l\'activité.'));
+    } finally {
+      setActivityLoading((prev) => ({ ...prev, [userId]: false }));
     }
-
-    if (!activityData[userId]) {
-      setActivityLoading((prev) => ({ ...prev, [userId]: true }));
-      try {
-        const data = await apiFetch<UserActivityResponse>(`/users/${userId}/activity`);
-        setActivityData((prev) => ({ ...prev, [userId]: data }));
-      } catch (err) {
-        setPageError(getErrorMessage(err, 'Impossible de charger l\'activité.'));
-        setActivityLoading((prev) => ({ ...prev, [userId]: false }));
-        return;
-      } finally {
-        setActivityLoading((prev) => ({ ...prev, [userId]: false }));
-      }
-    }
-    setActivityOpen((prev) => ({ ...prev, [userId]: true }));
   }
 
   async function handlePasswordReset(userId: number) {
@@ -302,6 +439,14 @@ export function UsersPage() {
 
   return (
     <div className="space-y-8">
+      {/* Modal */}
+      {modalActivity && (
+        <ActivityModal
+          activity={modalActivity}
+          onClose={() => setModalActivity(null)}
+        />
+      )}
+
       {/* Header */}
       <section className="rounded-[2rem] bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.12),_transparent_28%),linear-gradient(135deg,_#682a36_0%,_#dc042c_50%,_#c00328_100%)] px-6 py-8 text-white sm:px-8">
         <p className="text-xs uppercase tracking-[0.35em] text-white/90">ÉTS · Administration</p>
@@ -363,9 +508,7 @@ export function UsersPage() {
               const isReactivating = reactivating[user.id] ?? false;
               const isProtectedAdmin = user.roles === 'admin';
               const passwordSuccess = passwordResetSuccess[user.id];
-              const isActivityOpen = activityOpen[user.id] ?? false;
               const isActivityLoading = activityLoading[user.id] ?? false;
-              const activity = activityData[user.id];
 
               return (
                 <div
@@ -469,11 +612,11 @@ export function UsersPage() {
                     <div className="mt-3 flex flex-wrap items-center gap-3">
                       <button
                         type="button"
-                        onClick={() => void handleToggleActivity(user.id)}
+                        onClick={() => void handleOpenActivity(user.id)}
                         disabled={isActivityLoading}
                         className="rounded-xl border border-stone-300 bg-white px-4 py-1.5 text-xs font-medium text-stone-700 transition hover:bg-stone-50 disabled:opacity-50"
                       >
-                        {isActivityLoading ? 'Chargement...' : isActivityOpen ? 'Masquer' : 'Consulter le compte'}
+                        {isActivityLoading ? 'Chargement...' : 'Consulter le compte'}
                       </button>
                       <button
                         type="button"
@@ -488,9 +631,6 @@ export function UsersPage() {
                       </span>
                     </div>
                   )}
-
-                  {/* Activity panel for deactivated users */}
-                  {isActivityOpen && activity && <ActivityPanel activity={activity} />}
 
                   {/* Password reset success feedback */}
                   {passwordSuccess ? (

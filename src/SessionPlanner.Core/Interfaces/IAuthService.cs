@@ -10,10 +10,19 @@ public enum ChangePasswordStatus
     InvalidCurrentPassword
 }
 
+public enum LoginStatus
+{
+    Success,
+    InvalidCredentials,
+    AccountDeactivated
+}
+
+public record LoginResult(LoginStatus Status, LoginTokenResponse? Tokens = null);
+
 public interface IAuthService
 {
     Task<LoginTokenResponse> RegisterAsync(string email, string password, string firstName, string lastName, string? role = null);
-    Task<LoginTokenResponse?> LoginAsync(string username, string password);
+    Task<LoginResult> LoginAsync(string username, string password);
     Task<User?> GetCurrentUserAsync(int userId);
     Task<LoginTokenResponse?> RefreshTokenAsync(string refreshToken);
     Task<ChangePasswordStatus> ChangePasswordAsync(int userId, string currentPassword, string newPassword);
