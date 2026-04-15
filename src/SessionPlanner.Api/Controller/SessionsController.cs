@@ -1,7 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
 using Asp.Versioning;
+using System.Globalization;
 using System.Security.Claims;
+using System.Text;
 using SessionPlanner.Core.Interfaces;
 using SessionPlanner.Core.Auth;
 using SessionPlanner.Api.Auth;
@@ -11,6 +14,7 @@ using SessionPlanner.Api.Mappings;
 using SessionPlanner.Api.Common;
 using SessionPlanner.Api.OpenApi.Examples.Sessions;
 using SessionPlanner.Api.OpenApi.Examples.Common;
+using SessionPlanner.Infrastructure.Data;
 using Swashbuckle.AspNetCore.Annotations;
 using Swashbuckle.AspNetCore.Filters;
 
@@ -24,10 +28,12 @@ namespace SessionPlanner.Api.Controllers;
 public class SessionsController : ControllerBase
 {
     private readonly ISessionService _sessionService;
+    private readonly AppDbContext _db;
 
-    public SessionsController(ISessionService sessionService)
+    public SessionsController(ISessionService sessionService, AppDbContext db)
     {
         _sessionService = sessionService;
+        _db = db;
     }
 
     /// <summary>
@@ -396,6 +402,105 @@ public class SessionsController : ControllerBase
     public async Task<ActionResult<SessionResponse>> Archive(int id)
     {
         return await HandleTransition(() => _sessionService.ArchiveAsync(id));
+    }
+
+    // GET /api/v1/sessions/{id}/export
+    [HttpGet("{id:int}/export")]
+    [HasPermission(Permissions.TeachingNeeds.Read)]
+    [SwaggerOperation(
+        Summary = "Export session needs as CSV",
+        Description = "Downloads all submitted/approved teaching needs for a session as a CSV file, grouped by course and professor for technician use."
+    )]
+    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ExportCsv(int id)
+    {
+        var session = await _db.Sessions.FirstOrDefaultAsync(s => s.Id == id);
+        if (session is null)
+            return NotFound(new ApiErrorResponse("Session not found.", ErrorCodes.NotFound));
+
+        var needs = await _db.TeachingNeeds
+            .Include(n => n.Personnel)
+            .Include(n => n.Course)
+                .ThenInclude(c => c.CourseLaboratories)
+                    .ThenInclude(cl => cl.Laboratory)
+            .Include(n => n.Items).ThenInclude(i => i.Software)
+            .Include(n => n.Items).ThenInclude(i => i.SoftwareVersion)
+            .Include(n => n.Items).ThenInclude(i => i.OS)
+            .Where(n => n.SessionId == id)
+            .Where(n => n.Status != Core.Enums.NeedStatus.Draft)
+            .OrderBy(n => n.Course.Code)
+            .ThenBy(n => n.Personnel.LastName)
+            .ThenBy(n => n.Personnel.FirstName)
+            .ToListAsync();
+
+        var sb = new StringBuilder();
+        // BOM for Excel UTF-8 recognition
+        sb.Append('\uFEFF');
+        sb.AppendLine("Cours;Professeur;Statut;Étudiants attendus;Laboratoire(s);Type;Logiciel;Version;Système d'exploitation;Quantité;Description;Notes;Date soumission;FastTrack");
+
+        foreach (var need in needs)
+        {
+            var courseCode = need.Course?.Code ?? "";
+            var prof = need.Personnel is not null
+                ? $"{need.Personnel.FirstName} {need.Personnel.LastName}"
+                : "";
+            var status = need.Status.ToString();
+            var students = need.ExpectedStudents?.ToString() ?? "";
+            var labs = need.Course?.CourseLaboratories is { Count: > 0 }
+                ? string.Join(" | ", need.Course.CourseLaboratories
+                    .Select(cl => $"{cl.Laboratory.Name} ({cl.Laboratory.Building})"))
+                : "";
+            var submitted = need.SubmittedAt?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "";
+            var fastTrack = need.IsFastTrack ? "Oui" : "Non";
+
+            if (need.Items.Count == 0)
+            {
+                sb.AppendLine(string.Join(";",
+                    Esc(courseCode), Esc(prof), Esc(status), students, Esc(labs),
+                    "", "", "", "", "", "", "",
+                    submitted, fastTrack));
+                continue;
+            }
+
+            foreach (var item in need.Items)
+            {
+                var itemType = item.ItemType switch
+                {
+                    "software" => "Logiciel",
+                    "hardware" => "Matériel",
+                    _ => item.ItemType
+                };
+                sb.AppendLine(string.Join(";",
+                    Esc(courseCode),
+                    Esc(prof),
+                    Esc(status),
+                    students,
+                    Esc(labs),
+                    Esc(itemType),
+                    Esc(item.Software?.Name ?? ""),
+                    Esc(item.SoftwareVersion?.VersionNumber ?? ""),
+                    Esc(item.OS?.Name ?? ""),
+                    item.Quantity?.ToString() ?? "",
+                    Esc(item.Description ?? ""),
+                    Esc(item.Notes ?? ""),
+                    submitted,
+                    fastTrack));
+            }
+        }
+
+        var safeTitle = session.Title.Replace(" ", "_").Replace("/", "-");
+        var fileName = $"besoins_{safeTitle}_{DateTime.UtcNow:yyyyMMdd}.csv";
+        var bytes = Encoding.UTF8.GetBytes(sb.ToString());
+        return File(bytes, "text/csv; charset=utf-8", fileName);
+    }
+
+    private static string Esc(string value)
+    {
+        if (string.IsNullOrEmpty(value)) return "";
+        if (value.Contains(';') || value.Contains('"') || value.Contains('\n'))
+            return $"\"{value.Replace("\"", "\"\"")}\"";
+        return value;
     }
 
     private async Task<ActionResult<SessionResponse>> HandleTransition(Func<Task<Core.Entities.Session?>> transition)
