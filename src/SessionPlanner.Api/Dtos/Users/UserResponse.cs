@@ -3,5 +3,6 @@ namespace SessionPlanner.Api.Dtos.Users;
 public record UserResponse(
     int Id,
     string Username,
-    string Roles
+    string Roles,
+    bool IsActive
 );

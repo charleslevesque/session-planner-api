@@ -13,12 +13,14 @@ public sealed class UserListResponseExample : IExamplesProvider<IEnumerable<User
             new UserResponse(
                 Id: 1,
                 Username: "teacher01",
-                Roles: Roles.Admin
+                Roles: Roles.Admin,
+                IsActive: true
             ),
             new UserResponse(
                 Id: 2,
                 Username: "admin01",
-                Roles: Roles.Admin
+                Roles: Roles.Admin,
+                IsActive: true
             )
         ];
     }

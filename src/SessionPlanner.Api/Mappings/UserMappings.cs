@@ -14,7 +14,8 @@ public static class UserMappings
         return new UserResponse(
             user.Id,
             user.Username,
-            roleName
+            roleName,
+            user.IsActive
         );
     }
 }

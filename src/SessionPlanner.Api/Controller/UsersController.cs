@@ -48,9 +48,11 @@ public class UsersController : ControllerBase
     [ProducesResponseType(typeof(IEnumerable<UserResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status403Forbidden)]
-    public async Task<ActionResult<IEnumerable<UserResponse>>> GetAll()
+    public async Task<ActionResult<IEnumerable<UserResponse>>> GetAll([FromQuery] bool includeInactive = false)
     {
-        var users = await _userService.GetAllActiveWithRolesAsync();
+        var users = includeInactive
+            ? await _userService.GetAllWithRolesAsync(includeInactive: true)
+            : await _userService.GetAllActiveWithRolesAsync();
         return Ok(users.Select(u => u.ToResponse()));
     }
 
@@ -79,14 +81,14 @@ public class UsersController : ControllerBase
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<UserResponse>> GetById(int id)
     {
-        var user = await _userService.GetByIdActiveWithRolesAsync(id);
+        var user = await _userService.GetByIdWithRolesAsync(id);
 
         if (user is null)
         {
             return NotFound(new ApiErrorResponse(
                 Error: "User not found.",
                 Code: ErrorCodes.NotFound,
-                Details: $"No active user exists with id {id}."
+                Details: $"No user exists with id {id}."
             ));
         }
 
@@ -256,6 +258,52 @@ public class UsersController : ControllerBase
                 Details: $"No user exists with id {id}."
             ));
         }
+
+        return NoContent();
+    }
+
+    // POST /api/v1/users/{id}/deactivate
+    [HttpPost("{id:int}/deactivate")]
+    [HasPermission(Permissions.Users.Update)]
+    [SwaggerOperation(
+        Summary = "Deactivate a user account",
+        Description = "Sets the user as inactive. The account data and history are preserved. Revokes active sessions."
+    )]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Deactivate(int id)
+    {
+        var status = await _userService.DeactivateAsync(id);
+
+        if (status == DeactivateUserStatus.UserNotFound)
+            return NotFound(new ApiErrorResponse("User not found.", ErrorCodes.NotFound, $"No user exists with id {id}."));
+
+        if (status == DeactivateUserStatus.CannotDeactivateAdmin)
+            return BadRequest(new ApiErrorResponse("Cannot deactivate an admin account.", ErrorCodes.Conflict));
+
+        return NoContent();
+    }
+
+    // POST /api/v1/users/{id}/reactivate
+    [HttpPost("{id:int}/reactivate")]
+    [HasPermission(Permissions.Users.Update)]
+    [SwaggerOperation(
+        Summary = "Reactivate a user account",
+        Description = "Restores a previously deactivated user account. The user will be able to log in again."
+    )]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Reactivate(int id)
+    {
+        var status = await _userService.ReactivateAsync(id);
+
+        if (status == ReactivateUserStatus.UserNotFound)
+            return NotFound(new ApiErrorResponse("User not found.", ErrorCodes.NotFound, $"No user exists with id {id}."));
+
+        if (status == ReactivateUserStatus.AlreadyActive)
+            return BadRequest(new ApiErrorResponse("User is already active.", ErrorCodes.Conflict));
 
         return NoContent();
     }

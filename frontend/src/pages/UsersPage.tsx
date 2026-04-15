@@ -34,6 +34,21 @@ function RoleBadge({ role }: { role: string }) {
   );
 }
 
+function StatusBadge({ isActive }: { isActive: boolean }) {
+  if (isActive) {
+    return (
+      <span className="inline-flex items-center rounded-xl border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
+        Actif
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center rounded-xl border border-stone-300 bg-stone-100 px-2.5 py-0.5 text-xs font-medium text-stone-500">
+      Désactivé
+    </span>
+  );
+}
+
 export function UsersPage() {
   const { apiFetch } = useAuth();
   const [users, setUsers] = useState<UserResponse[]>([]);
@@ -47,19 +62,22 @@ export function UsersPage() {
 
   const [passwordResetSuccess, setPasswordResetSuccess] = useState<Record<number, string>>({});
 
-  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
-  const [deleting, setDeleting] = useState<Record<number, boolean>>({});
+  const [deactivateConfirm, setDeactivateConfirm] = useState<number | null>(null);
+  const [deactivating, setDeactivating] = useState<Record<number, boolean>>({});
+  const [reactivating, setReactivating] = useState<Record<number, boolean>>({});
 
   const [form, setForm] = useState<CreateUserRequest>(initialForm);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
   const [createSuccess, setCreateSuccess] = useState('');
 
+  const [showInactive, setShowInactive] = useState(true);
+
   const loadUsers = useCallback(async () => {
     setLoading(true);
     setPageError('');
     try {
-      const data = await apiFetch<UserResponse[]>('/users');
+      const data = await apiFetch<UserResponse[]>('/users?includeInactive=true');
       setUsers(data);
       const edits: Record<number, string> = {};
       for (const u of data) {
@@ -95,16 +113,32 @@ export function UsersPage() {
     }
   }
 
-  async function handleDelete(userId: number) {
-    setDeleting((prev) => ({ ...prev, [userId]: true }));
+  async function handleDeactivate(userId: number) {
+    setDeactivating((prev) => ({ ...prev, [userId]: true }));
     try {
-      await apiFetch(`/users/${userId}`, { method: 'DELETE' });
-      setUsers((prev) => prev.filter((u) => u.id !== userId));
-      setDeleteConfirm(null);
+      await apiFetch(`/users/${userId}/deactivate`, { method: 'POST' });
+      setUsers((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, isActive: false } : u)),
+      );
+      setDeactivateConfirm(null);
     } catch (err) {
-      setPageError(getErrorMessage(err, 'Impossible de supprimer l\'utilisateur.'));
+      setPageError(getErrorMessage(err, 'Impossible de désactiver le compte.'));
     } finally {
-      setDeleting((prev) => ({ ...prev, [userId]: false }));
+      setDeactivating((prev) => ({ ...prev, [userId]: false }));
+    }
+  }
+
+  async function handleReactivate(userId: number) {
+    setReactivating((prev) => ({ ...prev, [userId]: true }));
+    try {
+      await apiFetch(`/users/${userId}/reactivate`, { method: 'POST' });
+      setUsers((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, isActive: true } : u)),
+      );
+    } catch (err) {
+      setPageError(getErrorMessage(err, 'Impossible de réactiver le compte.'));
+    } finally {
+      setReactivating((prev) => ({ ...prev, [userId]: false }));
     }
   }
 
@@ -157,6 +191,10 @@ export function UsersPage() {
     }
   }
 
+  const filteredUsers = showInactive ? users : users.filter((u) => u.isActive);
+  const activeCount = users.filter((u) => u.isActive).length;
+  const inactiveCount = users.filter((u) => !u.isActive).length;
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -177,123 +215,163 @@ export function UsersPage() {
       {/* Users table */}
       <section className="surface-card overflow-hidden p-0">
         <div className="flex items-center justify-between border-b border-stone-200 px-6 py-4">
-          <h2 className="text-base font-semibold text-stone-950">Utilisateurs actifs</h2>
-          <button
-            type="button"
-            onClick={() => void loadUsers()}
-            className="rounded-xl border border-stone-200 px-3 py-1.5 text-xs text-stone-600 transition hover:bg-stone-50"
-          >
-            Rafraîchir
-          </button>
+          <div className="flex items-center gap-3">
+            <h2 className="text-base font-semibold text-stone-950">Utilisateurs</h2>
+            <span className="text-xs text-stone-500">
+              {activeCount} actif{activeCount !== 1 ? 's' : ''}
+              {inactiveCount > 0 && ` · ${inactiveCount} désactivé${inactiveCount !== 1 ? 's' : ''}`}
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 text-xs text-stone-600">
+              <input
+                type="checkbox"
+                checked={showInactive}
+                onChange={(e) => setShowInactive(e.target.checked)}
+                className="rounded border-stone-300"
+              />
+              Afficher désactivés
+            </label>
+            <button
+              type="button"
+              onClick={() => void loadUsers()}
+              className="rounded-xl border border-stone-200 px-3 py-1.5 text-xs text-stone-600 transition hover:bg-stone-50"
+            >
+              Rafraîchir
+            </button>
+          </div>
         </div>
 
         {loading ? (
           <div className="px-6 py-10 text-center text-sm text-stone-500">Chargement...</div>
-        ) : users.length === 0 ? (
+        ) : filteredUsers.length === 0 ? (
           <div className="px-6 py-10 text-center text-sm text-stone-500">Aucun utilisateur trouvé.</div>
         ) : (
           <div className="divide-y divide-stone-100">
-            {users.map((user) => {
+            {filteredUsers.map((user) => {
               const pendingRole = roleEdits[user.id] ?? user.roles;
               const roleChanged = pendingRole !== user.roles;
               const isUpdating = roleUpdating[user.id] ?? false;
               const isPasswordUpdating = passwordUpdating[user.id] ?? false;
               const pendingPassword = passwordEdits[user.id] ?? '';
-              const isDeleting = deleting[user.id] ?? false;
+              const isDeactivating = deactivating[user.id] ?? false;
+              const isReactivating = reactivating[user.id] ?? false;
               const isProtectedAdmin = user.roles === 'admin';
               const passwordSuccess = passwordResetSuccess[user.id];
 
               return (
-                <div key={user.id} className="px-5 py-5 transition hover:bg-stone-50/60 sm:px-6">
-                  {/* Row 1: email + role badge */}
+                <div
+                  key={user.id}
+                  className={`px-5 py-5 transition sm:px-6 ${user.isActive ? 'hover:bg-stone-50/60' : 'bg-stone-50/40 opacity-75'}`}
+                >
+                  {/* Row 1: email + badges */}
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-medium text-stone-950 break-all">{user.username}</span>
+                    <span className={`text-sm font-medium break-all ${user.isActive ? 'text-stone-950' : 'text-stone-500'}`}>
+                      {user.username}
+                    </span>
                     <RoleBadge role={user.roles} />
+                    <StatusBadge isActive={user.isActive} />
                   </div>
 
-                  {/* Row 2: actions */}
-                  <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
-                    {/* Role change */}
-                    <div className="flex items-center gap-2">
-                      <select
-                        value={pendingRole}
-                        onChange={(e) =>
-                          setRoleEdits((prev) => ({ ...prev, [user.id]: e.target.value }))
-                        }
-                        className="min-w-0 flex-1 rounded-xl border border-stone-200 bg-white px-3 py-1.5 text-sm text-stone-700 outline-none focus:border-[var(--ets-primary)] focus:ring-2 focus:ring-[rgba(220,4,44,0.15)]"
-                      >
-                        {ALL_ROLES.map((r) => (
-                          <option key={r} value={r}>{ROLE_LABELS[r]}</option>
-                        ))}
-                      </select>
-                      {roleChanged && (
+                  {/* Row 2: actions (only for active users) */}
+                  {user.isActive ? (
+                    <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+                      {/* Role change */}
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={pendingRole}
+                          onChange={(e) =>
+                            setRoleEdits((prev) => ({ ...prev, [user.id]: e.target.value }))
+                          }
+                          className="min-w-0 flex-1 rounded-xl border border-stone-200 bg-white px-3 py-1.5 text-sm text-stone-700 outline-none focus:border-[var(--ets-primary)] focus:ring-2 focus:ring-[rgba(220,4,44,0.15)]"
+                        >
+                          {ALL_ROLES.map((r) => (
+                            <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                          ))}
+                        </select>
+                        {roleChanged && (
+                          <button
+                            type="button"
+                            onClick={() => void handleRoleUpdate(user.id)}
+                            disabled={isUpdating}
+                            className="shrink-0 rounded-xl bg-stone-950 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-stone-700 disabled:opacity-50"
+                          >
+                            {isUpdating ? '...' : 'Sauvegarder'}
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Password reset */}
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="password"
+                          value={pendingPassword}
+                          onChange={(event) =>
+                            setPasswordEdits((prev) => ({ ...prev, [user.id]: event.target.value }))
+                          }
+                          className="input-field min-w-0 flex-1"
+                          placeholder="Nouveau mot de passe"
+                          minLength={8}
+                        />
                         <button
                           type="button"
-                          onClick={() => void handleRoleUpdate(user.id)}
-                          disabled={isUpdating}
-                          className="shrink-0 rounded-xl bg-stone-950 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-stone-700 disabled:opacity-50"
+                          onClick={() => void handlePasswordReset(user.id)}
+                          disabled={isPasswordUpdating || pendingPassword.trim().length < 8}
+                          className="shrink-0 rounded-xl bg-[var(--ets-primary)] px-3 py-1.5 text-xs font-medium text-white transition hover:bg-[var(--ets-primary-hover)] disabled:opacity-50"
                         >
-                          {isUpdating ? '...' : 'Sauvegarder'}
+                          {isPasswordUpdating ? '...' : 'Reset'}
                         </button>
-                      )}
-                    </div>
+                      </div>
 
-                    {/* Password reset */}
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="password"
-                        value={pendingPassword}
-                        onChange={(event) =>
-                          setPasswordEdits((prev) => ({ ...prev, [user.id]: event.target.value }))
-                        }
-                        className="input-field min-w-0 flex-1"
-                        placeholder="Nouveau mot de passe"
-                        minLength={8}
-                      />
+                      {/* Deactivate / protected */}
+                      <div className="flex items-center">
+                        {isProtectedAdmin ? (
+                          <span className="text-xs text-stone-400">Compte protégé</span>
+                        ) : deactivateConfirm === user.id ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-stone-600">Désactiver ?</span>
+                            <button
+                              type="button"
+                              onClick={() => void handleDeactivate(user.id)}
+                              disabled={isDeactivating}
+                              className="rounded-xl bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+                            >
+                              {isDeactivating ? '...' : 'Oui'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeactivateConfirm(null)}
+                              className="rounded-xl border border-stone-200 px-3 py-1.5 text-xs text-stone-600 hover:bg-stone-50"
+                            >
+                              Non
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setDeactivateConfirm(user.id)}
+                            className="rounded-xl border border-amber-200 px-3 py-1.5 text-xs text-amber-600 transition hover:bg-amber-50"
+                          >
+                            Désactiver
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-3 flex items-center gap-3">
                       <button
                         type="button"
-                        onClick={() => void handlePasswordReset(user.id)}
-                        disabled={isPasswordUpdating || pendingPassword.trim().length < 8}
-                        className="shrink-0 rounded-xl bg-[var(--ets-primary)] px-3 py-1.5 text-xs font-medium text-white transition hover:bg-[var(--ets-primary-hover)] disabled:opacity-50"
+                        onClick={() => void handleReactivate(user.id)}
+                        disabled={isReactivating}
+                        className="rounded-xl bg-emerald-600 px-4 py-1.5 text-xs font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50"
                       >
-                        {isPasswordUpdating ? '...' : 'Reset'}
+                        {isReactivating ? 'Réactivation...' : 'Réactiver le compte'}
                       </button>
+                      <span className="text-xs text-stone-400">
+                        Les données et l&apos;historique sont conservés.
+                      </span>
                     </div>
-
-                    {/* Delete / protected */}
-                    <div className="flex items-center">
-                      {isProtectedAdmin ? (
-                        <span className="text-xs text-stone-400">Compte protégé</span>
-                      ) : deleteConfirm === user.id ? (
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-stone-600">Supprimer ?</span>
-                          <button
-                            type="button"
-                            onClick={() => void handleDelete(user.id)}
-                            disabled={isDeleting}
-                            className="rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-rose-700 disabled:opacity-50"
-                          >
-                            {isDeleting ? '...' : 'Oui'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDeleteConfirm(null)}
-                            className="rounded-xl border border-stone-200 px-3 py-1.5 text-xs text-stone-600 hover:bg-stone-50"
-                          >
-                            Non
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => setDeleteConfirm(user.id)}
-                          className="rounded-xl border border-rose-200 px-3 py-1.5 text-xs text-rose-600 transition hover:bg-rose-50"
-                        >
-                          Supprimer
-                        </button>
-                      )}
-                    </div>
-                  </div>
+                  )}
 
                   {/* Password reset success feedback */}
                   {passwordSuccess ? (

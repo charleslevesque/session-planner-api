@@ -32,9 +32,24 @@ public enum UpdateCurrentUserEmailStatus
     ForbiddenForNonAdmin
 }
 
+public enum DeactivateUserStatus
+{
+    Success,
+    UserNotFound,
+    CannotDeactivateAdmin
+}
+
+public enum ReactivateUserStatus
+{
+    Success,
+    UserNotFound,
+    AlreadyActive
+}
+
 public interface IUserService
 {
     Task<List<User>> GetAllActiveWithRolesAsync();
+    Task<List<User>> GetAllWithRolesAsync(bool includeInactive = false);
     Task<User?> GetByIdActiveWithRolesAsync(int id);
     Task<User?> GetByIdWithRolesAsync(int id);
     Task<CreateUserResult> CreateAsync(string username, string password, string? roleName);
@@ -42,4 +57,6 @@ public interface IUserService
     Task<UpdateUserPasswordStatus> UpdatePasswordAsync(int id, string newPassword);
     Task<UpdateCurrentUserEmailStatus> UpdateCurrentUserEmailAsync(int userId, string newEmail, string currentPassword);
     Task<bool> DeleteAsync(int id);
+    Task<DeactivateUserStatus> DeactivateAsync(int id);
+    Task<ReactivateUserStatus> ReactivateAsync(int id);
 }

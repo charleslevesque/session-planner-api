@@ -31,6 +31,17 @@ public class UserService : IUserService
         return await ActiveUsersWithRoles().ToListAsync();
     }
 
+    public async Task<List<User>> GetAllWithRolesAsync(bool includeInactive = false)
+    {
+        var query = _db.Users
+            .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role);
+
+        return includeInactive
+            ? await query.ToListAsync()
+            : await query.Where(u => u.IsActive).ToListAsync();
+    }
+
     public async Task<User?> GetByIdActiveWithRolesAsync(int id)
     {
         return await ActiveUsersWithRoles()
@@ -283,5 +294,46 @@ public class UserService : IUserService
         }
 
         return true;
+    }
+
+    public async Task<DeactivateUserStatus> DeactivateAsync(int id)
+    {
+        var user = await _db.Users
+            .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
+            .FirstOrDefaultAsync(u => u.Id == id);
+
+        if (user is null)
+            return DeactivateUserStatus.UserNotFound;
+
+        if (user.UserRoles.Any(ur => ur.Role.Name == Roles.Admin))
+            return DeactivateUserStatus.CannotDeactivateAdmin;
+
+        user.IsActive = false;
+
+        var refreshTokens = await _db.RefreshTokens
+            .Where(rt => rt.UserId == id && rt.RevokedAtUtc == null && rt.ExpiresAtUtc > DateTime.UtcNow)
+            .ToListAsync();
+        foreach (var token in refreshTokens)
+            token.RevokedAtUtc = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync();
+        return DeactivateUserStatus.Success;
+    }
+
+    public async Task<ReactivateUserStatus> ReactivateAsync(int id)
+    {
+        var user = await _db.Users
+            .FirstOrDefaultAsync(u => u.Id == id);
+
+        if (user is null)
+            return ReactivateUserStatus.UserNotFound;
+
+        if (user.IsActive)
+            return ReactivateUserStatus.AlreadyActive;
+
+        user.IsActive = true;
+        await _db.SaveChangesAsync();
+        return ReactivateUserStatus.Success;
     }
 }

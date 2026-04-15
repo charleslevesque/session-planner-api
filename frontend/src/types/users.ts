@@ -2,6 +2,7 @@ export interface UserResponse {
   id: number;
   username: string;
   roles: string;
+  isActive: boolean;
 }
 
 export interface CreateUserRequest {
