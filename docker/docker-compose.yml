@@ -1,0 +1,24 @@
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: docker/backend/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      ASPNETCORE_URLS: http://+:${API_INTERNAL_PORT:-5290}
+      ConnectionStrings__DefaultConnection: Data Source=${SQLITE_PATH:-/app/data/SessionPlanner.db}
+      Jwt__Key: ${JWT_KEY:-dev-only-change-me-please-very-secret-jwt-key-32chars-min}
+      Cors__AllowedOrigins__0: http://localhost:${FRONTEND_PORT:-5173}
+    ports:
+      - "${API_PORT:-5290}:${API_INTERNAL_PORT:-5290}"
+    volumes:
+      - ${SQLITE_DEV_HOST_DIR:-../src/SessionPlanner.Api}:/app/data
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: docker/frontend/Dockerfile
+    depends_on:
+      - api
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"

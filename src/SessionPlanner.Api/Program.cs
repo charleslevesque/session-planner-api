@@ -56,8 +56,11 @@ builder.Services.AddApiVersioning(options =>
     options.ApiVersionReader = new UrlSegmentApiVersionReader();
 });
 
+var defaultConnectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? "Data Source=SessionPlanner.db";
+
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite("Data Source=SessionPlanner.db"));
+    options.UseSqlite(defaultConnectionString));
 
 builder.Services.AddScoped<IPasswordService, PasswordService>();
 builder.Services.AddScoped<IJWTTokenService, JWTTokenService>();
