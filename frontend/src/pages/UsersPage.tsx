@@ -10,6 +10,32 @@ import {
   type UserResponse,
 } from '../types/users';
 
+interface UserTeachingNeedSummary {
+  id: number;
+  courseName: string;
+  sessionName: string;
+  status: string;
+  createdAt: string;
+  submittedAt: string | null;
+  itemCount: number;
+}
+
+interface UserActivityResponse {
+  userId: number;
+  username: string;
+  fullName: string | null;
+  role: string;
+  isActive: boolean;
+  teachingNeeds: UserTeachingNeedSummary[];
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  Draft: 'Brouillon',
+  Submitted: 'Soumis',
+  Approved: 'Approuvé',
+  Rejected: 'Rejeté',
+};
+
 const initialForm: CreateUserRequest = {
   username: '',
   password: '',
@@ -49,6 +75,58 @@ function StatusBadge({ isActive }: { isActive: boolean }) {
   );
 }
 
+function ActivityPanel({ activity }: { activity: UserActivityResponse }) {
+  return (
+    <div className="mt-3 rounded-xl border border-stone-200 bg-white p-4">
+      <div className="mb-3 flex items-center gap-4 text-sm">
+        {activity.fullName && (
+          <div>
+            <span className="text-stone-500">Nom : </span>
+            <span className="font-medium text-stone-900">{activity.fullName}</span>
+          </div>
+        )}
+        <div>
+          <span className="text-stone-500">Rôle : </span>
+          <span className="font-medium text-stone-900">{ROLE_LABELS[activity.role as RoleName] ?? activity.role}</span>
+        </div>
+      </div>
+
+      {activity.teachingNeeds.length === 0 ? (
+        <p className="text-sm text-stone-400">Aucune demande d&apos;enseignement enregistrée.</p>
+      ) : (
+        <>
+          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">
+            Demandes d&apos;enseignement ({activity.teachingNeeds.length})
+          </h4>
+          <div className="divide-y divide-stone-100 rounded-lg border border-stone-100">
+            {activity.teachingNeeds.map((need) => (
+              <div key={need.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2 text-sm">
+                <span className="font-medium text-stone-800">{need.courseName}</span>
+                <span className="text-stone-400">·</span>
+                <span className="text-stone-600">{need.sessionName}</span>
+                <span className={`rounded-lg px-2 py-0.5 text-xs font-medium ${
+                  need.status === 'Approved' ? 'bg-emerald-50 text-emerald-700' :
+                  need.status === 'Rejected' ? 'bg-rose-50 text-rose-700' :
+                  need.status === 'Submitted' ? 'bg-blue-50 text-blue-700' :
+                  'bg-stone-50 text-stone-600'
+                }`}>
+                  {STATUS_LABELS[need.status] ?? need.status}
+                </span>
+                <span className="text-xs text-stone-400">
+                  {need.itemCount} item{need.itemCount !== 1 ? 's' : ''}
+                </span>
+                <span className="ml-auto text-xs text-stone-400">
+                  {new Date(need.createdAt).toLocaleDateString('fr-CA')}
+                </span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function UsersPage() {
   const { apiFetch } = useAuth();
   const [users, setUsers] = useState<UserResponse[]>([]);
@@ -65,6 +143,10 @@ export function UsersPage() {
   const [deactivateConfirm, setDeactivateConfirm] = useState<number | null>(null);
   const [deactivating, setDeactivating] = useState<Record<number, boolean>>({});
   const [reactivating, setReactivating] = useState<Record<number, boolean>>({});
+
+  const [activityOpen, setActivityOpen] = useState<Record<number, boolean>>({});
+  const [activityData, setActivityData] = useState<Record<number, UserActivityResponse>>({});
+  const [activityLoading, setActivityLoading] = useState<Record<number, boolean>>({});
 
   const [form, setForm] = useState<CreateUserRequest>(initialForm);
   const [creating, setCreating] = useState(false);
@@ -135,11 +217,34 @@ export function UsersPage() {
       setUsers((prev) =>
         prev.map((u) => (u.id === userId ? { ...u, isActive: true } : u)),
       );
+      setActivityOpen((prev) => ({ ...prev, [userId]: false }));
     } catch (err) {
       setPageError(getErrorMessage(err, 'Impossible de réactiver le compte.'));
     } finally {
       setReactivating((prev) => ({ ...prev, [userId]: false }));
     }
+  }
+
+  async function handleToggleActivity(userId: number) {
+    if (activityOpen[userId]) {
+      setActivityOpen((prev) => ({ ...prev, [userId]: false }));
+      return;
+    }
+
+    if (!activityData[userId]) {
+      setActivityLoading((prev) => ({ ...prev, [userId]: true }));
+      try {
+        const data = await apiFetch<UserActivityResponse>(`/users/${userId}/activity`);
+        setActivityData((prev) => ({ ...prev, [userId]: data }));
+      } catch (err) {
+        setPageError(getErrorMessage(err, 'Impossible de charger l\'activité.'));
+        setActivityLoading((prev) => ({ ...prev, [userId]: false }));
+        return;
+      } finally {
+        setActivityLoading((prev) => ({ ...prev, [userId]: false }));
+      }
+    }
+    setActivityOpen((prev) => ({ ...prev, [userId]: true }));
   }
 
   async function handlePasswordReset(userId: number) {
@@ -258,11 +363,14 @@ export function UsersPage() {
               const isReactivating = reactivating[user.id] ?? false;
               const isProtectedAdmin = user.roles === 'admin';
               const passwordSuccess = passwordResetSuccess[user.id];
+              const isActivityOpen = activityOpen[user.id] ?? false;
+              const isActivityLoading = activityLoading[user.id] ?? false;
+              const activity = activityData[user.id];
 
               return (
                 <div
                   key={user.id}
-                  className={`px-5 py-5 transition sm:px-6 ${user.isActive ? 'hover:bg-stone-50/60' : 'bg-stone-50/40 opacity-75'}`}
+                  className={`px-5 py-5 transition sm:px-6 ${user.isActive ? 'hover:bg-stone-50/60' : 'bg-stone-50/40'}`}
                 >
                   {/* Row 1: email + badges */}
                   <div className="flex flex-wrap items-center gap-2">
@@ -273,7 +381,7 @@ export function UsersPage() {
                     <StatusBadge isActive={user.isActive} />
                   </div>
 
-                  {/* Row 2: actions (only for active users) */}
+                  {/* Row 2: actions */}
                   {user.isActive ? (
                     <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
                       {/* Role change */}
@@ -358,7 +466,15 @@ export function UsersPage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="mt-3 flex items-center gap-3">
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => void handleToggleActivity(user.id)}
+                        disabled={isActivityLoading}
+                        className="rounded-xl border border-stone-300 bg-white px-4 py-1.5 text-xs font-medium text-stone-700 transition hover:bg-stone-50 disabled:opacity-50"
+                      >
+                        {isActivityLoading ? 'Chargement...' : isActivityOpen ? 'Masquer' : 'Consulter le compte'}
+                      </button>
                       <button
                         type="button"
                         onClick={() => void handleReactivate(user.id)}
@@ -372,6 +488,9 @@ export function UsersPage() {
                       </span>
                     </div>
                   )}
+
+                  {/* Activity panel for deactivated users */}
+                  {isActivityOpen && activity && <ActivityPanel activity={activity} />}
 
                   {/* Password reset success feedback */}
                   {passwordSuccess ? (

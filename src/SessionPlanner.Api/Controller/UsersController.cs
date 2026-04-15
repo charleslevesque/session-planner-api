@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using SessionPlanner.Api.Dtos.Users;
 using SessionPlanner.Api.Dtos.Common;
 using SessionPlanner.Api.Mappings;
@@ -10,6 +11,7 @@ using SessionPlanner.Core.Interfaces;
 using SessionPlanner.Api.Common;
 using SessionPlanner.Api.OpenApi.Examples.Users;
 using SessionPlanner.Api.OpenApi.Examples.Common;
+using SessionPlanner.Infrastructure.Data;
 using Swashbuckle.AspNetCore.Annotations;
 using Swashbuckle.AspNetCore.Filters;
 using System.Security.Claims;
@@ -23,10 +25,12 @@ namespace SessionPlanner.Api.Controllers;
 public class UsersController : ControllerBase
 {
     private readonly IUserService _userService;
+    private readonly AppDbContext _db;
 
-    public UsersController(IUserService userService)
+    public UsersController(IUserService userService, AppDbContext db)
     {
         _userService = userService;
+        _db = db;
     }
 
     /// <summary>
@@ -306,6 +310,55 @@ public class UsersController : ControllerBase
             return BadRequest(new ApiErrorResponse("User is already active.", ErrorCodes.Conflict));
 
         return NoContent();
+    }
+
+    // GET /api/v1/users/{id}/activity
+    [HttpGet("{id:int}/activity")]
+    [HasPermission(Permissions.Users.Read)]
+    [SwaggerOperation(
+        Summary = "Get user activity summary",
+        Description = "Returns user profile info and their teaching needs history. Works for both active and inactive users."
+    )]
+    [ProducesResponseType(typeof(UserActivityResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<UserActivityResponse>> GetActivity(int id)
+    {
+        var user = await _userService.GetByIdWithFullProfileAsync(id);
+
+        if (user is null)
+            return NotFound(new ApiErrorResponse("User not found.", ErrorCodes.NotFound, $"No user exists with id {id}."));
+
+        var teachingNeeds = user.PersonnelId.HasValue
+            ? await _db.TeachingNeeds
+                .Include(tn => tn.Course)
+                .Include(tn => tn.Session)
+                .Include(tn => tn.Items)
+                .Where(tn => tn.PersonnelId == user.PersonnelId.Value)
+                .OrderByDescending(tn => tn.CreatedAt)
+                .ToListAsync()
+            : [];
+
+        var roleName = user.UserRoles.Select(ur => ur.Role.Name).FirstOrDefault() ?? "";
+        var fullName = user.Personnel is not null
+            ? $"{user.Personnel.FirstName} {user.Personnel.LastName}"
+            : null;
+
+        return Ok(new UserActivityResponse(
+            user.Id,
+            user.Username,
+            fullName,
+            roleName,
+            user.IsActive,
+            teachingNeeds.Select(tn => new UserTeachingNeedSummary(
+                tn.Id,
+                tn.Course?.Code ?? "—",
+                tn.Session?.Title ?? "—",
+                tn.Status.ToString(),
+                tn.CreatedAt,
+                tn.SubmittedAt,
+                tn.Items.Count
+            ))
+        ));
     }
 
 }

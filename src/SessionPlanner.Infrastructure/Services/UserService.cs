@@ -336,4 +336,13 @@ public class UserService : IUserService
         await _db.SaveChangesAsync();
         return ReactivateUserStatus.Success;
     }
+
+    public async Task<User?> GetByIdWithFullProfileAsync(int id)
+    {
+        return await _db.Users
+            .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
+            .Include(u => u.Personnel)
+            .FirstOrDefaultAsync(u => u.Id == id);
+    }
 }

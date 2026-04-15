@@ -59,4 +59,5 @@ public interface IUserService
     Task<bool> DeleteAsync(int id);
     Task<DeactivateUserStatus> DeactivateAsync(int id);
     Task<ReactivateUserStatus> ReactivateAsync(int id);
+    Task<User?> GetByIdWithFullProfileAsync(int id);
 }
