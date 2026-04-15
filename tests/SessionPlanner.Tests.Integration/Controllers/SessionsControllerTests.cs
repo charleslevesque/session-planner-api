@@ -370,4 +370,40 @@ public class SessionsControllerTests : IClassFixture<CustomWebApplicationFactory
     }
 
     #endregion
+
+    #region Export CSV Tests
+
+    [Fact]
+    public async Task ExportCsv_ExistingSession_ReturnsFile()
+    {
+        var session = await CreateDraftSession("Export Test");
+
+        var response = await _client.GetAsync($"{BaseUrl}/{session.Id}/export");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.Content.Headers.ContentType!.MediaType.Should().Be("text/csv");
+    }
+
+    [Fact]
+    public async Task ExportCsv_NonExistentSession_ReturnsNotFound()
+    {
+        var response = await _client.GetAsync($"{BaseUrl}/99999/export");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task ExportCsv_FileNameContainsSessionTitle()
+    {
+        var session = await CreateDraftSession("Automne 2026");
+
+        var response = await _client.GetAsync($"{BaseUrl}/{session.Id}/export");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var disposition = response.Content.Headers.ContentDisposition;
+        disposition.Should().NotBeNull();
+        disposition!.FileNameStar.Should().Contain("installations_").And.Contain("Automne");
+    }
+
+    #endregion
 }

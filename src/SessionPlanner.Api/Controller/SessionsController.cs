@@ -1,7 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
 using Asp.Versioning;
+using System.Globalization;
 using System.Security.Claims;
+using System.Text;
 using SessionPlanner.Core.Interfaces;
 using SessionPlanner.Core.Auth;
 using SessionPlanner.Api.Auth;
@@ -11,6 +14,7 @@ using SessionPlanner.Api.Mappings;
 using SessionPlanner.Api.Common;
 using SessionPlanner.Api.OpenApi.Examples.Sessions;
 using SessionPlanner.Api.OpenApi.Examples.Common;
+using SessionPlanner.Infrastructure.Data;
 using Swashbuckle.AspNetCore.Annotations;
 using Swashbuckle.AspNetCore.Filters;
 
@@ -24,10 +28,12 @@ namespace SessionPlanner.Api.Controllers;
 public class SessionsController : ControllerBase
 {
     private readonly ISessionService _sessionService;
+    private readonly AppDbContext _db;
 
-    public SessionsController(ISessionService sessionService)
+    public SessionsController(ISessionService sessionService, AppDbContext db)
     {
         _sessionService = sessionService;
+        _db = db;
     }
 
     /// <summary>
@@ -396,6 +402,139 @@ public class SessionsController : ControllerBase
     public async Task<ActionResult<SessionResponse>> Archive(int id)
     {
         return await HandleTransition(() => _sessionService.ArchiveAsync(id));
+    }
+
+    // GET /api/v1/sessions/{id}/export
+    [HttpGet("{id:int}/export")]
+    [HasPermission(Permissions.TeachingNeeds.Read)]
+    [SwaggerOperation(
+        Summary = "Export installation matrix as CSV",
+        Description = "Downloads the full installation matrix for a session. Contains every software from the catalogue with its status in every lab, enriched with session-specific demand info (courses, professors)."
+    )]
+    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ExportCsv(int id)
+    {
+        var session = await _db.Sessions.FirstOrDefaultAsync(s => s.Id == id);
+        if (session is null)
+            return NotFound(new ApiErrorResponse("Session not found.", ErrorCodes.NotFound));
+
+        // 1. Full software catalogue with versions
+        var allSoftwares = await _db.Softwares
+            .Include(s => s.SoftwareVersions).ThenInclude(sv => sv.OS)
+            .OrderBy(s => s.Name)
+            .ToListAsync();
+
+        // 2. All labs
+        var labs = await _db.Laboratories
+            .OrderBy(l => l.Building).ThenBy(l => l.Name)
+            .ToListAsync();
+
+        // 3. Full LaboratorySoftware matrix (status per lab×software)
+        var allLabSw = await _db.LaboratorySoftwares.ToListAsync();
+        var statusLookup = allLabSw.ToDictionary(ls => (ls.LaboratoryId, ls.SoftwareId), ls => ls.Status);
+
+        // 4. OS lookup
+        var osMap = await _db.OperatingSystems.ToDictionaryAsync(o => o.Id, o => o.Name);
+
+        // 5. Session demand context: which software was requested, by whom, for which course
+        var needs = await _db.TeachingNeeds
+            .Include(n => n.Personnel)
+            .Include(n => n.Course)
+            .Include(n => n.Items)
+            .Where(n => n.SessionId == id)
+            .Where(n => n.Status != Core.Enums.NeedStatus.Draft)
+            .ToListAsync();
+
+        var demandBySoftwareId = new Dictionary<int, SessionDemandInfo>();
+        foreach (var need in needs)
+        {
+            foreach (var item in need.Items.Where(i => i.SoftwareId.HasValue))
+            {
+                var swId = item.SoftwareId!.Value;
+                if (!demandBySoftwareId.TryGetValue(swId, out var info))
+                {
+                    info = new SessionDemandInfo(new HashSet<string>(), new HashSet<string>(), new HashSet<string>());
+                    demandBySoftwareId[swId] = info;
+                }
+                if (need.Course?.Code is { } code) info.Courses.Add(code);
+                if (need.Personnel is { } p) info.Professors.Add($"{p.FirstName} {p.LastName}");
+                if (!string.IsNullOrWhiteSpace(item.Notes)) info.RequestNotes.Add(item.Notes);
+            }
+        }
+
+        // 6. Build pivoted CSV: one row per software, one column per lab
+        var sb = new StringBuilder();
+        sb.Append('\uFEFF');
+
+        // Header row: software info columns + one column per lab (showing "LabName (Building) [NbPCs postes]")
+        var headerCols = new List<string>
+        {
+            "Logiciel", "Version(s)", "OS", "Commande d'installation", "Notes",
+            "Demandé session", "Cours", "Professeur(s)", "Notes demande"
+        };
+        foreach (var lab in labs)
+            headerCols.Add($"{lab.Name} ({lab.Building}) [{lab.NumberOfPCs}p]");
+
+        sb.AppendLine(string.Join(";", headerCols.Select(Esc)));
+
+        // One row per software
+        foreach (var sw in allSoftwares)
+        {
+            var versions = sw.SoftwareVersions
+                .Select(v => v.VersionNumber)
+                .Distinct()
+                .ToList();
+            var osList = sw.SoftwareVersions
+                .Select(v => v.OsId)
+                .Distinct()
+                .Select(oid => osMap.TryGetValue(oid, out var name) ? name : $"OS#{oid}")
+                .ToList();
+            var versionNotes = sw.SoftwareVersions
+                .Where(v => !string.IsNullOrWhiteSpace(v.Notes))
+                .Select(v => v.Notes!)
+                .Distinct()
+                .ToList();
+
+            var hasDemand = demandBySoftwareId.TryGetValue(sw.Id, out var demand);
+
+            var row = new List<string>
+            {
+                Esc(sw.Name),
+                Esc(string.Join(", ", versions)),
+                Esc(string.Join(", ", osList)),
+                Esc(sw.InstallCommand ?? ""),
+                Esc(string.Join(" | ", versionNotes)),
+                hasDemand ? "Oui" : "",
+                hasDemand ? Esc(string.Join(", ", demand!.Courses)) : "",
+                hasDemand ? Esc(string.Join(", ", demand!.Professors)) : "",
+                hasDemand ? Esc(string.Join(" | ", demand!.RequestNotes)) : ""
+            };
+
+            foreach (var lab in labs)
+            {
+                var status = statusLookup.TryGetValue((lab.Id, sw.Id), out var st) ? st : "";
+                row.Add(Esc(status));
+            }
+
+            sb.AppendLine(string.Join(";", row));
+        }
+
+        var safeTitle = session.Title.Replace(" ", "_").Replace("/", "-");
+        var fileName = $"installations_{safeTitle}_{DateTime.UtcNow:yyyyMMdd}.csv";
+        var bytes = Encoding.UTF8.GetBytes(sb.ToString());
+        return File(bytes, "text/csv; charset=utf-8", fileName);
+    }
+
+    private record SessionDemandInfo(
+        HashSet<string> Courses, HashSet<string> Professors, HashSet<string> RequestNotes);
+
+    private static string Esc(string value)
+    {
+        if (string.IsNullOrEmpty(value)) return "";
+        if (value.Contains(';') || value.Contains('"') || value.Contains('\n'))
+            return $"\"{value.Replace("\"", "\"\"")}\"";
+        return value;
     }
 
     private async Task<ActionResult<SessionResponse>> HandleTransition(Func<Task<Core.Entities.Session?>> transition)

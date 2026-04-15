@@ -853,7 +853,7 @@ function TeacherNeedsView({ sessionId, startInCreateMode = false }: { sessionId:
 }
 
 function TechnicianReviewView({ sessionId }: { sessionId: number }) {
-  const { apiFetch } = useAuth();
+  const { apiFetch, token } = useAuth();
   const [needs, setNeeds] = useState<TeachingNeedResponse[]>([]);
   const [reviewLookups, setReviewLookups] = useState<NeedItemLookups>({
     softwareNames: [],
@@ -866,6 +866,7 @@ function TechnicianReviewView({ sessionId }: { sessionId: number }) {
   const [busyId, setBusyId] = useState<number | null>(null);
   const [rejectReason, setRejectReason] = useState<Record<number, string>>({});
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+  const [exporting, setExporting] = useState(false);
   function toggleExpand(id: number) {
     setExpandedIds((prev) => {
       const next = new Set(prev);
@@ -972,13 +973,45 @@ function TechnicianReviewView({ sessionId }: { sessionId: number }) {
           <h2 className="text-lg font-semibold text-stone-950">Approbation besoins</h2>
           <p className="mt-1 text-sm text-stone-600">Vue complète des besoins. Vous pouvez changer le statut, approuver ou rejeter.</p>
         </div>
-        <button
-          type="button"
-          onClick={() => void loadNeeds()}
-          className="rounded-xl border border-stone-200 px-3 py-1.5 text-xs text-stone-600 transition hover:bg-stone-50"
-        >
-          Rafraîchir
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={async () => {
+              setExporting(true);
+              try {
+                const resp = await fetch(`/api/v1/sessions/${sessionId}/export`, {
+                  headers: { Authorization: `Bearer ${token}` },
+                });
+                if (!resp.ok) throw new Error('Export failed');
+                const blob = await resp.blob();
+                const url = URL.createObjectURL(blob);
+                const disposition = resp.headers.get('content-disposition') ?? '';
+                const match = disposition.match(/filename="?([^";\n]+)"?/);
+                const fileName = match?.[1] ?? `installations_session_${sessionId}.csv`;
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                a.click();
+                URL.revokeObjectURL(url);
+              } catch (err) {
+                setError(getErrorMessage(err, 'Impossible d\'exporter la matrice d\'installations.'));
+              } finally {
+                setExporting(false);
+              }
+            }}
+            disabled={exporting}
+            className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-50"
+          >
+            {exporting ? 'Export...' : 'Exporter matrice d\'installations'}
+          </button>
+          <button
+            type="button"
+            onClick={() => void loadNeeds()}
+            className="rounded-xl border border-stone-200 px-3 py-1.5 text-xs text-stone-600 transition hover:bg-stone-50"
+          >
+            Rafraîchir
+          </button>
+        </div>
       </div>
 
       {error ? <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
