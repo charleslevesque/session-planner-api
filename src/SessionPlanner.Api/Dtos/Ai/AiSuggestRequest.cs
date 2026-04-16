@@ -26,3 +26,18 @@ public record AiReviewAnalysisDto(
     IReadOnlyList<AiHistoryComparisonDto> HistoryComparisons);
 
 public record AiHistoryComparisonDto(string SessionTitle, string Similarity);
+
+public record AutoFillRequestDto(
+    int SessionId,
+    int CourseId,
+    string ItemType,
+    Dictionary<string, string> CurrentValues);
+
+public record AutoFillResponseDto(
+    Dictionary<string, AutoFillSuggestionDto> Suggestions,
+    string Source);
+
+public record AutoFillSuggestionDto(
+    string Value,
+    string Reason,
+    float Confidence);

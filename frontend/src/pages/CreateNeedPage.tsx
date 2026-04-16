@@ -28,6 +28,7 @@ import type { SessionResponse } from '../types/sessions';
 import type { OSResponse, LaboratoryLookupResponse, PhysicalServerResponse } from '../types/admin';
 import type { AiSuggestedItem } from '../types/ai';
 import { AiSuggestionsPanel } from '../components/AiSuggestionsPanel';
+import { useAutoFill } from '../hooks/useAutoFill';
 
 const EMPTY_LOOKUPS: NeedItemLookups = {
   softwareNames: [],
@@ -78,6 +79,14 @@ export function CreateNeedPage() {
 
   const currentSchema = useMemo(() => getNeedItemSchema(selectedType, lookups), [selectedType, lookups]);
   const canAddItem = useMemo(() => isNeedItemValid(currentSchema, draftValues), [currentSchema, draftValues]);
+
+  const { suggestions: autoFillSuggestions, acceptSuggestion, dismissSuggestion } = useAutoFill({
+    sessionId: sId,
+    courseId: cId,
+    itemType: selectedType,
+    currentValues: draftValues,
+    enabled: !isEditMode,
+  });
 
   // In edit mode, submit is only possible from Draft or Rejected statuses.
   const canSubmit = !isEditMode || existingStatus === 'Draft' || existingStatus === 'Rejected';
@@ -603,19 +612,52 @@ export function CreateNeedPage() {
                   </label>
 
                   <div className="grid gap-4 md:grid-cols-2">
-                    {currentSchema.fields.map((field) => (
-                      <label key={field.name} className="block md:col-span-1">
-                        <span className="mb-1 block text-xs font-medium text-stone-600">
-                          {field.label}
-                          {field.required ? <span className="ml-0.5 text-rose-500">*</span> : null}
-                        </span>
-                        <FieldRenderer
-                          field={field}
-                          value={draftValues[field.name] ?? ''}
-                          onChange={(name, value) => setDraftValues((prev) => ({ ...prev, [name]: value }))}
-                        />
-                      </label>
-                    ))}
+                    {currentSchema.fields.map((field) => {
+                      const suggestion = autoFillSuggestions[field.name];
+                      return (
+                        <div key={field.name} className="block md:col-span-1">
+                          <label className="block">
+                            <span className="mb-1 block text-xs font-medium text-stone-600">
+                              {field.label}
+                              {field.required ? <span className="ml-0.5 text-rose-500">*</span> : null}
+                            </span>
+                            <FieldRenderer
+                              field={field}
+                              value={draftValues[field.name] ?? ''}
+                              onChange={(name, value) => setDraftValues((prev) => ({ ...prev, [name]: value }))}
+                            />
+                          </label>
+                          {suggestion && !(draftValues[field.name] ?? '').trim() ? (
+                            <div className="mt-1 flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const val = acceptSuggestion(field.name);
+                                  if (val) setDraftValues((prev) => ({ ...prev, [field.name]: val }));
+                                }}
+                                className="inline-flex items-center gap-1 rounded-lg border border-violet-200 bg-violet-50 px-2 py-0.5 text-[11px] text-violet-700 transition hover:bg-violet-100"
+                              >
+                                <span className="text-violet-400">✦</span>
+                                {field.type === 'select'
+                                  ? (field.options?.find((o) => o.value === suggestion.value)?.label ?? suggestion.value)
+                                  : suggestion.value.length > 40
+                                    ? suggestion.value.slice(0, 40) + '…'
+                                    : suggestion.value}
+                              </button>
+                              <span className="text-[10px] text-stone-400">{suggestion.reason}</span>
+                              <button
+                                type="button"
+                                onClick={() => dismissSuggestion(field.name)}
+                                className="text-[10px] text-stone-300 hover:text-stone-500"
+                                aria-label="Ignorer"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })}
                   </div>
 
                   <div className="flex gap-2">
