@@ -606,6 +606,218 @@ public class TeachingNeedsWorkflowControllerTests : IClassFixture<TeachingNeedWo
         approvedNeed.Items.First().ItemType.Should().Be("saas");
     }
 
+    // ------------------------------------------------------------------ One-Click Renewal
+
+    #region One-Click Renewal
+
+    private async Task<TeachingNeedResponse> CreateAndApproveNeedAsync(int sessionId, int courseId)
+    {
+        var need = await CreateNeedAsTeacherAsync(sessionId, courseId);
+
+        SetRole("professor");
+        var addItemResp = await _client.PostAsJsonAsync(
+            $"/api/v1/sessions/{sessionId}/needs/{need.Id}/items",
+            new AddNeedItemRequest("software", 1, 1, 1, null, null, null, null));
+        addItemResp.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var submitResp = await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need.Id}/submit", null);
+        submitResp.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        SetRole("admin");
+        (await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need.Id}/review", null))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+        (await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need.Id}/approve", null))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var getResp = await _client.GetAsync($"/api/v1/sessions/{sessionId}/needs/{need.Id}");
+        return (await getResp.Content.ReadFromJsonAsync<TeachingNeedResponse>())!;
+    }
+
+    [Fact]
+    public async Task RenewableCourses_ReturnsCoursesWithApprovedHistoryOnly()
+    {
+        var session1 = await CreateOpenSessionAsync("Renew S1");
+        var session2 = await CreateOpenSessionAsync("Renew S2");
+        var courseA = await CreateCourseAsync("RENEW_A");
+        var courseB = await CreateCourseAsync("RENEW_B");
+
+        await CreateAndApproveNeedAsync(session1, courseA);
+        await CreateNeedAsTeacherAsync(session1, courseB);
+
+        SetRole("professor");
+        var resp = await _client.GetAsync($"/api/v1/sessions/{session2}/needs/renewable-courses");
+        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+        var renewables = await resp.Content.ReadFromJsonAsync<List<RenewableCourseResponse>>();
+        renewables.Should().NotBeNull();
+        renewables!.Should().Contain(r => r.CourseId == courseA,
+            "courseA had an approved need in session1");
+        renewables.Should().NotContain(r => r.CourseId == courseB,
+            "courseB only had a draft need, not approved");
+    }
+
+    [Fact]
+    public async Task Renew_CreatesNewDraftWithItems()
+    {
+        var session1 = await CreateOpenSessionAsync("Renew Clone S1");
+        var session2 = await CreateOpenSessionAsync("Renew Clone S2");
+        var courseId = await CreateCourseAsync("RENEW_C");
+
+        var approved = await CreateAndApproveNeedAsync(session1, courseId);
+        approved.Items.Should().HaveCount(1, "we added 1 item before approval");
+
+        SetRole("professor");
+        var renewResp = await _client.PostAsync(
+            $"/api/v1/sessions/{session2}/needs/renew/{courseId}", null);
+        renewResp.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var result = await renewResp.Content.ReadFromJsonAsync<RenewNeedsResponse>();
+        result.Should().NotBeNull();
+        result!.Need.SessionId.Should().Be(session2);
+        result.Need.CourseId.Should().Be(courseId);
+        result.Need.Status.Should().Be("Draft");
+        result.Need.Items.Should().HaveCount(1, "items are cloned from the source need");
+        result.Changes.Should().NotBeEmpty("at least the 'renewed from' message should be present");
+    }
+
+    [Fact]
+    public async Task Renew_WhenNoHistory_Returns409()
+    {
+        var session = await CreateOpenSessionAsync("Renew No History");
+        var courseId = await CreateCourseAsync("RENEW_NONE");
+
+        SetRole("professor");
+        var resp = await _client.PostAsync($"/api/v1/sessions/{session}/needs/renew/{courseId}", null);
+        resp.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task Renew_UpgradesSoftwareVersionToLatest()
+    {
+        var session1 = await CreateOpenSessionAsync("Renew Upgrade S1");
+        var session2 = await CreateOpenSessionAsync("Renew Upgrade S2");
+        var courseId = await CreateCourseAsync("RENEW_UPG");
+
+        var need = await CreateNeedAsTeacherAsync(session1, courseId);
+
+        SetRole("professor");
+        var addItemResp = await _client.PostAsJsonAsync(
+            $"/api/v1/sessions/{session1}/needs/{need.Id}/items",
+            new AddNeedItemRequest("software", 1, 1, 1, null, null, null, null));
+        addItemResp.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        (await _client.PostAsync($"/api/v1/sessions/{session1}/needs/{need.Id}/submit", null))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+
+        SetRole("admin");
+        (await _client.PostAsync($"/api/v1/sessions/{session1}/needs/{need.Id}/review", null))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+        (await _client.PostAsync($"/api/v1/sessions/{session1}/needs/{need.Id}/approve", null))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+
+        SetRole("professor");
+        var renewResp = await _client.PostAsync(
+            $"/api/v1/sessions/{session2}/needs/renew/{courseId}", null);
+        renewResp.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var result = await renewResp.Content.ReadFromJsonAsync<RenewNeedsResponse>();
+        result.Should().NotBeNull();
+
+        var item = result!.Need.Items.First();
+        item.SoftwareId.Should().Be(1);
+        item.SoftwareVersionId.Should().Be(2, "v2 is the latest version seeded for software=1");
+    }
+
+    [Fact]
+    public async Task Renew_AutoAssociatesCourseWithSession()
+    {
+        var session1 = await CreateOpenSessionAsync("AutoAssoc S1");
+        var session2 = await CreateOpenSessionAsync("AutoAssoc S2");
+        var courseId = await CreateCourseAsync("RENEW_ASSOC");
+
+        await CreateAndApproveNeedAsync(session1, courseId);
+
+        SetRole("admin");
+        var coursesBefore = await _client.GetFromJsonAsync<List<SessionCourseResponse>>(
+            $"/api/v1/sessions/{session2}/courses");
+        coursesBefore!.Should().NotContain(c => c.Id == courseId,
+            "course should not be associated with session2 before renewal");
+
+        SetRole("professor");
+        var renewResp = await _client.PostAsync(
+            $"/api/v1/sessions/{session2}/needs/renew/{courseId}", null);
+        renewResp.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var result = await renewResp.Content.ReadFromJsonAsync<RenewNeedsResponse>();
+        result!.Changes.Should().Contain(c => c.Contains("associé automatiquement"),
+            "the changes should mention the auto-association");
+
+        SetRole("admin");
+        var coursesAfter = await _client.GetFromJsonAsync<List<SessionCourseResponse>>(
+            $"/api/v1/sessions/{session2}/courses");
+        coursesAfter!.Should().Contain(c => c.Id == courseId,
+            "course should now be associated with session2 after renewal");
+    }
+
+    [Fact]
+    public async Task RenewAll_RenewsMultipleCoursesAtOnce()
+    {
+        var session1 = await CreateOpenSessionAsync("RenewAll S1");
+        var session2 = await CreateOpenSessionAsync("RenewAll S2");
+        var courseA = await CreateCourseAsync("RALL_A");
+        var courseB = await CreateCourseAsync("RALL_B");
+
+        await CreateAndApproveNeedAsync(session1, courseA);
+        await CreateAndApproveNeedAsync(session1, courseB);
+
+        SetRole("professor");
+        var resp = await _client.PostAsync($"/api/v1/sessions/{session2}/needs/renew-all", null);
+        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var result = await resp.Content.ReadFromJsonAsync<RenewAllResponse>();
+        result.Should().NotBeNull();
+        result!.TotalCourses.Should().BeGreaterThanOrEqualTo(2);
+        result.Renewed.Should().Contain(r => r.Need.CourseId == courseA);
+        result.Renewed.Should().Contain(r => r.Need.CourseId == courseB);
+
+        SetRole("admin");
+        var courses = await _client.GetFromJsonAsync<List<SessionCourseResponse>>(
+            $"/api/v1/sessions/{session2}/courses");
+        courses!.Should().Contain(c => c.Id == courseA);
+        courses!.Should().Contain(c => c.Id == courseB);
+    }
+
+    [Fact]
+    public async Task RenewAll_SkipsCoursesThatAlreadyHaveNeeds()
+    {
+        var session1 = await CreateOpenSessionAsync("RenewAll Skip S1");
+        var session2 = await CreateOpenSessionAsync("RenewAll Skip S2");
+        var courseA = await CreateCourseAsync("RSKIP_A");
+        var courseB = await CreateCourseAsync("RSKIP_B");
+
+        await CreateAndApproveNeedAsync(session1, courseA);
+        await CreateAndApproveNeedAsync(session1, courseB);
+
+        SetRole("admin");
+        await _client.PutAsJsonAsync($"/api/v1/sessions/{session2}/courses", new { courseIds = new[] { courseB } });
+
+        SetRole("professor");
+        await _client.PostAsJsonAsync(
+            $"/api/v1/sessions/{session2}/needs",
+            new CreateTeachingNeedRequest(courseB, null, "Already exists", null, null, null, null, null, null));
+
+        var resp = await _client.PostAsync($"/api/v1/sessions/{session2}/needs/renew-all", null);
+        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var result = await resp.Content.ReadFromJsonAsync<RenewAllResponse>();
+        result.Should().NotBeNull();
+        result!.Renewed.Should().Contain(r => r.Need.CourseId == courseA,
+            "courseA should be renewed because it had no need in session2");
+        result.Renewed.Should().NotContain(r => r.Need.CourseId == courseB,
+            "courseB should be skipped because it already has a need in session2");
+    }
+
+    #endregion
+
     /// <summary>
     /// Approved needs must not appear in the active-needs list when
     /// the teacher requests mine?status=approved (it should be empty
