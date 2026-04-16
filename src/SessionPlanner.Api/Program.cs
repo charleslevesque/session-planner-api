@@ -15,6 +15,7 @@ using Microsoft.OpenApi;
 using Swashbuckle.AspNetCore.Filters;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
 const string FrontendCorsPolicy = "FrontendCors";
 
 builder.Services.AddEndpointsApiExplorer();
@@ -96,6 +97,7 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ITeachingNeedService, TeachingNeedService>();
 builder.Services.AddScoped<ILaboratorySoftwareService, LaboratorySoftwareService>();
 builder.Services.AddScoped<IInstallationCheckService, InstallationCheckService>();
+builder.Services.AddHttpClient<IAiSuggestionService, AiSuggestionService>();
 
 var jwtKey = builder.Configuration["Jwt:Key"];
 
