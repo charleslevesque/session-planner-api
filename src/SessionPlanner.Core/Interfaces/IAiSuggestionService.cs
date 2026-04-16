@@ -5,6 +5,7 @@ public interface IAiSuggestionService
     Task<AiSuggestionsResult> SuggestItemsAsync(int sessionId, int courseId, string? itemType = null);
     Task<AiReviewAnalysis> AnalyzeNeedForReviewAsync(int sessionId, int needId);
     Task<AutoFillResult> AutoFillFieldsAsync(AutoFillRequest request);
+    Task<RejectionAssistResult> GetRejectionAssistanceAsync(int sessionId, int needId);
     bool IsConfigured { get; }
 }
 
@@ -45,3 +46,13 @@ public record AutoFillSuggestion(
     string Value,
     string Reason,
     float Confidence);
+
+public record RejectionAssistResult(
+    string Explanation,
+    IReadOnlyList<RejectionCorrectionStep> Steps,
+    string? RevisedNotes);
+
+public record RejectionCorrectionStep(
+    string Action,
+    string Target,
+    string Detail);
