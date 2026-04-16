@@ -14,6 +14,7 @@ import type {
 } from '../types/needs';
 import type { SessionResponse } from '../types/sessions';
 import type { LaboratoryLookupResponse, OSResponse, PhysicalServerResponse } from '../types/admin';
+import { AiReviewPanel } from '../components/AiReviewPanel';
 
 interface LocalNeedItem {
   id: string;
@@ -1046,6 +1047,14 @@ function TechnicianReviewView({ sessionId }: { sessionId: number }) {
                       need={need}
                       lookups={reviewLookups}
                     />
+
+                    {need.status === 'Submitted' || need.status === 'UnderReview' ? (
+                      <AiReviewPanel
+                        sessionId={sessionId}
+                        needId={need.id}
+                        onUseRejectReason={(reason) => setRejectReason((prev) => ({ ...prev, [need.id]: reason }))}
+                      />
+                    ) : null}
 
                     {need.status === 'Submitted' ? (
                       <div className="mt-3">

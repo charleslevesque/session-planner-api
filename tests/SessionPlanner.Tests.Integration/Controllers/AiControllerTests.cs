@@ -46,5 +46,14 @@ public class AiControllerTests : IClassFixture<CustomWebApplicationFactory>
         response.StatusCode.Should().BeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.ServiceUnavailable);
     }
 
+    [Fact]
+    public async Task AnalyzeNeed_WithoutApiKey_Returns503()
+    {
+        var response = await _client.PostAsJsonAsync($"{BaseUrl}/analyze-need",
+            new { sessionId = 1, needId = 1 });
+
+        response.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+    }
+
     private record StatusResponse(bool Available);
 }
