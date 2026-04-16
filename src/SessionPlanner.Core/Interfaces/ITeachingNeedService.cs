@@ -53,6 +53,13 @@ public interface ITeachingNeedService
     /// <summary>Creates a new Draft need in the given session by cloning items from a previously approved need. Throws InvalidOperationException if session not Open or source need not found/not Approved.</summary>
     Task<TeachingNeed> CloneFromTemplateAsync(int sessionId, int personnelId, int sourceNeedId);
 
+    /// <summary>
+    /// Renews teaching needs for a course in a new session by cloning the latest approved need
+    /// and upgrading software versions to the latest catalog entries.
+    /// Returns the cloned need and a list of changes made.
+    /// </summary>
+    Task<(TeachingNeed Need, IReadOnlyList<string> Changes)> RenewForSessionAsync(int sessionId, int personnelId, int courseId);
+
     /// <summary>Returns the PersonnelId linked to the given userId, or null if none.</summary>
     Task<int?> GetPersonnelIdForUserAsync(int userId);
 

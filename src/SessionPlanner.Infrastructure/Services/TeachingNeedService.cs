@@ -136,6 +136,7 @@ public class TeachingNeedService : ITeachingNeedService
             .Include(n => n.Session)
             .Include(n => n.Personnel)
             .Include(n => n.Course)
+            .Include(n => n.Items)
             .Where(n => n.PersonnelId == personnelId);
 
         if (sessionId.HasValue)
@@ -986,6 +987,94 @@ public class TeachingNeedService : ITeachingNeedService
 
         return await GetByIdAsync(sessionId, cloned.Id)
             ?? throw new InvalidOperationException("Failed to reload cloned teaching need.");
+    }
+
+    public async Task<(TeachingNeed Need, IReadOnlyList<string> Changes)> RenewForSessionAsync(
+        int sessionId, int personnelId, int courseId)
+    {
+        var session = await _db.Sessions.FindAsync(sessionId)
+            ?? throw new InvalidOperationException("Session not found.");
+
+        if (session.Status != SessionStatus.Open)
+            throw new InvalidOperationException("Cannot create a need: the session is not open.");
+
+        var source = await _db.TeachingNeeds
+            .Include(n => n.Items).ThenInclude(i => i.Software)
+            .Include(n => n.Items).ThenInclude(i => i.SoftwareVersion)
+            .Include(n => n.Items).ThenInclude(i => i.OS)
+            .Include(n => n.Session)
+            .Where(n => n.CourseId == courseId
+                        && n.SessionId != sessionId
+                        && n.Status == NeedStatus.Approved)
+            .OrderByDescending(n => n.Session!.EndDate)
+            .ThenByDescending(n => n.CreatedAt)
+            .FirstOrDefaultAsync()
+            ?? throw new InvalidOperationException(
+                "No approved need found for this course in a previous session.");
+
+        var changes = new List<string>();
+        changes.Add($"Demande renouvelée depuis la session « {source.Session?.Title ?? source.SessionId.ToString()} »");
+
+        var cloned = new TeachingNeed
+        {
+            SessionId = sessionId,
+            PersonnelId = personnelId,
+            CourseId = source.CourseId,
+            Notes = source.Notes,
+            ExpectedStudents = source.ExpectedStudents,
+            HasTechNeeds = source.HasTechNeeds,
+            FoundAllCourses = source.FoundAllCourses,
+            DesiredModifications = source.DesiredModifications,
+            AllowsUpdates = source.AllowsUpdates,
+            AdditionalComments = source.AdditionalComments,
+        };
+
+        _db.TeachingNeeds.Add(cloned);
+        await _db.SaveChangesAsync();
+
+        foreach (var item in source.Items)
+        {
+            int? newVersionId = item.SoftwareVersionId;
+            int? newOsId = item.OSId;
+
+            if (item.SoftwareId.HasValue && item.SoftwareVersionId.HasValue)
+            {
+                var latestVersion = await _db.SoftwareVersions
+                    .Where(sv => sv.SoftwareId == item.SoftwareId.Value)
+                    .OrderByDescending(sv => sv.Id)
+                    .FirstOrDefaultAsync();
+
+                if (latestVersion != null && latestVersion.Id != item.SoftwareVersionId)
+                {
+                    var oldLabel = item.SoftwareVersion?.VersionNumber ?? "?";
+                    var softwareName = item.Software?.Name ?? $"Software #{item.SoftwareId}";
+                    changes.Add(
+                        $"{softwareName} : version mise à jour {oldLabel} → {latestVersion.VersionNumber}");
+                    newVersionId = latestVersion.Id;
+                    newOsId = latestVersion.OsId;
+                }
+            }
+
+            _db.TeachingNeedItems.Add(new TeachingNeedItem
+            {
+                TeachingNeedId = cloned.Id,
+                ItemType = item.ItemType,
+                SoftwareId = item.SoftwareId,
+                SoftwareVersionId = newVersionId,
+                OSId = newOsId,
+                Quantity = item.Quantity,
+                Description = item.Description,
+                Notes = item.Notes,
+                DetailsJson = item.DetailsJson,
+            });
+        }
+
+        await _db.SaveChangesAsync();
+
+        var result = await GetByIdAsync(sessionId, cloned.Id)
+            ?? throw new InvalidOperationException("Failed to reload renewed teaching need.");
+
+        return (result, changes);
     }
 
     private static void EnsureStatus(TeachingNeed need, NeedStatus expectedStatus, string message)
