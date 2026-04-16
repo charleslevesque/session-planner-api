@@ -70,7 +70,7 @@ a{color:inherit;text-decoration:none;}
     <div class="leg"><div class="ld" style="background:#3b82f6"></div>Controller</div>
     <div class="leg"><div class="ld" style="background:#10b981"></div>Service</div>
     <div class="leg"><div class="ld" style="background:#f59e0b"></div>DbContext</div>
-    <div class="leg"><div class="ld" style="background:#8b5cf6"></div>JWT / Helper</div>
+    <div class="leg"><div class="ld" style="background:#8b5cf6"></div>JWT / OpenAI</div>
     <div class="leg"><svg width="30" height="10"><line x1="0" y1="5" x2="22" y2="5" stroke="#8b949e" stroke-width="1.5"/><path d="M20,2 L26,5 L20,8" fill="none" stroke="#8b949e" stroke-width="1.2"/></svg>call</div>
     <div class="leg"><svg width="30" height="10"><line x1="0" y1="5" x2="22" y2="5" stroke="#484f58" stroke-width="1.5" stroke-dasharray="4,2"/><path d="M20,2 L26,5 L20,8" fill="none" stroke="#484f58" stroke-width="1.2"/></svg>return</div>
   </div>
@@ -82,6 +82,7 @@ a{color:inherit;text-decoration:none;}
   <button class="tab-btn" onclick="showTab('needs',this)">Teaching Needs</button>
   <button class="tab-btn" onclick="showTab('users',this)">Users</button>
   <button class="tab-btn" onclick="showTab('infra',this)">Infrastructure</button>
+  <button class="tab-btn" onclick="showTab('ai',this)">AI / Smart Features</button>
 </div>
 
 <div class="tab-content active" id="tab-auth">
@@ -103,6 +104,10 @@ a{color:inherit;text-decoration:none;}
 <div class="tab-content" id="tab-infra">
   <div class="diagram-note">Infrastructure management — laboratories, workstations, virtual machines, and personnel.</div>
   <div class="seq-grid" id="grid-infra"></div>
+</div>
+<div class="tab-content" id="tab-ai">
+  <div class="diagram-note">AI-powered features — auto-fill suggestions, admin review analysis, rejection correction assistant, and one-click renewal with version auto-upgrade.</div>
+  <div class="seq-grid" id="grid-ai"></div>
 </div>
 
 <!-- ── Modal ── -->
@@ -252,6 +257,9 @@ const VS={n:'VMService',t:'svc'};
 const PS={n:'PersonnelService',t:'svc'};
 const DB={n:'DbContext',t:'db'};
 const JW={n:'JwtHelper',t:'jwt'};
+const AIC={n:'AiController',t:'ctrl'};
+const AIS={n:'AiSuggestionService',t:'svc'};
+const OAI={n:'OpenAI API',t:'jwt'};
 
 // ── AUTH ──────────────────────────────────────────────────────────────────────
 card('grid-auth','01','Register',
@@ -674,6 +682,96 @@ card('grid-infra','30','Manage Personnel',
   {f:3,t:2,l:'Personnel',r:true},
   {f:2,t:1,l:'PersonnelOperationResult',r:true},
   {f:1,t:0,l:'201 Created | 409 Conflict',r:true},
+]);
+
+// ── AI / SMART FEATURES ──────────────────────────────────────────────────
+card('grid-ai','31','AI Auto-Fill',
+'Suggest values for empty form fields based on course history and software catalog (no OpenAI needed).',
+[CL,AIC,AIS,DB],[
+  {f:0,t:1,l:'POST /ai/auto-fill'},
+  {f:1,t:2,l:'AutoFillFieldsAsync(req)'},
+  {f:2,t:3,l:'Query course history (approved needs)'},
+  {f:3,t:2,l:'List<TeachingNeed> + items',r:true},
+  {f:2,t:3,l:'Query software catalog (versions, OS)'},
+  {f:3,t:2,l:'Software + SoftwareVersion',r:true},
+  {f:2,t:2,l:'Match fields from history + catalog'},
+  {f:2,t:1,l:'AutoFillResult (suggestions per field)',r:true},
+  {f:1,t:0,l:'200 OK + suggestions{}',r:true},
+]);
+
+card('grid-ai','32','AI Item Suggestions',
+'OpenAI-powered suggestions for software/items to add to a teaching need.',
+[CL,AIC,AIS,DB,OAI],[
+  {f:0,t:1,l:'POST /ai/suggest-items'},
+  {f:1,t:2,l:'SuggestItemsAsync(sid, courseId)'},
+  {f:2,t:3,l:'Build context (history, catalog, needs)'},
+  {f:3,t:2,l:'CourseContext',r:true},
+  {f:2,t:4,l:'POST /chat/completions (prompt)'},
+  {f:4,t:2,l:'JSON suggestions',r:true},
+  {f:2,t:2,l:'Parse & validate suggestions'},
+  {f:2,t:1,l:'AiSuggestionsResult',r:true},
+  {f:1,t:0,l:'200 OK + suggestions[]',r:true},
+]);
+
+card('grid-ai','33','AI Admin Review',
+'OpenAI analyzes a submitted need to help admin decide approve/reject.',
+[CL,AIC,AIS,DB,OAI],[
+  {f:0,t:1,l:'POST /ai/analyze-need'},
+  {f:1,t:2,l:'AnalyzeNeedForReviewAsync(sid, needId)'},
+  {f:2,t:3,l:'Load need + items + history + lab status'},
+  {f:3,t:2,l:'ReviewContext',r:true},
+  {f:2,t:4,l:'POST /chat/completions (review prompt)'},
+  {f:4,t:2,l:'JSON analysis',r:true},
+  {f:2,t:2,l:'Parse: summary, alerts, suggestedAction'},
+  {f:2,t:1,l:'AiReviewAnalysis',r:true},
+  {f:1,t:0,l:'200 OK + analysis',r:true},
+]);
+
+card('grid-ai','34','AI Rejection Assist',
+'After rejection, AI analyzes the reason and suggests concrete correction steps.',
+[CL,AIC,AIS,DB,OAI],[
+  {f:0,t:1,l:'POST /ai/rejection-assist'},
+  {f:1,t:2,l:'GetRejectionAssistanceAsync(sid, needId)'},
+  {f:2,t:3,l:'Load need + items + rejectionReason'},
+  {f:3,t:2,l:'TeachingNeed (Rejected)',r:true},
+  {f:2,t:4,l:'POST /chat/completions (correction prompt)'},
+  {f:4,t:2,l:'JSON correction steps',r:true},
+  {f:2,t:2,l:'Parse: explanation, steps[], revisedNotes'},
+  {f:2,t:1,l:'RejectionAssistResult',r:true},
+  {f:1,t:0,l:'200 OK + correction guidance',r:true},
+]);
+
+card('grid-ai','35','One-Click Renewal',
+'Renew all approved needs from a previous session with automatic version upgrades.',
+[CL,TC,TS,DB],[
+  {f:0,t:1,l:'POST /sessions/{sid}/needs/renew-all'},
+  {f:1,t:2,l:'RenewAllForSessionAsync(sid, personnelId)'},
+  {f:2,t:3,l:'Find all approved needs (other sessions)'},
+  {f:3,t:2,l:'List<TeachingNeed>',r:true},
+  {f:2,t:2,l:'Filter: no existing needs in target session'},
+  {f:2,t:3,l:'Clone each need + items to target session'},
+  {f:3,t:2,l:'new TeachingNeed(s)',r:true},
+  {f:2,t:3,l:'Auto-upgrade software versions (latest)'},
+  {f:3,t:2,l:'updated versions',r:true},
+  {f:2,t:3,l:'Auto-associate courses via SessionCourse'},
+  {f:3,t:2,l:'SessionCourse created',r:true},
+  {f:2,t:1,l:'RenewAllResponse (renewed[], changes[])',r:true},
+  {f:1,t:0,l:'200 OK + renewal summary',r:true},
+]);
+
+card('grid-ai','36','Export Installation Matrix',
+'Export a pivoted CSV with labs as columns and software as rows for technician installation.',
+[CL,TC,TS,DB],[
+  {f:0,t:1,l:'GET /sessions/{sid}/needs/export'},
+  {f:1,t:2,l:'ExportInstallationMatrix(sid)'},
+  {f:2,t:3,l:'Load session + all approved needs + items'},
+  {f:3,t:2,l:'List<TeachingNeed> with items',r:true},
+  {f:2,t:3,l:'Load labs + LaboratorySoftware matrix'},
+  {f:3,t:2,l:'Lab data + install statuses',r:true},
+  {f:2,t:2,l:'Pivot: labs as columns, software as rows'},
+  {f:2,t:2,l:'Include: versions, OS, courses, professors'},
+  {f:2,t:1,l:'CSV file content',r:true},
+  {f:1,t:0,l:'200 OK + file download (.csv)',r:true},
 ]);
 
 // ── Tab switcher ──────────────────────────────────────────────────────────────

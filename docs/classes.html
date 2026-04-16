@@ -635,9 +635,9 @@ a{color:inherit;text-decoration:none;}
      TAB 4 — SERVICE INTERFACES
 ════════════════════════════════════════ -->
 <div class="tab-content" id="tab-services">
-<div class="diagram-note">Service interface contracts — the layer between controllers and the database context.</div>
+<div class="diagram-note">Service interface contracts — the layer between controllers and the database context. Includes AI-powered suggestion service.</div>
 <div class="wrap">
-<div style="position:relative;width:1300px;height:700px;background:#0d1117;">
+<div style="position:relative;width:1300px;height:820px;background:#0d1117;">
 
 <!-- IAuthService -->
 <div class="card iface" style="left:60px;top:60px;width:270px;height:226px">
@@ -668,7 +668,7 @@ a{color:inherit;text-decoration:none;}
 </div>
 
 <!-- ITeachingNeedService -->
-<div class="card iface" style="left:660px;top:60px;width:292px;height:314px">
+<div class="card iface" style="left:660px;top:60px;width:304px;height:380px">
   <div class="hd">ITeachingNeedService <small>&lt;&lt;interface&gt;&gt;</small></div><div class="bd">
     <div class="row mt"><span class="n">GetAllBySessionAsync(sid, personnelId)</span><span class="bmt">T</span></div>
     <div class="row mt"><span class="n">GetByIdAsync(sid, id)</span><span class="bmt">T</span></div>
@@ -682,17 +682,22 @@ a{color:inherit;text-decoration:none;}
     <div class="row mt"><span class="n">ApproveAsync(sid, id, reviewerId)</span><span class="bmt">T</span></div>
     <div class="row mt"><span class="n">RejectAsync(sid, id, reason, reviewerId)</span><span class="bmt">T</span></div>
     <div class="row mt"><span class="n">ReviseAsync(sid, id)</span><span class="bmt">T</span></div>
+    <div class="div"></div>
+    <div class="row mt"><span class="n">RenewForSessionAsync(sid, pid, courseId)</span><span class="bmt">T</span></div>
+    <div class="row mt"><span class="n">RenewAllForSessionAsync(sid, pid)</span><span class="bmt">T</span></div>
   </div>
 </div>
 
 <!-- IUserService -->
-<div class="card iface" style="left:60px;top:320px;width:270px;height:204px">
+<div class="card iface" style="left:60px;top:320px;width:270px;height:248px">
   <div class="hd">IUserService <small>&lt;&lt;interface&gt;&gt;</small></div><div class="bd">
-    <div class="row mt"><span class="n">GetAllActiveWithRolesAsync()</span><span class="bmt">T</span></div>
+    <div class="row mt"><span class="n">GetAllWithRolesAsync()</span><span class="bmt">T</span></div>
     <div class="row mt"><span class="n">GetByIdWithRolesAsync(id)</span><span class="bmt">T</span></div>
     <div class="row mt"><span class="n">CreateAsync(username, pwd, role)</span><span class="bmt">T</span></div>
     <div class="row mt"><span class="n">UpdateRoleAsync(id, roleName)</span><span class="bmt">T</span></div>
     <div class="row mt"><span class="n">UpdatePasswordAsync(id, newPwd)</span><span class="bmt">T</span></div>
+    <div class="row mt"><span class="n">DeactivateAsync(id)</span><span class="bmt">T</span></div>
+    <div class="row mt"><span class="n">ReactivateAsync(id)</span><span class="bmt">T</span></div>
     <div class="row mt"><span class="n">DeleteAsync(id)</span><span class="bmt">T</span></div>
   </div>
 </div>
@@ -718,6 +723,20 @@ a{color:inherit;text-decoration:none;}
     <div class="row mt"><span class="n">DeleteAsync(id)</span><span class="bmt">T</span></div>
     <div class="row mt"><span class="n">AddWorkstationAsync(labId, name, osId)</span><span class="bmt">T</span></div>
     <div class="row mt"><span class="n">RemoveWorkstationAsync(labId, wsId)</span><span class="bmt">T</span></div>
+  </div>
+</div>
+
+<!-- IAiSuggestionService -->
+<div class="card iface" style="left:60px;top:560px;width:296px;height:226px">
+  <div class="hd">IAiSuggestionService <small>&lt;&lt;interface&gt;&gt;</small></div><div class="bd">
+    <div class="row mt"><span class="n">SuggestItemsAsync(sid, courseId, type?)</span><span class="bmt">T</span></div>
+    <div class="row mt"><span class="n">AnalyzeNeedForReviewAsync(sid, needId)</span><span class="bmt">T</span></div>
+    <div class="row mt"><span class="n">AutoFillFieldsAsync(request)</span><span class="bmt">T</span></div>
+    <div class="row mt"><span class="n">GetRejectionAssistanceAsync(sid, needId)</span><span class="bmt">T</span></div>
+    <div class="row r"><span class="n">IsConfigured</span><span class="t">bool</span></div>
+    <div class="div"></div>
+    <div class="row r"><span class="n" style="color:#484f58">uses OpenAI GPT-4o-mini</span></div>
+    <div class="row r"><span class="n" style="color:#484f58">+ local history/catalog lookups</span></div>
   </div>
 </div>
 
