@@ -75,4 +75,25 @@ public class AiController : ControllerBase
 
         return Ok(response);
     }
+
+    [HttpPost("auto-fill")]
+    [SwaggerOperation(
+        Summary = "Get auto-fill suggestions for form fields",
+        Description = "Returns suggested values for empty fields based on course history and software catalog. Does not require OpenAI — works with local data.")]
+    [ProducesResponseType(typeof(AutoFillResponseDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> AutoFill([FromBody] AutoFillRequestDto request)
+    {
+        var coreRequest = new AutoFillRequest(
+            request.SessionId, request.CourseId, request.ItemType, request.CurrentValues);
+
+        var result = await _aiService.AutoFillFieldsAsync(coreRequest);
+
+        var response = new AutoFillResponseDto(
+            Suggestions: result.Suggestions.ToDictionary(
+                kv => kv.Key,
+                kv => new AutoFillSuggestionDto(kv.Value.Value, kv.Value.Reason, kv.Value.Confidence)),
+            Source: result.Source);
+
+        return Ok(response);
+    }
 }

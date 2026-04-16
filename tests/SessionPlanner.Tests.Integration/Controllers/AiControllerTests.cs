@@ -44,5 +44,63 @@ public class AiControllerTests : IClassFixture<CustomWebApplicationFactory>
         response.StatusCode.Should().BeOneOf(HttpStatusCode.OK, HttpStatusCode.ServiceUnavailable);
     }
 
+    [Fact]
+    public async Task AutoFill_ReturnsOkWithSuggestionsStructure()
+    {
+        var response = await _client.PostAsJsonAsync($"{BaseUrl}/auto-fill",
+            new
+            {
+                sessionId = 1,
+                courseId = 1,
+                itemType = "software",
+                currentValues = new Dictionary<string, string> { ["softwareName"] = "Eclipse" }
+            });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<AutoFillResponse>();
+        body.Should().NotBeNull();
+        body!.Source.Should().NotBeNull();
+        body.Suggestions.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task AutoFill_EmptyValues_ReturnsNoSuggestions()
+    {
+        var response = await _client.PostAsJsonAsync($"{BaseUrl}/auto-fill",
+            new
+            {
+                sessionId = 1,
+                courseId = 1,
+                itemType = "software",
+                currentValues = new Dictionary<string, string> { ["softwareName"] = "" }
+            });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<AutoFillResponse>();
+        body.Should().NotBeNull();
+        body!.Source.Should().Be("none");
+        body.Suggestions.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task AutoFill_UnknownItemType_ReturnsEmpty()
+    {
+        var response = await _client.PostAsJsonAsync($"{BaseUrl}/auto-fill",
+            new
+            {
+                sessionId = 1,
+                courseId = 1,
+                itemType = "unknown_type",
+                currentValues = new Dictionary<string, string> { ["foo"] = "bar" }
+            });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<AutoFillResponse>();
+        body.Should().NotBeNull();
+        body!.Source.Should().Be("none");
+    }
+
     private record StatusResponse(bool Available);
+    private record AutoFillSuggestionDto(string Value, string Reason, float Confidence);
+    private record AutoFillResponse(Dictionary<string, AutoFillSuggestionDto> Suggestions, string Source);
 }

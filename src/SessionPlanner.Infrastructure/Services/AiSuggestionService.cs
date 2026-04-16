@@ -480,4 +480,281 @@ public class AiSuggestionService : IAiSuggestionService
     private record HistoryItem(string Type, string? Software, string? Version, string? Os, string? Notes);
     private record CatalogEntry(string Name, string? InstallCommand, List<CatalogVersion> Versions);
     private record CatalogVersion(string Version, string Os);
+
+    // ───── Auto-fill ─────
+
+    public async Task<AutoFillResult> AutoFillFieldsAsync(AutoFillRequest request)
+    {
+        var result = request.ItemType switch
+        {
+            "software" => await AutoFillSoftwareAsync(request),
+            "saas" => await AutoFillSaasAsync(request),
+            "virtual_machine" => await AutoFillVmAsync(request),
+            "physical_server" => await AutoFillServerAsync(request),
+            "configuration" => await AutoFillConfigurationAsync(request),
+            "equipment_loan" => await AutoFillEquipmentAsync(request),
+            _ => new AutoFillResult(new Dictionary<string, AutoFillSuggestion>(), "none")
+        };
+
+        return result;
+    }
+
+    private async Task<AutoFillResult> AutoFillSoftwareAsync(AutoFillRequest req)
+    {
+        var suggestions = new Dictionary<string, AutoFillSuggestion>();
+        var softwareName = req.CurrentValues.GetValueOrDefault("softwareName", "").Trim();
+        var source = "none";
+
+        if (string.IsNullOrEmpty(softwareName)) return new AutoFillResult(suggestions, source);
+
+        // 1. Check history for this course
+        var historyItems = await _db.TeachingNeeds
+            .Where(n => n.CourseId == req.CourseId && n.Status == Core.Enums.NeedStatus.Approved)
+            .OrderByDescending(n => n.ReviewedAt)
+            .SelectMany(n => n.Items)
+            .Include(i => i.Software)
+            .Include(i => i.SoftwareVersion)
+            .Include(i => i.OS)
+            .Where(i => i.ItemType == "software" && i.Software != null
+                        && EF.Functions.Like(i.Software.Name, softwareName))
+            .Take(5)
+            .ToListAsync();
+
+        if (historyItems.Count > 0)
+        {
+            source = "history";
+            var best = historyItems[0];
+
+            if (string.IsNullOrEmpty(req.CurrentValues.GetValueOrDefault("versionNumber")) && best.SoftwareVersion != null)
+                suggestions["versionNumber"] = new AutoFillSuggestion(
+                    best.SoftwareVersion.VersionNumber,
+                    "Dernière version utilisée pour ce cours",
+                    0.9f);
+
+            if (string.IsNullOrEmpty(req.CurrentValues.GetValueOrDefault("osId")) && best.OSId.HasValue)
+                suggestions["osId"] = new AutoFillSuggestion(
+                    best.OSId.Value.ToString(),
+                    "OS utilisé précédemment pour ce cours",
+                    0.9f);
+
+            if (string.IsNullOrEmpty(req.CurrentValues.GetValueOrDefault("installationDetails")) && !string.IsNullOrEmpty(best.Software?.InstallCommand))
+                suggestions["installationDetails"] = new AutoFillSuggestion(
+                    best.Software.InstallCommand,
+                    "Commande du catalogue",
+                    0.85f);
+
+            var historyNotes = historyItems
+                .Where(i => !string.IsNullOrWhiteSpace(i.Notes))
+                .Select(i => i.Notes!)
+                .FirstOrDefault();
+            if (string.IsNullOrEmpty(req.CurrentValues.GetValueOrDefault("notes")) && historyNotes != null)
+                suggestions["notes"] = new AutoFillSuggestion(
+                    historyNotes,
+                    "Notes de la demande précédente",
+                    0.7f);
+
+            return new AutoFillResult(suggestions, source);
+        }
+
+        // 2. Fallback: catalog lookup
+        var catalogSw = await _db.Softwares
+            .Include(s => s.SoftwareVersions).ThenInclude(v => v.OS)
+            .FirstOrDefaultAsync(s => EF.Functions.Like(s.Name, softwareName));
+
+        if (catalogSw != null)
+        {
+            source = "catalog";
+
+            var latestVersion = catalogSw.SoftwareVersions
+                .OrderByDescending(v => v.Id)
+                .FirstOrDefault();
+
+            if (latestVersion != null && string.IsNullOrEmpty(req.CurrentValues.GetValueOrDefault("versionNumber")))
+                suggestions["versionNumber"] = new AutoFillSuggestion(
+                    latestVersion.VersionNumber,
+                    "Dernière version du catalogue",
+                    0.8f);
+
+            if (latestVersion != null && string.IsNullOrEmpty(req.CurrentValues.GetValueOrDefault("osId")))
+                suggestions["osId"] = new AutoFillSuggestion(
+                    latestVersion.OsId.ToString(),
+                    "OS de la dernière version catalogue",
+                    0.75f);
+
+            if (!string.IsNullOrEmpty(catalogSw.InstallCommand) && string.IsNullOrEmpty(req.CurrentValues.GetValueOrDefault("installationDetails")))
+                suggestions["installationDetails"] = new AutoFillSuggestion(
+                    catalogSw.InstallCommand,
+                    "Commande d'installation du catalogue",
+                    0.85f);
+
+            return new AutoFillResult(suggestions, source);
+        }
+
+        return new AutoFillResult(suggestions, source);
+    }
+
+    private async Task<AutoFillResult> AutoFillSaasAsync(AutoFillRequest req)
+    {
+        var suggestions = new Dictionary<string, AutoFillSuggestion>();
+        var name = req.CurrentValues.GetValueOrDefault("name", "").Trim();
+        if (string.IsNullOrEmpty(name)) return new AutoFillResult(suggestions, "none");
+
+        var historyItem = await _db.TeachingNeeds
+            .Where(n => n.CourseId == req.CourseId && n.Status == Core.Enums.NeedStatus.Approved)
+            .OrderByDescending(n => n.ReviewedAt)
+            .SelectMany(n => n.Items)
+            .Where(i => i.ItemType == "saas" && i.DetailsJson != null && i.DetailsJson.Contains(name))
+            .FirstOrDefaultAsync();
+
+        if (historyItem?.DetailsJson != null)
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(historyItem.DetailsJson);
+                if (doc.RootElement.TryGetProperty("numberOfAccounts", out var acc))
+                {
+                    var val = acc.ToString();
+                    if (!string.IsNullOrEmpty(val) && string.IsNullOrEmpty(req.CurrentValues.GetValueOrDefault("numberOfAccounts")))
+                        suggestions["numberOfAccounts"] = new AutoFillSuggestion(val, "Nombre de comptes de la demande précédente", 0.85f);
+                }
+            }
+            catch { /* ignore parse errors */ }
+        }
+
+        return new AutoFillResult(suggestions, suggestions.Count > 0 ? "history" : "none");
+    }
+
+    private async Task<AutoFillResult> AutoFillVmAsync(AutoFillRequest req)
+    {
+        var suggestions = new Dictionary<string, AutoFillSuggestion>();
+
+        var historyItems = await _db.TeachingNeeds
+            .Where(n => n.CourseId == req.CourseId && n.Status == Core.Enums.NeedStatus.Approved)
+            .OrderByDescending(n => n.ReviewedAt)
+            .SelectMany(n => n.Items)
+            .Where(i => i.ItemType == "virtual_machine" && i.DetailsJson != null)
+            .Take(3)
+            .ToListAsync();
+
+        if (historyItems.Count > 0 && historyItems[0].DetailsJson != null)
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(historyItems[0].DetailsJson);
+                var root = doc.RootElement;
+                TrySuggestFromJson(root, "cpuCores", req.CurrentValues, suggestions, "CPU des VMs précédentes");
+                TrySuggestFromJson(root, "ramGb", req.CurrentValues, suggestions, "RAM des VMs précédentes");
+                TrySuggestFromJson(root, "storageGb", req.CurrentValues, suggestions, "Stockage des VMs précédentes");
+                TrySuggestFromJson(root, "accessType", req.CurrentValues, suggestions, "Type d'accès précédent");
+                TrySuggestFromJson(root, "quantity", req.CurrentValues, suggestions, "Quantité précédente");
+
+                if (root.TryGetProperty("osId", out var osVal) && string.IsNullOrEmpty(req.CurrentValues.GetValueOrDefault("osId")))
+                    suggestions["osId"] = new AutoFillSuggestion(osVal.ToString(), "OS des VMs précédentes", 0.85f);
+            }
+            catch { /* ignore */ }
+        }
+
+        return new AutoFillResult(suggestions, suggestions.Count > 0 ? "history" : "none");
+    }
+
+    private async Task<AutoFillResult> AutoFillServerAsync(AutoFillRequest req)
+    {
+        var suggestions = new Dictionary<string, AutoFillSuggestion>();
+
+        var historyItems = await _db.TeachingNeeds
+            .Where(n => n.CourseId == req.CourseId && n.Status == Core.Enums.NeedStatus.Approved)
+            .OrderByDescending(n => n.ReviewedAt)
+            .SelectMany(n => n.Items)
+            .Where(i => i.ItemType == "physical_server" && i.DetailsJson != null)
+            .Take(3)
+            .ToListAsync();
+
+        if (historyItems.Count > 0 && historyItems[0].DetailsJson != null)
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(historyItems[0].DetailsJson);
+                var root = doc.RootElement;
+                TrySuggestFromJson(root, "cpuCores", req.CurrentValues, suggestions, "CPU précédent");
+                TrySuggestFromJson(root, "ramGb", req.CurrentValues, suggestions, "RAM précédente");
+                TrySuggestFromJson(root, "storageGb", req.CurrentValues, suggestions, "Stockage précédent");
+                TrySuggestFromJson(root, "accessType", req.CurrentValues, suggestions, "Type d'accès précédent");
+                if (root.TryGetProperty("osId", out var osVal) && string.IsNullOrEmpty(req.CurrentValues.GetValueOrDefault("osId")))
+                    suggestions["osId"] = new AutoFillSuggestion(osVal.ToString(), "OS précédent", 0.85f);
+            }
+            catch { /* ignore */ }
+        }
+
+        return new AutoFillResult(suggestions, suggestions.Count > 0 ? "history" : "none");
+    }
+
+    private async Task<AutoFillResult> AutoFillConfigurationAsync(AutoFillRequest req)
+    {
+        var suggestions = new Dictionary<string, AutoFillSuggestion>();
+
+        var historyItems = await _db.TeachingNeeds
+            .Where(n => n.CourseId == req.CourseId && n.Status == Core.Enums.NeedStatus.Approved)
+            .OrderByDescending(n => n.ReviewedAt)
+            .SelectMany(n => n.Items)
+            .Where(i => i.ItemType == "configuration" && i.DetailsJson != null)
+            .Take(3)
+            .ToListAsync();
+
+        if (historyItems.Count > 0 && historyItems[0].DetailsJson != null)
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(historyItems[0].DetailsJson);
+                var root = doc.RootElement;
+                TrySuggestFromJson(root, "osIds", req.CurrentValues, suggestions, "OS des configurations précédentes");
+                TrySuggestFromJson(root, "laboratoryIds", req.CurrentValues, suggestions, "Labos des configurations précédentes");
+                TrySuggestFromJson(root, "notes", req.CurrentValues, suggestions, "Notes de la configuration précédente");
+            }
+            catch { /* ignore */ }
+        }
+
+        return new AutoFillResult(suggestions, suggestions.Count > 0 ? "history" : "none");
+    }
+
+    private async Task<AutoFillResult> AutoFillEquipmentAsync(AutoFillRequest req)
+    {
+        var suggestions = new Dictionary<string, AutoFillSuggestion>();
+        var name = req.CurrentValues.GetValueOrDefault("name", "").Trim();
+        if (string.IsNullOrEmpty(name)) return new AutoFillResult(suggestions, "none");
+
+        var historyItem = await _db.TeachingNeeds
+            .Where(n => n.CourseId == req.CourseId && n.Status == Core.Enums.NeedStatus.Approved)
+            .OrderByDescending(n => n.ReviewedAt)
+            .SelectMany(n => n.Items)
+            .Where(i => i.ItemType == "equipment_loan" && i.DetailsJson != null && i.DetailsJson.Contains(name))
+            .FirstOrDefaultAsync();
+
+        if (historyItem?.DetailsJson != null)
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(historyItem.DetailsJson);
+                var root = doc.RootElement;
+                TrySuggestFromJson(root, "quantity", req.CurrentValues, suggestions, "Quantité précédente");
+                TrySuggestFromJson(root, "defaultAccessories", req.CurrentValues, suggestions, "Accessoires précédents");
+            }
+            catch { /* ignore */ }
+        }
+
+        return new AutoFillResult(suggestions, suggestions.Count > 0 ? "history" : "none");
+    }
+
+    private static void TrySuggestFromJson(
+        JsonElement root, string fieldName,
+        Dictionary<string, string> currentValues,
+        Dictionary<string, AutoFillSuggestion> suggestions,
+        string reason)
+    {
+        if (root.TryGetProperty(fieldName, out var val))
+        {
+            var strVal = val.ToString();
+            if (!string.IsNullOrEmpty(strVal) && string.IsNullOrEmpty(currentValues.GetValueOrDefault(fieldName)))
+                suggestions[fieldName] = new AutoFillSuggestion(strVal, reason, 0.8f);
+        }
+    }
 }
