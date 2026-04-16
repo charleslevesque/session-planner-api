@@ -48,8 +48,8 @@ a{color:inherit;text-decoration:none;}
 .flow-note{font-size:.76rem;color:#484f58;font-family:'JetBrains Mono',monospace;margin-top:8px;}
 
 /* ── BPM Diagram ── */
-.bpm-container{overflow-x:auto;margin-bottom:48px;}
-.bpm-svg{display:block;}
+.bpm-container{margin-bottom:48px;}
+.bpm-svg{display:block;width:100%;height:auto;}
 </style>
 </head>
 <body>
@@ -84,275 +84,216 @@ a{color:inherit;text-decoration:none;}
   ════════════════════════════════════════════════ -->
   <div class="section-label">Business Process Model — Session Management</div>
   <div class="bpm-container">
-    <svg class="bpm-svg" width="1280" height="920" xmlns="http://www.w3.org/2000/svg">
+    <svg class="bpm-svg" viewBox="0 0 1000 730" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <marker id="bpm-arr" markerWidth="10" markerHeight="8" refX="8" refY="4" orient="auto">
-          <path d="M0,1 L8,4 L0,7" fill="none" stroke="#8b949e" stroke-width="1.4" stroke-linejoin="round"/>
+        <marker id="bpm-arr" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <path d="M0,0.8 L7,3 L0,5.2" fill="none" stroke="#8b949e" stroke-width="1.2" stroke-linejoin="round"/>
         </marker>
-        <marker id="bpm-arr-ai" markerWidth="10" markerHeight="8" refX="8" refY="4" orient="auto">
-          <path d="M0,1 L8,4 L0,7" fill="none" stroke="#a78bfa" stroke-width="1.4" stroke-linejoin="round"/>
+        <marker id="bpm-arr-ai" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <path d="M0,0.8 L7,3 L0,5.2" fill="none" stroke="#a78bfa" stroke-width="1.2" stroke-linejoin="round"/>
         </marker>
-        <marker id="bpm-arr-err" markerWidth="10" markerHeight="8" refX="8" refY="4" orient="auto">
-          <path d="M0,1 L8,4 L0,7" fill="none" stroke="#f87171" stroke-width="1.4" stroke-linejoin="round"/>
+        <marker id="bpm-arr-err" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <path d="M0,0.8 L7,3 L0,5.2" fill="none" stroke="#f87171" stroke-width="1.2" stroke-linejoin="round"/>
         </marker>
       </defs>
 
       <!-- ── SWIM LANES ── -->
-      <!-- Admin lane -->
-      <rect x="0" y="0" width="1280" height="200" rx="0" fill="#0c1524" stroke="#1d4ed8" stroke-width="1"/>
-      <rect x="0" y="0" width="90" height="200" fill="#172554" stroke="#1d4ed8" stroke-width="1"/>
-      <text x="45" y="105" text-anchor="middle" font-family="Inter" font-size="11" font-weight="700" fill="#93c5fd" transform="rotate(-90,45,105)">ADMIN</text>
+      <rect x="0" y="0" width="1000" height="155" fill="#0c1524" stroke="#1d4ed8" stroke-width="1"/>
+      <rect x="0" y="0" width="68" height="155" fill="#172554" stroke="#1d4ed8" stroke-width="1"/>
+      <text x="34" y="82" text-anchor="middle" font-family="Inter" font-size="9" font-weight="700" fill="#93c5fd" transform="rotate(-90,34,82)">ADMIN</text>
 
-      <!-- Professor / Lab Instructor lane -->
-      <rect x="0" y="200" width="1280" height="300" rx="0" fill="#031a0e" stroke="#065f46" stroke-width="1"/>
-      <rect x="0" y="200" width="90" height="300" fill="#052e16" stroke="#065f46" stroke-width="1"/>
-      <text x="45" y="350" text-anchor="middle" font-family="Inter" font-size="10" font-weight="700" fill="#6ee7b7" transform="rotate(-90,45,350)">ENSEIGNANT / CHARGÉ LABO</text>
+      <rect x="0" y="155" width="1000" height="230" fill="#031a0e" stroke="#065f46" stroke-width="1"/>
+      <rect x="0" y="155" width="68" height="230" fill="#052e16" stroke="#065f46" stroke-width="1"/>
+      <text x="34" y="270" text-anchor="middle" font-family="Inter" font-size="8" font-weight="700" fill="#6ee7b7" transform="rotate(-90,34,270)">ENSEIGNANT / CHARGÉ LABO</text>
 
-      <!-- AI / System lane -->
-      <rect x="0" y="500" width="1280" height="180" rx="0" fill="#130a2e" stroke="#6d28d9" stroke-width="1"/>
-      <rect x="0" y="500" width="90" height="180" fill="#2e1065" stroke="#6d28d9" stroke-width="1"/>
-      <text x="45" y="590" text-anchor="middle" font-family="Inter" font-size="11" font-weight="700" fill="#c4b5fd" transform="rotate(-90,45,590)">SYSTÈME / IA</text>
+      <rect x="0" y="385" width="1000" height="140" fill="#130a2e" stroke="#6d28d9" stroke-width="1"/>
+      <rect x="0" y="385" width="68" height="140" fill="#2e1065" stroke="#6d28d9" stroke-width="1"/>
+      <text x="34" y="455" text-anchor="middle" font-family="Inter" font-size="9" font-weight="700" fill="#c4b5fd" transform="rotate(-90,34,455)">SYSTÈME / IA</text>
 
-      <!-- Technician lane -->
-      <rect x="0" y="680" width="1280" height="240" rx="0" fill="#1c0a00" stroke="#92400e" stroke-width="1"/>
-      <rect x="0" y="680" width="90" height="240" fill="#451a03" stroke="#92400e" stroke-width="1"/>
-      <text x="45" y="800" text-anchor="middle" font-family="Inter" font-size="11" font-weight="700" fill="#fcd34d" transform="rotate(-90,45,800)">TECHNICIEN</text>
+      <rect x="0" y="525" width="1000" height="148" fill="#1c0a00" stroke="#92400e" stroke-width="1"/>
+      <rect x="0" y="525" width="68" height="148" fill="#451a03" stroke="#92400e" stroke-width="1"/>
+      <text x="34" y="600" text-anchor="middle" font-family="Inter" font-size="9" font-weight="700" fill="#fcd34d" transform="rotate(-90,34,600)">TECHNICIEN</text>
 
-      <!-- ══════════════════════════════════════
-           ADMIN LANE — ACTIVITIES
-      ═══════════════════════════════════════ -->
+      <!-- ══════════════ ADMIN LANE ══════════════ -->
+      <circle cx="92" cy="78" r="11" fill="none" stroke="#93c5fd" stroke-width="2"/>
+      <text x="92" y="103" text-anchor="middle" font-family="JetBrains Mono" font-size="7" fill="#484f58">Début</text>
 
-      <!-- Start event -->
-      <circle cx="120" cy="100" r="14" fill="none" stroke="#93c5fd" stroke-width="2.5"/>
-      <text x="120" y="130" text-anchor="middle" font-family="JetBrains Mono" font-size="8" fill="#484f58">Début</text>
+      <rect x="118" y="56" width="105" height="44" rx="7" fill="#172554" stroke="#1d4ed8" stroke-width="1.2"/>
+      <text x="170" y="75" text-anchor="middle" font-family="JetBrains Mono" font-size="8.5" font-weight="600" fill="#93c5fd">Créer session</text>
+      <text x="170" y="88" text-anchor="middle" font-family="JetBrains Mono" font-size="6.5" fill="#484f58">(Draft)</text>
 
-      <!-- A1: Create session -->
-      <rect x="160" y="72" width="130" height="56" rx="8" fill="#172554" stroke="#1d4ed8" stroke-width="1.5"/>
-      <text x="225" y="96" text-anchor="middle" font-family="JetBrains Mono" font-size="9.5" font-weight="600" fill="#93c5fd">Créer session</text>
-      <text x="225" y="112" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#484f58">(Draft)</text>
+      <rect x="245" y="56" width="120" height="44" rx="7" fill="#172554" stroke="#1d4ed8" stroke-width="1.2"/>
+      <text x="305" y="74" text-anchor="middle" font-family="JetBrains Mono" font-size="8.5" font-weight="600" fill="#93c5fd">Configurer session</text>
+      <text x="305" y="87" text-anchor="middle" font-family="JetBrains Mono" font-size="6.5" fill="#484f58">Cours, labos, dates</text>
 
-      <!-- A2: Configure session (courses, labs) -->
-      <rect x="320" y="72" width="150" height="56" rx="8" fill="#172554" stroke="#1d4ed8" stroke-width="1.5"/>
-      <text x="395" y="93" text-anchor="middle" font-family="JetBrains Mono" font-size="9.5" font-weight="600" fill="#93c5fd">Configurer session</text>
-      <text x="395" y="108" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#484f58">Cours, labos, dates</text>
+      <rect x="387" y="56" width="100" height="44" rx="7" fill="#172554" stroke="#1d4ed8" stroke-width="1.2"/>
+      <text x="437" y="75" text-anchor="middle" font-family="JetBrains Mono" font-size="8.5" font-weight="600" fill="#93c5fd">Ouvrir session</text>
+      <text x="437" y="88" text-anchor="middle" font-family="JetBrains Mono" font-size="6.5" fill="#484f58">(Open)</text>
 
-      <!-- A3: Open session -->
-      <rect x="500" y="72" width="120" height="56" rx="8" fill="#172554" stroke="#1d4ed8" stroke-width="1.5"/>
-      <text x="560" y="96" text-anchor="middle" font-family="JetBrains Mono" font-size="9.5" font-weight="600" fill="#93c5fd">Ouvrir session</text>
-      <text x="560" y="112" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#484f58">(Open)</text>
+      <!-- Review gateway -->
+      <polygon points="640,46 670,78 640,110 610,78" fill="#172554" stroke="#1d4ed8" stroke-width="1.2"/>
+      <text x="640" y="81" text-anchor="middle" font-family="JetBrains Mono" font-size="7" font-weight="600" fill="#93c5fd">Réviser</text>
 
-      <!-- A7: Review needs (gateway) -->
-      <polygon points="815,60 855,100 815,140 775,100" fill="#172554" stroke="#1d4ed8" stroke-width="1.5"/>
-      <text x="815" y="103" text-anchor="middle" font-family="JetBrains Mono" font-size="8" font-weight="600" fill="#93c5fd">Réviser</text>
+      <rect x="700" y="32" width="90" height="36" rx="7" fill="#052e16" stroke="#065f46" stroke-width="1.2"/>
+      <text x="745" y="54" text-anchor="middle" font-family="JetBrains Mono" font-size="8.5" font-weight="600" fill="#6ee7b7">Approuver</text>
 
-      <!-- A7a: Approve -->
-      <rect x="890" y="42" width="108" height="44" rx="8" fill="#052e16" stroke="#065f46" stroke-width="1.5"/>
-      <text x="944" y="68" text-anchor="middle" font-family="JetBrains Mono" font-size="9.5" font-weight="600" fill="#6ee7b7">Approuver</text>
+      <rect x="700" y="90" width="90" height="36" rx="7" fill="#3b0000" stroke="#f87171" stroke-width="1.2"/>
+      <text x="745" y="112" text-anchor="middle" font-family="JetBrains Mono" font-size="8.5" font-weight="600" fill="#f87171">Rejeter</text>
 
-      <!-- A7b: Reject -->
-      <rect x="890" y="112" width="108" height="44" rx="8" fill="#3b0000" stroke="#f87171" stroke-width="1.5"/>
-      <text x="944" y="138" text-anchor="middle" font-family="JetBrains Mono" font-size="9.5" font-weight="600" fill="#f87171">Rejeter</text>
+      <rect x="818" y="56" width="95" height="44" rx="7" fill="#172554" stroke="#1d4ed8" stroke-width="1.2"/>
+      <text x="865" y="75" text-anchor="middle" font-family="JetBrains Mono" font-size="8.5" font-weight="600" fill="#93c5fd">Fermer session</text>
+      <text x="865" y="88" text-anchor="middle" font-family="JetBrains Mono" font-size="6.5" fill="#484f58">(Closed)</text>
 
-      <!-- A8: Close session -->
-      <rect x="1040" y="72" width="115" height="56" rx="8" fill="#172554" stroke="#1d4ed8" stroke-width="1.5"/>
-      <text x="1097" y="96" text-anchor="middle" font-family="JetBrains Mono" font-size="9.5" font-weight="600" fill="#93c5fd">Fermer session</text>
-      <text x="1097" y="112" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#484f58">(Closed)</text>
+      <rect x="930" y="56" width="58" height="44" rx="7" fill="#172554" stroke="#1d4ed8" stroke-width="1.2"/>
+      <text x="959" y="74" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" font-weight="600" fill="#93c5fd">Exporter</text>
+      <text x="959" y="87" text-anchor="middle" font-family="JetBrains Mono" font-size="6.5" fill="#484f58">CSV</text>
 
-      <!-- A9: Export matrix -->
-      <rect x="1170" y="72" width="90" height="56" rx="8" fill="#172554" stroke="#1d4ed8" stroke-width="1.5"/>
-      <text x="1215" y="93" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="600" fill="#93c5fd">Exporter</text>
-      <text x="1215" y="108" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#484f58">CSV matrice</text>
+      <!-- Admin arrows -->
+      <line x1="103" y1="78" x2="116" y2="78" stroke="#8b949e" stroke-width="1.2" marker-end="url(#bpm-arr)"/>
+      <line x1="223" y1="78" x2="243" y2="78" stroke="#8b949e" stroke-width="1.2" marker-end="url(#bpm-arr)"/>
+      <line x1="365" y1="78" x2="385" y2="78" stroke="#8b949e" stroke-width="1.2" marker-end="url(#bpm-arr)"/>
+      <path d="M437,100 L437,185" stroke="#8b949e" stroke-width="1.2" marker-end="url(#bpm-arr)"/>
+      <line x1="670" y1="78" x2="698" y2="50" stroke="#8b949e" stroke-width="1.2" marker-end="url(#bpm-arr)"/>
+      <line x1="670" y1="78" x2="698" y2="108" stroke="#f87171" stroke-width="1.2" marker-end="url(#bpm-arr-err)"/>
+      <line x1="790" y1="50" x2="816" y2="72" stroke="#8b949e" stroke-width="1.2" marker-end="url(#bpm-arr)"/>
+      <line x1="913" y1="78" x2="928" y2="78" stroke="#8b949e" stroke-width="1.2" marker-end="url(#bpm-arr)"/>
 
-      <!-- ADMIN ARROWS -->
-      <line x1="134" y1="100" x2="158" y2="100" stroke="#8b949e" stroke-width="1.5" marker-end="url(#bpm-arr)"/>
-      <line x1="290" y1="100" x2="318" y2="100" stroke="#8b949e" stroke-width="1.5" marker-end="url(#bpm-arr)"/>
-      <line x1="470" y1="100" x2="498" y2="100" stroke="#8b949e" stroke-width="1.5" marker-end="url(#bpm-arr)"/>
-      <!-- Open → notify teacher (down to teacher lane) -->
-      <path d="M560,128 L560,240" stroke="#8b949e" stroke-width="1.5" marker-end="url(#bpm-arr)"/>
-      <!-- Review gateway flows -->
-      <line x1="855" y1="100" x2="888" y2="64" stroke="#8b949e" stroke-width="1.5" marker-end="url(#bpm-arr)"/>
-      <line x1="855" y1="100" x2="888" y2="134" stroke="#f87171" stroke-width="1.5" marker-end="url(#bpm-arr-err)"/>
-      <!-- Approve → Close -->
-      <line x1="998" y1="64" x2="1038" y2="90" stroke="#8b949e" stroke-width="1.5" marker-end="url(#bpm-arr)"/>
-      <!-- Close → Export -->
-      <line x1="1155" y1="100" x2="1168" y2="100" stroke="#8b949e" stroke-width="1.5" marker-end="url(#bpm-arr)"/>
+      <!-- ══════════════ TEACHER LANE ══════════════ -->
+      <rect x="393" y="185" width="100" height="40" rx="7" fill="#052e16" stroke="#065f46" stroke-width="1.2"/>
+      <text x="443" y="202" text-anchor="middle" font-family="JetBrains Mono" font-size="8" font-weight="600" fill="#6ee7b7">Consulter</text>
+      <text x="443" y="214" text-anchor="middle" font-family="JetBrains Mono" font-size="7" fill="#6ee7b7">ses cours</text>
 
-      <!-- ══════════════════════════════════════
-           TEACHER LANE — ACTIVITIES
-      ═══════════════════════════════════════ -->
+      <!-- Gateway: previous session? -->
+      <polygon points="168,240 192,264 168,288 144,264" fill="#052e16" stroke="#10b981" stroke-width="1.2"/>
+      <text x="168" y="267" text-anchor="middle" font-family="JetBrains Mono" font-size="6.5" font-weight="600" fill="#6ee7b7">?</text>
+      <text x="168" y="304" text-anchor="middle" font-family="JetBrains Mono" font-size="6.5" fill="#484f58">Session préc. ?</text>
 
-      <!-- T0: Renewal gateway -->
-      <polygon points="200,310 230,340 200,370 170,340" fill="#052e16" stroke="#10b981" stroke-width="1.5"/>
-      <text x="200" y="343" text-anchor="middle" font-family="JetBrains Mono" font-size="7" font-weight="600" fill="#6ee7b7">?</text>
-      <text x="200" y="400" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#484f58">Session</text>
-      <text x="200" y="412" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#484f58">précédente ?</text>
+      <!-- One-click renewal -->
+      <rect x="100" y="326" width="136" height="42" rx="7" fill="#052e16" stroke="#10b981" stroke-width="1.2"/>
+      <text x="168" y="344" text-anchor="middle" font-family="JetBrains Mono" font-size="8" font-weight="600" fill="#6ee7b7">Renouvellement</text>
+      <text x="168" y="358" text-anchor="middle" font-family="JetBrains Mono" font-size="7" fill="#6ee7b7">rapide (1 clic)</text>
 
-      <!-- T0a: One-click renewal -->
-      <rect x="120" y="428" width="160" height="52" rx="8" fill="#052e16" stroke="#10b981" stroke-width="1.5"/>
-      <text x="200" y="450" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="600" fill="#6ee7b7">Renouvellement</text>
-      <text x="200" y="466" text-anchor="middle" font-family="JetBrains Mono" font-size="8" fill="#6ee7b7">rapide (1 clic)</text>
+      <!-- Create need -->
+      <rect x="250" y="185" width="120" height="40" rx="7" fill="#052e16" stroke="#065f46" stroke-width="1.2"/>
+      <text x="310" y="202" text-anchor="middle" font-family="JetBrains Mono" font-size="8" font-weight="600" fill="#6ee7b7">Créer demande</text>
+      <text x="310" y="214" text-anchor="middle" font-family="JetBrains Mono" font-size="7" fill="#6ee7b7">(besoin techno.)</text>
 
-      <!-- Notify teacher (from Open) -->
-      <rect x="500" y="240" width="120" height="48" rx="8" fill="#052e16" stroke="#065f46" stroke-width="1.5"/>
-      <text x="560" y="260" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="600" fill="#6ee7b7">Consulter</text>
-      <text x="560" y="274" text-anchor="middle" font-family="JetBrains Mono" font-size="8" fill="#6ee7b7">ses cours</text>
+      <!-- Fill form -->
+      <rect x="270" y="256" width="148" height="42" rx="7" fill="#052e16" stroke="#10b981" stroke-width="1.2"/>
+      <text x="344" y="274" text-anchor="middle" font-family="JetBrains Mono" font-size="8" font-weight="600" fill="#6ee7b7">Remplir formulaire</text>
+      <text x="344" y="287" text-anchor="middle" font-family="JetBrains Mono" font-size="6.5" fill="#484f58">items, versions, OS</text>
 
-      <!-- T1: Open need form -->
-      <rect x="310" y="240" width="140" height="48" rx="8" fill="#052e16" stroke="#065f46" stroke-width="1.5"/>
-      <text x="380" y="260" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="600" fill="#6ee7b7">Créer demande</text>
-      <text x="380" y="274" text-anchor="middle" font-family="JetBrains Mono" font-size="8" fill="#6ee7b7">(besoin technologique)</text>
+      <!-- Submit -->
+      <rect x="450" y="256" width="100" height="42" rx="7" fill="#052e16" stroke="#065f46" stroke-width="1.2"/>
+      <text x="500" y="274" text-anchor="middle" font-family="JetBrains Mono" font-size="8.5" font-weight="600" fill="#6ee7b7">Soumettre</text>
+      <text x="500" y="287" text-anchor="middle" font-family="JetBrains Mono" font-size="6.5" fill="#484f58">(Submitted)</text>
 
-      <!-- T2: Fill form (with AI auto-fill) -->
-      <rect x="330" y="330" width="180" height="52" rx="8" fill="#052e16" stroke="#10b981" stroke-width="1.5"/>
-      <text x="420" y="352" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="600" fill="#6ee7b7">Remplir formulaire</text>
-      <text x="420" y="368" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#484f58">items, versions, OS, notes</text>
+      <!-- Correct after rejection -->
+      <rect x="600" y="256" width="130" height="42" rx="7" fill="#3b0000" stroke="#f87171" stroke-width="1.2"/>
+      <text x="665" y="274" text-anchor="middle" font-family="JetBrains Mono" font-size="8" font-weight="600" fill="#f87171">Corriger demande</text>
+      <text x="665" y="287" text-anchor="middle" font-family="JetBrains Mono" font-size="6.5" fill="#f87171">après rejet</text>
 
-      <!-- T3: Submit -->
-      <rect x="550" y="330" width="120" height="52" rx="8" fill="#052e16" stroke="#065f46" stroke-width="1.5"/>
-      <text x="610" y="352" text-anchor="middle" font-family="JetBrains Mono" font-size="9.5" font-weight="600" fill="#6ee7b7">Soumettre</text>
-      <text x="610" y="368" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#484f58">(Submitted)</text>
+      <!-- Teacher arrows -->
+      <line x1="393" y1="205" x2="372" y2="205" stroke="#8b949e" stroke-width="1.2" marker-end="url(#bpm-arr)"/>
+      <path d="M443,225 L443,242 L310,242 L310,225" stroke="#8b949e" stroke-width="1.2" stroke-dasharray="4,3"/>
+      <path d="M310,242 L194,264" stroke="#8b949e" stroke-width="1.2" marker-end="url(#bpm-arr)"/>
+      <path d="M168,288 L168,324" stroke="#8b949e" stroke-width="1.2" marker-end="url(#bpm-arr)"/>
+      <text x="178" y="312" font-family="JetBrains Mono" font-size="6.5" fill="#6ee7b7">Oui</text>
+      <path d="M144,264 L115,264 L115,205 L248,205" stroke="#8b949e" stroke-width="1.2" marker-end="url(#bpm-arr)"/>
+      <text x="120" y="256" font-family="JetBrains Mono" font-size="6.5" fill="#484f58">Non</text>
+      <path d="M236,347 L500,347 L500,300" stroke="#8b949e" stroke-width="1.2" marker-end="url(#bpm-arr)"/>
+      <path d="M310,225 L344,254" stroke="#8b949e" stroke-width="1.2" marker-end="url(#bpm-arr)"/>
+      <line x1="418" y1="277" x2="448" y2="277" stroke="#8b949e" stroke-width="1.2" marker-end="url(#bpm-arr)"/>
+      <path d="M550,277 L575,277 L575,78 L608,78" stroke="#8b949e" stroke-width="1.2" marker-end="url(#bpm-arr)"/>
+      <path d="M745,126 L745,140 L665,140 L665,254" stroke="#f87171" stroke-width="1.2" marker-end="url(#bpm-arr-err)"/>
+      <path d="M665,298 L665,330 L500,330 L500,300" stroke="#8b949e" stroke-width="1.2" marker-end="url(#bpm-arr)"/>
+      <text x="588" y="326" font-family="JetBrains Mono" font-size="6.5" fill="#484f58">Resoumettre</text>
 
-      <!-- T4: Rejected → Revise (return loop) -->
-      <rect x="750" y="330" width="150" height="52" rx="8" fill="#3b0000" stroke="#f87171" stroke-width="1.5"/>
-      <text x="825" y="352" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="600" fill="#f87171">Corriger demande</text>
-      <text x="825" y="368" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#f87171">après rejet</text>
+      <!-- ══════════════ AI / SYSTEM LANE ══════════════ -->
+      <rect x="100" y="418" width="140" height="42" rx="7" fill="#2e1065" stroke="#6d28d9" stroke-width="1.2"/>
+      <text x="170" y="436" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" font-weight="600" fill="#c4b5fd">Mise à jour auto</text>
+      <text x="170" y="449" text-anchor="middle" font-family="JetBrains Mono" font-size="6.5" fill="#8b5cf6">versions logicielles</text>
 
-      <!-- TEACHER ARROWS -->
-      <!-- Consult → Create need -->
-      <line x1="500" y1="264" x2="452" y2="264" stroke="#8b949e" stroke-width="1.5" marker-end="url(#bpm-arr)"/>
-      <!-- Consult → Renewal gateway -->
-      <path d="M560,288 L560,310 L380,310 L380,288" stroke="#8b949e" stroke-width="1.5" stroke-dasharray="5,3"/>
-      <path d="M380,310 L232,340" stroke="#8b949e" stroke-width="1.5" marker-end="url(#bpm-arr)"/>
-      <!-- Gateway Oui → Renewal -->
-      <path d="M200,370 L200,426" stroke="#8b949e" stroke-width="1.5" marker-end="url(#bpm-arr)"/>
-      <text x="214" y="404" font-family="JetBrains Mono" font-size="7.5" fill="#6ee7b7">Oui</text>
-      <!-- Gateway Non → Create need -->
-      <path d="M170,340 L140,340 L140,264 L308" y2="264" stroke="#8b949e" stroke-width="1.5" stroke-dasharray="5,3"/>
-      <text x="146" y="332" font-family="JetBrains Mono" font-size="7.5" fill="#484f58">Non</text>
-      <!-- Renewal → Submitted (to the right) -->
-      <path d="M280,454 L610,454 L610,384" stroke="#8b949e" stroke-width="1.5" marker-end="url(#bpm-arr)"/>
-      <!-- Create → Fill form -->
-      <path d="M380,288 L420,328" stroke="#8b949e" stroke-width="1.5" marker-end="url(#bpm-arr)"/>
-      <!-- Fill → Submit -->
-      <line x1="510" y1="356" x2="548" y2="356" stroke="#8b949e" stroke-width="1.5" marker-end="url(#bpm-arr)"/>
-      <!-- Submit → Admin review (up) -->
-      <path d="M670,356 L710,356 L710,100 L773,100" stroke="#8b949e" stroke-width="1.5" marker-end="url(#bpm-arr)"/>
-      <!-- Reject → Correct -->
-      <path d="M944,156 L944,174 L825,174 L825,328" stroke="#f87171" stroke-width="1.5" marker-end="url(#bpm-arr-err)"/>
-      <!-- Correct → Re-submit -->
-      <path d="M825,382 L825,420 L610,420 L610,384" stroke="#8b949e" stroke-width="1.5" marker-end="url(#bpm-arr)"/>
-      <text x="720" y="416" font-family="JetBrains Mono" font-size="7.5" fill="#484f58">Resoumettre</text>
+      <rect x="270" y="418" width="150" height="42" rx="7" fill="#2e1065" stroke="#6d28d9" stroke-width="1.2"/>
+      <text x="345" y="436" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" font-weight="600" fill="#c4b5fd">Auto-remplissage IA</text>
+      <text x="345" y="449" text-anchor="middle" font-family="JetBrains Mono" font-size="6.5" fill="#8b5cf6">historique + catalogue</text>
 
-      <!-- ══════════════════════════════════════
-           AI / SYSTEM LANE — ACTIVITIES
-      ═══════════════════════════════════════ -->
+      <rect x="445" y="418" width="120" height="42" rx="7" fill="#2e1065" stroke="#6d28d9" stroke-width="1.2"/>
+      <text x="505" y="436" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" font-weight="600" fill="#c4b5fd">Détection conflits</text>
+      <text x="505" y="449" text-anchor="middle" font-family="JetBrains Mono" font-size="6.5" fill="#8b5cf6">versions / doublons</text>
 
-      <!-- AI1: Auto-fill suggestions -->
-      <rect x="330" y="540" width="180" height="52" rx="8" fill="#2e1065" stroke="#6d28d9" stroke-width="1.5"/>
-      <text x="420" y="560" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="600" fill="#c4b5fd">Auto-remplissage IA</text>
-      <text x="420" y="575" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#8b5cf6">historique + catalogue</text>
+      <rect x="590" y="418" width="140" height="42" rx="7" fill="#2e1065" stroke="#6d28d9" stroke-width="1.2"/>
+      <text x="660" y="436" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" font-weight="600" fill="#c4b5fd">Analyse IA admin</text>
+      <text x="660" y="449" text-anchor="middle" font-family="JetBrains Mono" font-size="6.5" fill="#8b5cf6">alertes, suggestion</text>
 
-      <!-- AI2: Conflict detection -->
-      <rect x="560" y="540" width="140" height="52" rx="8" fill="#2e1065" stroke="#6d28d9" stroke-width="1.5"/>
-      <text x="630" y="560" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="600" fill="#c4b5fd">Détection conflits</text>
-      <text x="630" y="575" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#8b5cf6">versions / doublons</text>
+      <rect x="755" y="418" width="136" height="42" rx="7" fill="#2e1065" stroke="#6d28d9" stroke-width="1.2"/>
+      <text x="823" y="436" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" font-weight="600" fill="#c4b5fd">Assist. correction</text>
+      <text x="823" y="449" text-anchor="middle" font-family="JetBrains Mono" font-size="6.5" fill="#8b5cf6">après rejet</text>
 
-      <!-- AI3: Admin review assist -->
-      <rect x="745" y="540" width="160" height="52" rx="8" fill="#2e1065" stroke="#6d28d9" stroke-width="1.5"/>
-      <text x="825" y="560" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="600" fill="#c4b5fd">Analyse IA admin</text>
-      <text x="825" y="575" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#8b5cf6">alertes, suggestion</text>
+      <!-- AI dashed arrows -->
+      <path d="M170,418 L170,370" stroke="#a78bfa" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#bpm-arr-ai)"/>
+      <text x="180" y="398" font-family="JetBrains Mono" font-size="6" fill="#8b5cf6">upgrade</text>
 
-      <!-- AI4: Rejection assist -->
-      <rect x="940" y="540" width="160" height="52" rx="8" fill="#2e1065" stroke="#6d28d9" stroke-width="1.5"/>
-      <text x="1020" y="560" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="600" fill="#c4b5fd">Assist. correction</text>
-      <text x="1020" y="575" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#8b5cf6">après rejet</text>
+      <path d="M345,418 L345,300" stroke="#a78bfa" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#bpm-arr-ai)"/>
+      <text x="355" y="370" font-family="JetBrains Mono" font-size="6" fill="#8b5cf6">suggestions</text>
 
-      <!-- AI5: Auto-upgrade (renewal) -->
-      <rect x="120" y="540" width="180" height="52" rx="8" fill="#2e1065" stroke="#6d28d9" stroke-width="1.5"/>
-      <text x="210" y="560" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="600" fill="#c4b5fd">Mise à jour auto</text>
-      <text x="210" y="575" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#8b5cf6">versions logicielles</text>
+      <path d="M505,418 L505,300" stroke="#a78bfa" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#bpm-arr-ai)"/>
+      <text x="515" y="370" font-family="JetBrains Mono" font-size="6" fill="#8b5cf6">alertes</text>
 
-      <!-- AI ARROWS -->
-      <!-- Auto-fill ↔ Fill form -->
-      <path d="M420,540 L420,384" stroke="#a78bfa" stroke-width="1.3" stroke-dasharray="4,3" marker-end="url(#bpm-arr-ai)"/>
-      <text x="432" y="470" font-family="JetBrains Mono" font-size="7" fill="#8b5cf6">suggestions</text>
+      <path d="M660,418 L660,112" stroke="#a78bfa" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#bpm-arr-ai)"/>
+      <text x="670" y="370" font-family="JetBrains Mono" font-size="6" fill="#8b5cf6">analyse</text>
 
-      <!-- Conflict detection ↔ Submit -->
-      <path d="M630,540 L630,384" stroke="#a78bfa" stroke-width="1.3" stroke-dasharray="4,3" marker-end="url(#bpm-arr-ai)"/>
-      <text x="643" y="470" font-family="JetBrains Mono" font-size="7" fill="#8b5cf6">alertes</text>
+      <path d="M823,418 L823,300 L732,300 L732,290" stroke="#a78bfa" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#bpm-arr-ai)"/>
+      <text x="833" y="370" font-family="JetBrains Mono" font-size="6" fill="#8b5cf6">correction</text>
 
-      <!-- Admin review assist ↔ Review gateway -->
-      <path d="M825,540 L825,142" stroke="#a78bfa" stroke-width="1.3" stroke-dasharray="4,3" marker-end="url(#bpm-arr-ai)"/>
-      <text x="838" y="470" font-family="JetBrains Mono" font-size="7" fill="#8b5cf6">analyse</text>
+      <!-- ══════════════ TECHNICIAN LANE ══════════════ -->
+      <rect x="870" y="560" width="110" height="42" rx="7" fill="#451a03" stroke="#92400e" stroke-width="1.2"/>
+      <text x="925" y="578" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" font-weight="600" fill="#fcd34d">Recevoir matrice</text>
+      <text x="925" y="591" text-anchor="middle" font-family="JetBrains Mono" font-size="6.5" fill="#92400e">CSV d'installation</text>
 
-      <!-- Rejection assist ↔ Correct -->
-      <path d="M1020,540 L1020,382 L902,382 L902,370" stroke="#a78bfa" stroke-width="1.3" stroke-dasharray="4,3" marker-end="url(#bpm-arr-ai)"/>
-      <text x="1032" y="470" font-family="JetBrains Mono" font-size="7" fill="#8b5cf6">étapes correction</text>
+      <rect x="720" y="560" width="120" height="42" rx="7" fill="#451a03" stroke="#92400e" stroke-width="1.2"/>
+      <text x="780" y="578" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" font-weight="600" fill="#fcd34d">Installer logiciels</text>
+      <text x="780" y="591" text-anchor="middle" font-family="JetBrains Mono" font-size="6.5" fill="#92400e">par laboratoire</text>
 
-      <!-- Auto-upgrade ↔ Renewal -->
-      <path d="M210,540 L210,482" stroke="#a78bfa" stroke-width="1.3" stroke-dasharray="4,3" marker-end="url(#bpm-arr-ai)"/>
-      <text x="223" y="520" font-family="JetBrains Mono" font-size="7" fill="#8b5cf6">upgrade versions</text>
-
-      <!-- ══════════════════════════════════════
-           TECHNICIAN LANE — ACTIVITIES
-      ═══════════════════════════════════════ -->
-
-      <!-- Tech1: Receive matrix -->
-      <rect x="1120" y="720" width="140" height="52" rx="8" fill="#451a03" stroke="#92400e" stroke-width="1.5"/>
-      <text x="1190" y="740" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="600" fill="#fcd34d">Recevoir matrice</text>
-      <text x="1190" y="756" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#92400e">CSV d'installation</text>
-
-      <!-- Tech2: Install per lab -->
-      <rect x="920" y="720" width="160" height="52" rx="8" fill="#451a03" stroke="#92400e" stroke-width="1.5"/>
-      <text x="1000" y="740" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="600" fill="#fcd34d">Installer logiciels</text>
-      <text x="1000" y="756" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#92400e">par laboratoire</text>
-
-      <!-- Tech3: Update matrix -->
-      <rect x="720" y="720" width="160" height="52" rx="8" fill="#451a03" stroke="#92400e" stroke-width="1.5"/>
-      <text x="800" y="740" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="600" fill="#fcd34d">Mettre à jour</text>
-      <text x="800" y="756" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" fill="#92400e">statuts installation</text>
+      <rect x="565" y="560" width="125" height="42" rx="7" fill="#451a03" stroke="#92400e" stroke-width="1.2"/>
+      <text x="627" y="578" text-anchor="middle" font-family="JetBrains Mono" font-size="7.5" font-weight="600" fill="#fcd34d">Mettre à jour</text>
+      <text x="627" y="591" text-anchor="middle" font-family="JetBrains Mono" font-size="6.5" fill="#92400e">statuts installation</text>
 
       <!-- End event -->
-      <circle cx="640" cy="746" r="14" fill="none" stroke="#fcd34d" stroke-width="2.5"/>
-      <circle cx="640" cy="746" r="10" fill="none" stroke="#fcd34d" stroke-width="1.5"/>
-      <text x="640" y="780" text-anchor="middle" font-family="JetBrains Mono" font-size="8" fill="#484f58">Fin session</text>
+      <circle cx="510" cy="581" r="11" fill="none" stroke="#fcd34d" stroke-width="2"/>
+      <circle cx="510" cy="581" r="8" fill="none" stroke="#fcd34d" stroke-width="1.2"/>
+      <text x="510" y="606" text-anchor="middle" font-family="JetBrains Mono" font-size="6.5" fill="#484f58">Fin session</text>
 
-      <!-- TECHNICIAN ARROWS -->
-      <!-- Export → Receive matrix -->
-      <path d="M1215,128 L1215,718" stroke="#8b949e" stroke-width="1.5" marker-end="url(#bpm-arr)"/>
-      <!-- Receive → Install -->
-      <line x1="1120" y1="746" x2="1082" y2="746" stroke="#8b949e" stroke-width="1.5" marker-end="url(#bpm-arr)"/>
-      <!-- Install → Update -->
-      <line x1="920" y1="746" x2="882" y2="746" stroke="#8b949e" stroke-width="1.5" marker-end="url(#bpm-arr)"/>
-      <!-- Update → End -->
-      <line x1="720" y1="746" x2="656" y2="746" stroke="#8b949e" stroke-width="1.5" marker-end="url(#bpm-arr)"/>
+      <!-- Tech arrows -->
+      <path d="M959,100 L959,558" stroke="#8b949e" stroke-width="1.2" marker-end="url(#bpm-arr)"/>
+      <line x1="870" y1="581" x2="842" y2="581" stroke="#8b949e" stroke-width="1.2" marker-end="url(#bpm-arr)"/>
+      <line x1="720" y1="581" x2="692" y2="581" stroke="#8b949e" stroke-width="1.2" marker-end="url(#bpm-arr)"/>
+      <line x1="565" y1="581" x2="523" y2="581" stroke="#8b949e" stroke-width="1.2" marker-end="url(#bpm-arr)"/>
 
-      <!-- ══════════════════════════════════════
-           LEGEND
-      ═══════════════════════════════════════ -->
-      <rect x="120" y="830" width="1050" height="70" rx="6" fill="#161b22" stroke="#21262d" stroke-width="1"/>
-      <text x="140" y="852" font-family="Inter" font-size="9" font-weight="700" fill="#484f58" letter-spacing="1.5">LÉGENDE</text>
+      <!-- ══════════════ LEGEND ══════════════ -->
+      <rect x="90" y="680" width="830" height="42" rx="5" fill="#161b22" stroke="#21262d" stroke-width="1"/>
+      <text x="106" y="696" font-family="Inter" font-size="7.5" font-weight="700" fill="#484f58" letter-spacing="1.2">LÉGENDE</text>
 
-      <!-- Activity -->
-      <rect x="140" y="862" width="48" height="22" rx="6" fill="#172554" stroke="#1d4ed8" stroke-width="1"/>
-      <text x="200" y="878" font-family="JetBrains Mono" font-size="8.5" fill="#8b949e">Activité admin</text>
+      <rect x="108" y="705" width="32" height="14" rx="4" fill="#172554" stroke="#1d4ed8" stroke-width=".8"/>
+      <text x="150" y="715" font-family="JetBrains Mono" font-size="7" fill="#8b949e">Admin</text>
 
-      <rect x="330" y="862" width="48" height="22" rx="6" fill="#052e16" stroke="#065f46" stroke-width="1"/>
-      <text x="390" y="878" font-family="JetBrains Mono" font-size="8.5" fill="#8b949e">Activité enseignant</text>
+      <rect x="220" y="705" width="32" height="14" rx="4" fill="#052e16" stroke="#065f46" stroke-width=".8"/>
+      <text x="262" y="715" font-family="JetBrains Mono" font-size="7" fill="#8b949e">Enseignant</text>
 
-      <rect x="540" y="862" width="48" height="22" rx="6" fill="#2e1065" stroke="#6d28d9" stroke-width="1"/>
-      <text x="600" y="878" font-family="JetBrains Mono" font-size="8.5" fill="#8b949e">Assistance IA</text>
+      <rect x="360" y="705" width="32" height="14" rx="4" fill="#2e1065" stroke="#6d28d9" stroke-width=".8"/>
+      <text x="402" y="715" font-family="JetBrains Mono" font-size="7" fill="#8b949e">Assistance IA</text>
 
-      <rect x="720" y="862" width="48" height="22" rx="6" fill="#451a03" stroke="#92400e" stroke-width="1"/>
-      <text x="780" y="878" font-family="JetBrains Mono" font-size="8.5" fill="#8b949e">Activité technicien</text>
+      <rect x="510" y="705" width="32" height="14" rx="4" fill="#451a03" stroke="#92400e" stroke-width=".8"/>
+      <text x="552" y="715" font-family="JetBrains Mono" font-size="7" fill="#8b949e">Technicien</text>
 
-      <!-- Gateway -->
-      <polygon points="930,873 942,862 954,873 942,884" fill="none" stroke="#10b981" stroke-width="1.2"/>
-      <text x="966" y="878" font-family="JetBrains Mono" font-size="8.5" fill="#8b949e">Décision</text>
+      <polygon points="655,712 664,705 673,712 664,719" fill="none" stroke="#10b981" stroke-width="1"/>
+      <text x="684" y="715" font-family="JetBrains Mono" font-size="7" fill="#8b949e">Décision</text>
 
-      <!-- Events -->
-      <circle cx="1040" cy="873" r="7" fill="none" stroke="#93c5fd" stroke-width="2"/>
-      <text x="1056" y="878" font-family="JetBrains Mono" font-size="8.5" fill="#8b949e">Début / Fin</text>
+      <circle cx="760" cy="712" r="5" fill="none" stroke="#93c5fd" stroke-width="1.5"/>
+      <text x="774" y="715" font-family="JetBrains Mono" font-size="7" fill="#8b949e">Début / Fin</text>
+
+      <line x1="840" y1="712" x2="860" y2="712" stroke="#a78bfa" stroke-width="1" stroke-dasharray="3,2"/>
+      <text x="870" y="715" font-family="JetBrains Mono" font-size="7" fill="#8b949e">IA</text>
     </svg>
   </div>
 
