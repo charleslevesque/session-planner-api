@@ -48,6 +48,10 @@ public class AiSuggestionService : IAiSuggestionService
             var response = await CallOpenAiAsync(prompt);
             return ParseResponse(response);
         }
+        catch (OpenAiQuotaException ex)
+        {
+            return new AiSuggestionsResult([], ex.Message);
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "OpenAI call failed for session {SessionId}, course {CourseId}", sessionId, courseId);
@@ -206,7 +210,26 @@ public class AiSuggestionService : IAiSuggestionService
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
 
         var response = await _httpClient.SendAsync(request);
-        response.EnsureSuccessStatusCode();
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            var statusCode = (int)response.StatusCode;
+
+            if (statusCode == 429)
+            {
+                using var errDoc = JsonDocument.Parse(errorBody);
+                var code = errDoc.RootElement.TryGetProperty("error", out var err)
+                    && err.TryGetProperty("code", out var c) ? c.GetString() : null;
+
+                throw code == "insufficient_quota"
+                    ? new OpenAiQuotaException("Le quota de l'API OpenAI est épuisé. Veuillez vérifier le plan de facturation sur platform.openai.com.")
+                    : new OpenAiQuotaException("Trop de requêtes vers l'API OpenAI. Veuillez réessayer dans quelques secondes.");
+            }
+
+            _logger.LogError("OpenAI returned {StatusCode}: {Body}", statusCode, errorBody);
+            throw new HttpRequestException($"OpenAI API error ({statusCode})");
+        }
 
         var responseJson = await response.Content.ReadAsStringAsync();
         using var doc = JsonDocument.Parse(responseJson);
@@ -215,6 +238,11 @@ public class AiSuggestionService : IAiSuggestionService
             .GetProperty("message")
             .GetProperty("content")
             .GetString() ?? "{}";
+    }
+
+    public class OpenAiQuotaException : Exception
+    {
+        public OpenAiQuotaException(string message) : base(message) { }
     }
 
     private static AiSuggestionsResult ParseResponse(string json)
