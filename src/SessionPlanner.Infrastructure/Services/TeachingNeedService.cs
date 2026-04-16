@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SessionPlanner.Core.Entities;
+using SessionPlanner.Core.Entities.Joins;
 using SessionPlanner.Core.Enums;
 using SessionPlanner.Core.Interfaces;
 using SessionPlanner.Infrastructure.Data;
@@ -1015,6 +1016,16 @@ public class TeachingNeedService : ITeachingNeedService
         var changes = new List<string>();
         changes.Add($"Demande renouvelée depuis la session « {source.Session?.Title ?? source.SessionId.ToString()} »");
 
+        var alreadyAssociated = await _db.SessionCourses
+            .AnyAsync(sc => sc.SessionId == sessionId && sc.CourseId == courseId);
+        if (!alreadyAssociated)
+        {
+            _db.SessionCourses.Add(new SessionCourse { SessionId = sessionId, CourseId = courseId });
+            await _db.SaveChangesAsync();
+            var course = await _db.Courses.FindAsync(courseId);
+            changes.Add($"Cours « {course?.Code ?? courseId.ToString()} » associé automatiquement à la session");
+        }
+
         var cloned = new TeachingNeed
         {
             SessionId = sessionId,
@@ -1075,6 +1086,51 @@ public class TeachingNeedService : ITeachingNeedService
             ?? throw new InvalidOperationException("Failed to reload renewed teaching need.");
 
         return (result, changes);
+    }
+
+    public async Task<List<(TeachingNeed Need, IReadOnlyList<string> Changes)>> RenewAllForSessionAsync(
+        int sessionId, int personnelId)
+    {
+        var session = await _db.Sessions.FindAsync(sessionId)
+            ?? throw new InvalidOperationException("Session not found.");
+
+        if (session.Status != SessionStatus.Open)
+            throw new InvalidOperationException("Cannot create needs: the session is not open.");
+
+        var existingNeeds = await _db.TeachingNeeds
+            .Where(n => n.SessionId == sessionId && n.PersonnelId == personnelId)
+            .Select(n => n.CourseId)
+            .ToListAsync();
+        var existingCourseIds = new HashSet<int>(existingNeeds);
+
+        var allApproved = await _db.TeachingNeeds
+            .Include(n => n.Items).ThenInclude(i => i.Software)
+            .Include(n => n.Items).ThenInclude(i => i.SoftwareVersion)
+            .Include(n => n.Items).ThenInclude(i => i.OS)
+            .Include(n => n.Session)
+            .Include(n => n.Course)
+            .Where(n => n.PersonnelId == personnelId
+                        && n.SessionId != sessionId
+                        && n.Status == NeedStatus.Approved)
+            .OrderByDescending(n => n.Session!.EndDate)
+            .ThenByDescending(n => n.CreatedAt)
+            .ToListAsync();
+
+        var eligibleByCourse = allApproved
+            .Where(n => !existingCourseIds.Contains(n.CourseId))
+            .GroupBy(n => n.CourseId)
+            .Select(g => g.First())
+            .ToList();
+
+        var results = new List<(TeachingNeed, IReadOnlyList<string>)>();
+
+        foreach (var source in eligibleByCourse)
+        {
+            var (need, changes) = await RenewForSessionAsync(sessionId, personnelId, source.CourseId);
+            results.Add((need, changes));
+        }
+
+        return results;
     }
 
     private static void EnsureStatus(TeachingNeed need, NeedStatus expectedStatus, string message)

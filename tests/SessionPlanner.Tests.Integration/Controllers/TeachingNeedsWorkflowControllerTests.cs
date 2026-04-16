@@ -727,6 +727,95 @@ public class TeachingNeedsWorkflowControllerTests : IClassFixture<TeachingNeedWo
         item.SoftwareVersionId.Should().Be(2, "v2 is the latest version seeded for software=1");
     }
 
+    [Fact]
+    public async Task Renew_AutoAssociatesCourseWithSession()
+    {
+        var session1 = await CreateOpenSessionAsync("AutoAssoc S1");
+        var session2 = await CreateOpenSessionAsync("AutoAssoc S2");
+        var courseId = await CreateCourseAsync("RENEW_ASSOC");
+
+        await CreateAndApproveNeedAsync(session1, courseId);
+
+        SetRole("admin");
+        var coursesBefore = await _client.GetFromJsonAsync<List<SessionCourseResponse>>(
+            $"/api/v1/sessions/{session2}/courses");
+        coursesBefore!.Should().NotContain(c => c.Id == courseId,
+            "course should not be associated with session2 before renewal");
+
+        SetRole("professor");
+        var renewResp = await _client.PostAsync(
+            $"/api/v1/sessions/{session2}/needs/renew/{courseId}", null);
+        renewResp.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var result = await renewResp.Content.ReadFromJsonAsync<RenewNeedsResponse>();
+        result!.Changes.Should().Contain(c => c.Contains("associé automatiquement"),
+            "the changes should mention the auto-association");
+
+        SetRole("admin");
+        var coursesAfter = await _client.GetFromJsonAsync<List<SessionCourseResponse>>(
+            $"/api/v1/sessions/{session2}/courses");
+        coursesAfter!.Should().Contain(c => c.Id == courseId,
+            "course should now be associated with session2 after renewal");
+    }
+
+    [Fact]
+    public async Task RenewAll_RenewsMultipleCoursesAtOnce()
+    {
+        var session1 = await CreateOpenSessionAsync("RenewAll S1");
+        var session2 = await CreateOpenSessionAsync("RenewAll S2");
+        var courseA = await CreateCourseAsync("RALL_A");
+        var courseB = await CreateCourseAsync("RALL_B");
+
+        await CreateAndApproveNeedAsync(session1, courseA);
+        await CreateAndApproveNeedAsync(session1, courseB);
+
+        SetRole("professor");
+        var resp = await _client.PostAsync($"/api/v1/sessions/{session2}/needs/renew-all", null);
+        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var result = await resp.Content.ReadFromJsonAsync<RenewAllResponse>();
+        result.Should().NotBeNull();
+        result!.TotalCourses.Should().BeGreaterThanOrEqualTo(2);
+        result.Renewed.Should().Contain(r => r.Need.CourseId == courseA);
+        result.Renewed.Should().Contain(r => r.Need.CourseId == courseB);
+
+        SetRole("admin");
+        var courses = await _client.GetFromJsonAsync<List<SessionCourseResponse>>(
+            $"/api/v1/sessions/{session2}/courses");
+        courses!.Should().Contain(c => c.Id == courseA);
+        courses!.Should().Contain(c => c.Id == courseB);
+    }
+
+    [Fact]
+    public async Task RenewAll_SkipsCoursesThatAlreadyHaveNeeds()
+    {
+        var session1 = await CreateOpenSessionAsync("RenewAll Skip S1");
+        var session2 = await CreateOpenSessionAsync("RenewAll Skip S2");
+        var courseA = await CreateCourseAsync("RSKIP_A");
+        var courseB = await CreateCourseAsync("RSKIP_B");
+
+        await CreateAndApproveNeedAsync(session1, courseA);
+        await CreateAndApproveNeedAsync(session1, courseB);
+
+        SetRole("admin");
+        await _client.PutAsJsonAsync($"/api/v1/sessions/{session2}/courses", new { courseIds = new[] { courseB } });
+
+        SetRole("professor");
+        await _client.PostAsJsonAsync(
+            $"/api/v1/sessions/{session2}/needs",
+            new CreateTeachingNeedRequest(courseB, null, "Already exists", null, null, null, null, null, null));
+
+        var resp = await _client.PostAsync($"/api/v1/sessions/{session2}/needs/renew-all", null);
+        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var result = await resp.Content.ReadFromJsonAsync<RenewAllResponse>();
+        result.Should().NotBeNull();
+        result!.Renewed.Should().Contain(r => r.Need.CourseId == courseA,
+            "courseA should be renewed because it had no need in session2");
+        result.Renewed.Should().NotContain(r => r.Need.CourseId == courseB,
+            "courseB should be skipped because it already has a need in session2");
+    }
+
     #endregion
 
     /// <summary>

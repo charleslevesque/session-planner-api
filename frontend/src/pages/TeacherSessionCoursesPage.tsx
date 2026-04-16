@@ -21,6 +21,12 @@ interface RenewResult {
   changes: string[];
 }
 
+interface RenewAllResult {
+  renewed: RenewResult[];
+  totalCourses: number;
+  totalItems: number;
+}
+
 function normalizeStatus(status: SessionStatus | number | string): SessionStatus {
   if (typeof status === 'number') {
     const byValue: Record<number, SessionStatus> = { 1: 'Draft', 2: 'Open', 3: 'Closed', 4: 'Archived' };
@@ -53,7 +59,9 @@ export function TeacherSessionCoursesPage() {
   const [search, setSearch] = useState('');
 
   const [renewingCourseId, setRenewingCourseId] = useState<number | null>(null);
+  const [renewingAll, setRenewingAll] = useState(false);
   const [renewResult, setRenewResult] = useState<RenewResult | null>(null);
+  const [renewAllResult, setRenewAllResult] = useState<RenewAllResult | null>(null);
   const [renewError, setRenewError] = useState('');
 
   const loadData = useCallback(async () => {
@@ -121,6 +129,7 @@ export function TeacherSessionCoursesPage() {
   }, [courses, search]);
 
   const sessionStatus = session ? normalizeStatus(session.status) : null;
+  const isBusy = renewingCourseId !== null || renewingAll;
 
   const handleRenew = async (courseId: number) => {
     setRenewingCourseId(courseId);
@@ -128,6 +137,7 @@ export function TeacherSessionCoursesPage() {
     try {
       const result = await apiFetch<RenewResult>(`/sessions/${id}/needs/renew/${courseId}`, { method: 'POST' });
       setRenewResult(result);
+      void loadData();
     } catch (err) {
       setRenewError(getErrorMessage(err, 'Impossible de renouveler cette demande.'));
     } finally {
@@ -135,7 +145,24 @@ export function TeacherSessionCoursesPage() {
     }
   };
 
-  const closeModal = () => setRenewResult(null);
+  const handleRenewAll = async () => {
+    setRenewingAll(true);
+    setRenewError('');
+    try {
+      const result = await apiFetch<RenewAllResult>(`/sessions/${id}/needs/renew-all`, { method: 'POST' });
+      setRenewAllResult(result);
+      void loadData();
+    } catch (err) {
+      setRenewError(getErrorMessage(err, 'Impossible de renouveler les demandes.'));
+    } finally {
+      setRenewingAll(false);
+    }
+  };
+
+  const closeModal = () => {
+    setRenewResult(null);
+    setRenewAllResult(null);
+  };
 
   const goToEdit = () => {
     if (!renewResult) return;
@@ -177,12 +204,22 @@ export function TeacherSessionCoursesPage() {
 
           {renewables.length > 0 && sessionStatus === 'Open' ? (
             <section className="surface-card p-0">
-              <div className="border-b border-stone-200 px-6 py-4">
-                <h2 className="text-base font-semibold text-stone-950">Renouvellement rapide</h2>
-                <p className="mt-1 text-xs text-stone-500">
-                  Ces cours avaient des demandes approuvées lors d&apos;une session précédente.
-                  Renouvelez-les en un clic pour cette session.
-                </p>
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-200 px-6 py-4">
+                <div>
+                  <h2 className="text-base font-semibold text-stone-950">Renouvellement rapide</h2>
+                  <p className="mt-1 text-xs text-stone-500">
+                    Ces cours avaient des demandes approuvées lors d&apos;une session précédente.
+                    Les cours seront automatiquement associés à cette session.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={isBusy}
+                  onClick={() => void handleRenewAll()}
+                  className="shrink-0 rounded-xl border-2 border-emerald-400/60 bg-emerald-500 px-4 py-2 text-xs font-semibold text-white transition hover:bg-emerald-600 disabled:opacity-50"
+                >
+                  {renewingAll ? 'Renouvellement...' : `Tout renouveler (${renewables.length})`}
+                </button>
               </div>
 
               {renewError ? (
@@ -209,7 +246,7 @@ export function TeacherSessionCoursesPage() {
                     </p>
                     <button
                       type="button"
-                      disabled={renewingCourseId !== null}
+                      disabled={isBusy}
                       onClick={() => void handleRenew(r.courseId)}
                       className="mt-3 w-full rounded-xl border-2 border-emerald-400/60 bg-emerald-500 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-600 disabled:opacity-50"
                     >
@@ -280,6 +317,7 @@ export function TeacherSessionCoursesPage() {
         </>
       )}
 
+      {/* Single renewal modal */}
       {renewResult ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl">
@@ -332,6 +370,59 @@ export function TeacherSessionCoursesPage() {
                 className="rounded-xl border-2 border-[var(--ets-primary)]/40 bg-[rgba(220,4,44,0.08)] px-4 py-2 text-sm font-medium text-[var(--ets-primary)] transition hover:bg-[rgba(220,4,44,0.14)]"
               >
                 Modifier la demande
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Bulk renewal modal */}
+      {renewAllResult ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-2xl rounded-2xl bg-white shadow-xl">
+            <div className="border-b border-stone-200 px-6 py-4">
+              <h3 className="text-lg font-semibold text-stone-950">Renouvellement complet</h3>
+              <p className="mt-1 text-sm text-stone-600">
+                {renewAllResult.totalCourses} cours renouvelé{renewAllResult.totalCourses > 1 ? 's' : ''} &middot; {renewAllResult.totalItems} item{renewAllResult.totalItems > 1 ? 's' : ''} au total
+              </p>
+            </div>
+
+            <div className="max-h-[60vh] overflow-y-auto px-6 py-4 space-y-5">
+              {renewAllResult.renewed.map((r) => (
+                <div key={r.need.id} className="rounded-xl border border-stone-200 p-4">
+                  <p className="text-sm font-semibold text-stone-950">
+                    {r.need.courseCode}{r.need.courseName ? ` — ${r.need.courseName}` : ''}
+                  </p>
+
+                  {r.changes.length > 0 ? (
+                    <ul className="mt-2 space-y-1">
+                      {r.changes.map((c, i) => (
+                        <li key={i} className="flex items-start gap-2 text-xs text-stone-600">
+                          <span className="mt-0.5 shrink-0 text-emerald-500">&#10003;</span>
+                          {c}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {r.need.items.map((item) => (
+                      <span key={item.id} className="rounded-lg border border-stone-200 bg-stone-50 px-2 py-0.5 text-[10px] text-stone-600">
+                        {itemLabel(item)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex items-center justify-end gap-3 border-t border-stone-200 px-6 py-4">
+              <button
+                type="button"
+                onClick={closeModal}
+                className="rounded-xl border border-stone-200 px-4 py-2 text-sm text-stone-600 transition hover:bg-stone-50"
+              >
+                Fermer
               </button>
             </div>
           </div>

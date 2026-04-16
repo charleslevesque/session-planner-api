@@ -5,6 +5,12 @@ public record RenewNeedsResponse(
     IEnumerable<string> Changes
 );
 
+public record RenewAllResponse(
+    IEnumerable<RenewNeedsResponse> Renewed,
+    int TotalCourses,
+    int TotalItems
+);
+
 public record RenewableCourseResponse(
     int CourseId,
     string CourseCode,

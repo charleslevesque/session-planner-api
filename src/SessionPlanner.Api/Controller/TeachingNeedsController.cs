@@ -965,6 +965,39 @@ public class TeachingNeedsController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Renews all eligible courses at once: clones approved needs from previous sessions,
+    /// upgrades software versions, and auto-associates courses with the current session.
+    /// </summary>
+    // POST /api/v1/sessions/{sessionId}/needs/renew-all
+    [HttpPost("renew-all")]
+    [HasPermission(Permissions.TeachingNeeds.Create)]
+    [ProducesResponseType(typeof(RenewAllResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> RenewAll(int sessionId)
+    {
+        if (!IsTeachingRole()) return Forbid();
+
+        var userId = GetCurrentUserId();
+        if (userId is null) return Unauthorized(new ApiErrorResponse("Unauthorized.", ErrorCodes.Unauthorized));
+
+        var personnelId = await _needService.GetOrCreatePersonnelIdForUserAsync(userId.Value);
+        if (personnelId is null)
+            return BadRequest(new ApiErrorResponse("Your account is not linked to any personnel record.", ErrorCodes.BadRequest));
+
+        try
+        {
+            var results = await _needService.RenewAllForSessionAsync(sessionId, personnelId.Value);
+            var renewed = results.Select(r => new RenewNeedsResponse(r.Need.ToResponse(), r.Changes)).ToList();
+            var totalItems = renewed.Sum(r => r.Need.Items.Count());
+            return Ok(new RenewAllResponse(renewed, renewed.Count, totalItems));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new ApiErrorResponse(ex.Message, ErrorCodes.InvalidTeachingNeedTransition));
+        }
+    }
+
     // --- Helpers ---
 
     private int? GetCurrentUserId() =>

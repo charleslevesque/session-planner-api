@@ -56,9 +56,17 @@ public interface ITeachingNeedService
     /// <summary>
     /// Renews teaching needs for a course in a new session by cloning the latest approved need
     /// and upgrading software versions to the latest catalog entries.
+    /// Automatically associates the course with the session if needed.
     /// Returns the cloned need and a list of changes made.
     /// </summary>
     Task<(TeachingNeed Need, IReadOnlyList<string> Changes)> RenewForSessionAsync(int sessionId, int personnelId, int courseId);
+
+    /// <summary>
+    /// Renews all eligible courses at once for a teacher in a new session.
+    /// For each course with an approved need in a previous session (and no existing need in the target session),
+    /// clones the need, upgrades versions, and auto-associates the course.
+    /// </summary>
+    Task<List<(TeachingNeed Need, IReadOnlyList<string> Changes)>> RenewAllForSessionAsync(int sessionId, int personnelId);
 
     /// <summary>Returns the PersonnelId linked to the given userId, or null if none.</summary>
     Task<int?> GetPersonnelIdForUserAsync(int userId);
