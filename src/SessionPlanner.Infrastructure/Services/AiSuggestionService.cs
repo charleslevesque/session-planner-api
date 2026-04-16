@@ -5,6 +5,7 @@ using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using SessionPlanner.Core.Entities;
 using SessionPlanner.Core.Interfaces;
 using SessionPlanner.Infrastructure.Data;
 
@@ -480,6 +481,133 @@ public class AiSuggestionService : IAiSuggestionService
     private record HistoryItem(string Type, string? Software, string? Version, string? Os, string? Notes);
     private record CatalogEntry(string Name, string? InstallCommand, List<CatalogVersion> Versions);
     private record CatalogVersion(string Version, string Os);
+
+    // ───── Rejection assistance ─────
+
+    public async Task<RejectionAssistResult> GetRejectionAssistanceAsync(int sessionId, int needId)
+    {
+        var need = await _db.TeachingNeeds
+            .Include(n => n.Personnel)
+            .Include(n => n.Course)
+            .Include(n => n.Session)
+            .Include(n => n.Items).ThenInclude(i => i.Software)
+            .Include(n => n.Items).ThenInclude(i => i.SoftwareVersion)
+            .Include(n => n.Items).ThenInclude(i => i.OS)
+            .FirstOrDefaultAsync(n => n.Id == needId && n.SessionId == sessionId);
+
+        if (need is null || string.IsNullOrWhiteSpace(need.RejectionReason))
+            return new RejectionAssistResult(
+                "Aucune information de rejet disponible.", [], null);
+
+        var prompt = BuildRejectionAssistPrompt(need);
+
+        try
+        {
+            var json = await CallOpenAiAsync(prompt);
+            return ParseRejectionAssistResponse(json);
+        }
+        catch (OpenAiQuotaException ex)
+        {
+            return new RejectionAssistResult(ex.Message, [], null);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Rejection assist failed for need {NeedId}", needId);
+            return new RejectionAssistResult(
+                "Impossible de générer l'assistance pour le moment.", [], null);
+        }
+    }
+
+    private static string BuildRejectionAssistPrompt(TeachingNeed need)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("Tu es un assistant qui aide un professeur à corriger une demande de besoins technologiques qui a été rejetée par l'administration.");
+        sb.AppendLine("Analyse le motif de rejet et la demande actuelle, puis propose des étapes concrètes de correction.");
+        sb.AppendLine();
+        sb.AppendLine($"Cours: {need.Course?.Code} {need.Course?.Name}");
+        sb.AppendLine($"Session: {need.Session?.Title}");
+        sb.AppendLine();
+        sb.AppendLine($"=== MOTIF DE REJET ===");
+        sb.AppendLine(need.RejectionReason);
+        sb.AppendLine();
+
+        sb.AppendLine("=== CONTENU ACTUEL DE LA DEMANDE ===");
+        if (!string.IsNullOrWhiteSpace(need.Notes))
+            sb.AppendLine($"Notes: {need.Notes}");
+        if (need.ExpectedStudents.HasValue)
+            sb.AppendLine($"Étudiants attendus: {need.ExpectedStudents}");
+        if (!string.IsNullOrWhiteSpace(need.DesiredModifications))
+            sb.AppendLine($"Modifications souhaitées: {need.DesiredModifications}");
+        if (!string.IsNullOrWhiteSpace(need.AdditionalComments))
+            sb.AppendLine($"Commentaires: {need.AdditionalComments}");
+        sb.AppendLine();
+
+        sb.AppendLine("=== ITEMS DE LA DEMANDE ===");
+        foreach (var item in need.Items)
+        {
+            var parts = new List<string> { $"[{item.ItemType}]" };
+            if (item.Software != null) parts.Add(item.Software.Name);
+            if (item.SoftwareVersion != null) parts.Add($"v{item.SoftwareVersion.VersionNumber}");
+            if (item.OS != null) parts.Add($"({item.OS.Name})");
+            if (item.Quantity.HasValue) parts.Add($"Qté: {item.Quantity}");
+            if (!string.IsNullOrWhiteSpace(item.Description)) parts.Add(item.Description);
+            if (!string.IsNullOrWhiteSpace(item.Notes)) parts.Add($"— {item.Notes}");
+            sb.AppendLine($"  {string.Join(" ", parts)}");
+        }
+        if (need.Items.Count == 0)
+            sb.AppendLine("  (aucun item)");
+        sb.AppendLine();
+
+        sb.AppendLine("Réponds en JSON strict (pas de markdown) avec ce format:");
+        sb.AppendLine("""
+{
+  "explanation": "Explication claire en français du problème identifié par l'admin, en 1-2 phrases simples",
+  "steps": [
+    {
+      "action": "modifier" ou "ajouter" ou "retirer" ou "vérifier",
+      "target": "Nom de l'élément concerné (ex: 'IntelliJ', 'Notes de la demande', 'Nombre d'étudiants')",
+      "detail": "Instruction précise de ce qu'il faut faire (ex: 'Changer la version de 2023.1 à 2024.1')"
+    }
+  ],
+  "revisedNotes": "Si les notes de la demande devraient être modifiées, proposer le nouveau texte ici (null sinon)"
+}
+""");
+        sb.AppendLine("Donne entre 1 et 5 étapes de correction concrètes et actionnables. Sois concis et pratique.");
+
+        return sb.ToString();
+    }
+
+    private static RejectionAssistResult ParseRejectionAssistResponse(string json)
+    {
+        var trimmed = json.Trim();
+        if (trimmed.StartsWith("```"))
+        {
+            var firstNewline = trimmed.IndexOf('\n');
+            if (firstNewline > 0) trimmed = trimmed[(firstNewline + 1)..];
+            if (trimmed.EndsWith("```")) trimmed = trimmed[..^3].TrimEnd();
+        }
+
+        using var doc = JsonDocument.Parse(trimmed);
+        var root = doc.RootElement;
+
+        var explanation = root.TryGetProperty("explanation", out var e) ? e.GetString() ?? "" : "";
+
+        var steps = new List<RejectionCorrectionStep>();
+        if (root.TryGetProperty("steps", out var stepsArr))
+        {
+            foreach (var s in stepsArr.EnumerateArray())
+            {
+                var action = s.TryGetProperty("action", out var a) ? a.GetString() ?? "" : "";
+                var target = s.TryGetProperty("target", out var t) ? t.GetString() ?? "" : "";
+                var detail = s.TryGetProperty("detail", out var d) ? d.GetString() ?? "" : "";
+                steps.Add(new RejectionCorrectionStep(action, target, detail));
+            }
+        }
+
+        var revisedNotes = root.TryGetProperty("revisedNotes", out var rn) ? rn.GetString() : null;
+
+        return new RejectionAssistResult(explanation, steps, revisedNotes);
+    }
 
     // ───── Auto-fill ─────
 

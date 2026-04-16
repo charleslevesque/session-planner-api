@@ -41,3 +41,15 @@ public record AutoFillSuggestionDto(
     string Value,
     string Reason,
     float Confidence);
+
+public record RejectionAssistRequestDto(int SessionId, int NeedId);
+
+public record RejectionAssistResponseDto(
+    string Explanation,
+    IReadOnlyList<CorrectionStepDto> Steps,
+    string? RevisedNotes);
+
+public record CorrectionStepDto(
+    string Action,
+    string Target,
+    string Detail);

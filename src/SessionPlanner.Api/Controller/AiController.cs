@@ -76,6 +76,28 @@ public class AiController : ControllerBase
         return Ok(response);
     }
 
+    [HttpPost("rejection-assist")]
+    [SwaggerOperation(
+        Summary = "Get AI-powered correction guidance for a rejected teaching need",
+        Description = "Analyzes the rejection reason and the need content to suggest concrete correction steps to the teacher.")]
+    [ProducesResponseType(typeof(RejectionAssistResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status503ServiceUnavailable)]
+    public async Task<IActionResult> RejectionAssist([FromBody] RejectionAssistRequestDto request)
+    {
+        if (!_aiService.IsConfigured)
+            return StatusCode(503, new ApiErrorResponse(
+                "AI assistance is not configured. Contact the administrator.", "AI_NOT_CONFIGURED"));
+
+        var result = await _aiService.GetRejectionAssistanceAsync(request.SessionId, request.NeedId);
+
+        var response = new RejectionAssistResponseDto(
+            Explanation: result.Explanation,
+            Steps: result.Steps.Select(s => new CorrectionStepDto(s.Action, s.Target, s.Detail)).ToList(),
+            RevisedNotes: result.RevisedNotes);
+
+        return Ok(response);
+    }
+
     [HttpPost("auto-fill")]
     [SwaggerOperation(
         Summary = "Get auto-fill suggestions for form fields",

@@ -100,7 +100,47 @@ public class AiControllerTests : IClassFixture<CustomWebApplicationFactory>
         body!.Source.Should().Be("none");
     }
 
+    [Fact]
+    public async Task RejectionAssist_ReturnsSuccessOrServiceUnavailable()
+    {
+        var response = await _client.PostAsJsonAsync($"{BaseUrl}/rejection-assist",
+            new { sessionId = 1, needId = 1 });
+
+        response.StatusCode.Should().BeOneOf(HttpStatusCode.OK, HttpStatusCode.ServiceUnavailable);
+    }
+
+    [Fact]
+    public async Task RejectionAssist_ReturnsCorrectStructure()
+    {
+        var response = await _client.PostAsJsonAsync($"{BaseUrl}/rejection-assist",
+            new { sessionId = 1, needId = 1 });
+
+        if (response.StatusCode == HttpStatusCode.OK)
+        {
+            var body = await response.Content.ReadFromJsonAsync<RejectionAssistResponseDto>();
+            body.Should().NotBeNull();
+            body!.Explanation.Should().NotBeNull();
+            body.Steps.Should().NotBeNull();
+        }
+    }
+
+    [Fact]
+    public async Task RejectionAssist_NonExistentNeed_ReturnsOkWithFallback()
+    {
+        var response = await _client.PostAsJsonAsync($"{BaseUrl}/rejection-assist",
+            new { sessionId = 999, needId = 999 });
+
+        if (response.StatusCode == HttpStatusCode.OK)
+        {
+            var body = await response.Content.ReadFromJsonAsync<RejectionAssistResponseDto>();
+            body.Should().NotBeNull();
+            body!.Steps.Should().BeEmpty();
+        }
+    }
+
     private record StatusResponse(bool Available);
     private record AutoFillSuggestionDto(string Value, string Reason, float Confidence);
     private record AutoFillResponse(Dictionary<string, AutoFillSuggestionDto> Suggestions, string Source);
+    private record CorrectionStepDto(string Action, string Target, string Detail);
+    private record RejectionAssistResponseDto(string Explanation, List<CorrectionStepDto> Steps, string? RevisedNotes);
 }

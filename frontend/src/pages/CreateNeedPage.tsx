@@ -70,6 +70,12 @@ export function CreateNeedPage() {
   const [showHistory, setShowHistory] = useState(false);
   const [cloning, setCloning] = useState(false);
 
+  interface CorrectionStep { action: string; target: string; detail: string; }
+  interface RejectionAssistResponse { explanation: string; steps: CorrectionStep[]; revisedNotes: string | null; }
+  const [rejectionAssist, setRejectionAssist] = useState<RejectionAssistResponse | null>(null);
+  const [rejectionAssistLoading, setRejectionAssistLoading] = useState(false);
+  const [rejectionAssistError, setRejectionAssistError] = useState('');
+
   const [items, setItems] = useState<NeedItemDraft[]>([]);
   const [selectedType, setSelectedType] = useState<TeacherNeedItemType>('software');
   const [draftValues, setDraftValues] = useState<Record<string, string>>(() => {
@@ -214,6 +220,29 @@ export function CreateNeedPage() {
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  const fetchRejectionAssist = useCallback(async () => {
+    if (!isEditMode || !nId || existingStatus !== 'Rejected' || !rejectionReason) return;
+    setRejectionAssistLoading(true);
+    setRejectionAssistError('');
+    try {
+      const data = await apiFetch<RejectionAssistResponse>('/ai/rejection-assist', {
+        method: 'POST',
+        body: JSON.stringify({ sessionId: sId, needId: nId }),
+      });
+      setRejectionAssist(data);
+    } catch {
+      setRejectionAssistError('Impossible de charger l\'assistance IA.');
+    } finally {
+      setRejectionAssistLoading(false);
+    }
+  }, [apiFetch, isEditMode, nId, sId, existingStatus, rejectionReason]);
+
+  useEffect(() => {
+    if (existingStatus === 'Rejected' && rejectionReason) {
+      void fetchRejectionAssist();
+    }
+  }, [existingStatus, rejectionReason, fetchRejectionAssist]);
 
   useEffect(() => {
     setDraftValues(getNeedItemSchema(selectedType, lookups).defaultValues);
@@ -543,12 +572,57 @@ export function CreateNeedPage() {
           ) : null}
 
           {isEditMode && existingStatus === 'Rejected' && rejectionReason ? (
-            <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-              <p className="font-semibold">Demande rejetée</p>
-              <p className="mt-1 text-rose-700">Motif indiqué par l&apos;équipe&nbsp;: {rejectionReason}</p>
-              <p className="mt-2 text-xs text-rose-600">
-                Vous pouvez modifier les éléments ci-dessous, puis utiliser «&nbsp;Soumettre&nbsp;» pour renvoyer la demande (brouillon puis soumission).
-              </p>
+            <div className="space-y-3">
+              <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+                <p className="font-semibold">Demande rejetée</p>
+                <p className="mt-1 text-rose-700">Motif indiqué par l&apos;équipe&nbsp;: {rejectionReason}</p>
+                <p className="mt-2 text-xs text-rose-600">
+                  Vous pouvez modifier les éléments ci-dessous, puis utiliser «&nbsp;Soumettre&nbsp;» pour renvoyer la demande (brouillon puis soumission).
+                </p>
+              </div>
+
+              {rejectionAssistLoading ? (
+                <div className="rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-700 flex items-center gap-2">
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                  Analyse IA en cours…
+                </div>
+              ) : rejectionAssistError ? (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 flex items-center justify-between">
+                  <span>{rejectionAssistError}</span>
+                  <button type="button" onClick={() => void fetchRejectionAssist()} className="text-xs underline hover:no-underline">Réessayer</button>
+                </div>
+              ) : rejectionAssist && rejectionAssist.steps.length > 0 ? (
+                <div className="rounded-2xl border border-violet-200 bg-violet-50 px-4 py-4 text-sm">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700">IA</span>
+                    <p className="font-semibold text-violet-800">Assistant de correction</p>
+                  </div>
+                  <p className="text-violet-700 mb-3">{rejectionAssist.explanation}</p>
+                  <ol className="space-y-2">
+                    {rejectionAssist.steps.map((step, i) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <span className="mt-0.5 flex-shrink-0 inline-flex items-center justify-center w-5 h-5 rounded-full bg-violet-200 text-xs font-bold text-violet-800">{i + 1}</span>
+                        <div>
+                          <span className={`inline-block rounded-md px-1.5 py-0.5 text-xs font-medium mr-1 ${
+                            step.action === 'retirer' ? 'bg-rose-100 text-rose-700'
+                              : step.action === 'ajouter' ? 'bg-emerald-100 text-emerald-700'
+                              : step.action === 'vérifier' ? 'bg-amber-100 text-amber-700'
+                              : 'bg-blue-100 text-blue-700'
+                          }`}>{step.action}</span>
+                          <span className="font-medium text-violet-900">{step.target}</span>
+                          <p className="text-violet-700 text-xs mt-0.5">{step.detail}</p>
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                  {rejectionAssist.revisedNotes ? (
+                    <div className="mt-3 rounded-lg bg-white/60 border border-violet-100 px-3 py-2">
+                      <p className="text-xs font-medium text-violet-800 mb-1">Notes suggérées :</p>
+                      <p className="text-xs text-violet-700 italic">{rejectionAssist.revisedNotes}</p>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           ) : null}
 
