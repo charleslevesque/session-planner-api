@@ -59,6 +59,193 @@ public class AiSuggestionService : IAiSuggestionService
         }
     }
 
+    public async Task<AiReviewAnalysis> AnalyzeNeedForReviewAsync(int sessionId, int needId)
+    {
+        if (!IsConfigured)
+            return new AiReviewAnalysis("AI non configurée.", [], null, null, []);
+
+        try
+        {
+            var context = await BuildReviewContextAsync(sessionId, needId);
+            var prompt = BuildReviewPrompt(context);
+            var response = await CallOpenAiAsync(prompt);
+            return ParseReviewResponse(response);
+        }
+        catch (OpenAiQuotaException ex)
+        {
+            return new AiReviewAnalysis(ex.Message, [], null, null, []);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "OpenAI review analysis failed for need {NeedId}", needId);
+            return new AiReviewAnalysis("Impossible d'analyser cette demande pour le moment.", [], null, null, []);
+        }
+    }
+
+    private async Task<ReviewContext> BuildReviewContextAsync(int sessionId, int needId)
+    {
+        var need = await _db.TeachingNeeds
+            .Include(n => n.Personnel)
+            .Include(n => n.Course)
+            .Include(n => n.Session)
+            .Include(n => n.Items).ThenInclude(i => i.Software)
+            .Include(n => n.Items).ThenInclude(i => i.SoftwareVersion)
+            .Include(n => n.Items).ThenInclude(i => i.OS)
+            .FirstOrDefaultAsync(n => n.Id == needId && n.SessionId == sessionId);
+
+        if (need is null)
+            return new ReviewContext("", "", "", "", "", [], [], [], [], []);
+
+        var courseHistory = await _db.TeachingNeeds
+            .Include(n => n.Items).ThenInclude(i => i.Software)
+            .Include(n => n.Items).ThenInclude(i => i.SoftwareVersion)
+            .Include(n => n.Session)
+            .Where(n => n.CourseId == need.CourseId && n.Id != needId && n.Status == Core.Enums.NeedStatus.Approved)
+            .OrderByDescending(n => n.ReviewedAt)
+            .Take(5)
+            .ToListAsync();
+
+        var labStatuses = new List<string>();
+        foreach (var item in need.Items.Where(i => i.SoftwareId.HasValue))
+        {
+            var entries = await _db.LaboratorySoftwares
+                .Include(ls => ls.Laboratory)
+                .Where(ls => ls.SoftwareId == item.SoftwareId!.Value)
+                .ToListAsync();
+            var installed = entries.Count(e => e.Status == "W");
+            var total = entries.Count;
+            labStatuses.Add($"{item.Software?.Name ?? "?"}: installé dans {installed}/{total} labos" +
+                (entries.Any(e => e.Status == "M") ? $" (manquant dans: {string.Join(", ", entries.Where(e => e.Status == "M").Select(e => e.Laboratory.Name))})" : ""));
+        }
+
+        var otherSessionNeeds = await _db.TeachingNeeds
+            .Include(n => n.Items).ThenInclude(i => i.Software)
+            .Include(n => n.Personnel)
+            .Where(n => n.SessionId == sessionId && n.CourseId == need.CourseId && n.Id != needId
+                        && n.Status != Core.Enums.NeedStatus.Draft)
+            .ToListAsync();
+
+        return new ReviewContext(
+            SessionTitle: need.Session?.Title ?? "",
+            CourseCode: need.Course?.Code ?? "",
+            CourseName: need.Course?.Name ?? "",
+            ProfessorName: need.Personnel != null ? $"{need.Personnel.FirstName} {need.Personnel.LastName}" : "",
+            NeedStatus: need.Status.ToString(),
+            Items: need.Items.Select(i => $"[{i.ItemType}] {i.Software?.Name ?? i.Description ?? "N/A"} {i.SoftwareVersion?.VersionNumber ?? ""} ({i.OS?.Name ?? ""}) {(string.IsNullOrWhiteSpace(i.Notes) ? "" : $"— {i.Notes}")}").ToList(),
+            NeedMeta: new List<string>
+            {
+                need.ExpectedStudents.HasValue ? $"Étudiants attendus: {need.ExpectedStudents}" : "",
+                !string.IsNullOrWhiteSpace(need.Notes) ? $"Notes: {need.Notes}" : "",
+                !string.IsNullOrWhiteSpace(need.DesiredModifications) ? $"Modifications souhaitées: {need.DesiredModifications}" : "",
+                !string.IsNullOrWhiteSpace(need.AdditionalComments) ? $"Commentaires: {need.AdditionalComments}" : "",
+                need.IsFastTrack ? "FastTrack: Oui (identique à une demande précédente approuvée)" : ""
+            }.Where(s => s != "").ToList(),
+            LabStatuses: labStatuses,
+            HistorySessions: courseHistory.Select(h => $"Session {h.Session?.Title ?? "?"}: {string.Join(", ", h.Items.Select(i => i.Software?.Name ?? i.Description ?? i.ItemType))}").ToList(),
+            OtherNeedsThisSession: otherSessionNeeds.Select(n => $"{n.Personnel?.FirstName} {n.Personnel?.LastName}: {string.Join(", ", n.Items.Select(i => i.Software?.Name ?? i.Description ?? i.ItemType))} ({n.Status})").ToList()
+        );
+    }
+
+    private static string BuildReviewPrompt(ReviewContext ctx)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("Tu es un assistant pour un administrateur universitaire qui révise les demandes de besoins technologiques des professeurs.");
+        sb.AppendLine("Analyse cette demande et donne un avis structuré pour aider l'admin à prendre une décision (approuver ou rejeter).");
+        sb.AppendLine();
+        sb.AppendLine($"Session: {ctx.SessionTitle}");
+        sb.AppendLine($"Cours: {ctx.CourseCode} {ctx.CourseName}");
+        sb.AppendLine($"Professeur: {ctx.ProfessorName}");
+        sb.AppendLine($"Statut: {ctx.NeedStatus}");
+        sb.AppendLine();
+
+        if (ctx.NeedMeta.Count > 0)
+        {
+            sb.AppendLine("=== CONTEXTE DE LA DEMANDE ===");
+            foreach (var m in ctx.NeedMeta) sb.AppendLine($"  {m}");
+            sb.AppendLine();
+        }
+
+        sb.AppendLine("=== ITEMS DEMANDÉS ===");
+        foreach (var item in ctx.Items) sb.AppendLine($"  {item}");
+        sb.AppendLine();
+
+        if (ctx.LabStatuses.Count > 0)
+        {
+            sb.AppendLine("=== STATUT DANS LES LABOS (matrice d'installation) ===");
+            foreach (var ls in ctx.LabStatuses) sb.AppendLine($"  {ls}");
+            sb.AppendLine();
+        }
+
+        if (ctx.HistorySessions.Count > 0)
+        {
+            sb.AppendLine("=== HISTORIQUE APPROUVÉ POUR CE COURS ===");
+            foreach (var h in ctx.HistorySessions) sb.AppendLine($"  {h}");
+            sb.AppendLine();
+        }
+
+        if (ctx.OtherNeedsThisSession.Count > 0)
+        {
+            sb.AppendLine("=== AUTRES DEMANDES POUR CE COURS CETTE SESSION ===");
+            foreach (var o in ctx.OtherNeedsThisSession) sb.AppendLine($"  {o}");
+            sb.AppendLine();
+        }
+
+        sb.AppendLine("Réponds en JSON strict (pas de markdown) avec ce format:");
+        sb.AppendLine("""
+{
+  "summary": "Résumé de l'analyse en 2-3 phrases en français",
+  "alerts": ["Alerte 1 si problème détecté", "Alerte 2..."],
+  "suggestedAction": "approve" ou "review" ou "reject",
+  "draftRejectReason": "Si reject, raison suggérée en français (null sinon)",
+  "historyComparisons": [
+    {"sessionTitle": "Session X", "similarity": "Identique / Similaire / Différent + détail court"}
+  ]
+}
+""");
+        sb.AppendLine("Sois concis. Les alertes sont pour les incohérences (version qui n'existe pas dans le catalogue, conflits avec d'autres demandes, logiciel déjà installé partout). suggestedAction='approve' si tout semble cohérent.");
+
+        return sb.ToString();
+    }
+
+    private static AiReviewAnalysis ParseReviewResponse(string json)
+    {
+        var trimmed = json.Trim();
+        if (trimmed.StartsWith("```"))
+        {
+            var firstNewline = trimmed.IndexOf('\n');
+            if (firstNewline > 0) trimmed = trimmed[(firstNewline + 1)..];
+            if (trimmed.EndsWith("```")) trimmed = trimmed[..^3].TrimEnd();
+        }
+
+        using var doc = JsonDocument.Parse(trimmed);
+        var root = doc.RootElement;
+
+        var summary = root.TryGetProperty("summary", out var s) ? s.GetString() ?? "" : "";
+        var alerts = new List<string>();
+        if (root.TryGetProperty("alerts", out var alertsArr))
+            foreach (var a in alertsArr.EnumerateArray())
+                if (a.GetString() is { } val) alerts.Add(val);
+
+        var suggestedAction = root.TryGetProperty("suggestedAction", out var sa) ? sa.GetString() : null;
+        var draftRejectReason = root.TryGetProperty("draftRejectReason", out var drr) ? drr.GetString() : null;
+
+        var comparisons = new List<AiHistoryComparison>();
+        if (root.TryGetProperty("historyComparisons", out var hc))
+            foreach (var c in hc.EnumerateArray())
+                comparisons.Add(new AiHistoryComparison(
+                    c.TryGetProperty("sessionTitle", out var st) ? st.GetString() ?? "" : "",
+                    c.TryGetProperty("similarity", out var sim) ? sim.GetString() ?? "" : ""));
+
+        return new AiReviewAnalysis(summary, alerts, suggestedAction, draftRejectReason, comparisons);
+    }
+
+    private record ReviewContext(
+        string SessionTitle, string CourseCode, string CourseName,
+        string ProfessorName, string NeedStatus,
+        List<string> Items, List<string> NeedMeta,
+        List<string> LabStatuses, List<string> HistorySessions,
+        List<string> OtherNeedsThisSession);
+
     private async Task<CourseContext> BuildContextAsync(int sessionId, int courseId)
     {
         var session = await _db.Sessions.FindAsync(sessionId);

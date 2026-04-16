@@ -15,3 +15,14 @@ public record AiSuggestedItemDto(
     string? InstallCommand,
     string? Notes,
     string Reason);
+
+public record AiAnalyzeRequest(int SessionId, int NeedId);
+
+public record AiReviewAnalysisDto(
+    string Summary,
+    IReadOnlyList<string> Alerts,
+    string? SuggestedAction,
+    string? DraftRejectReason,
+    IReadOnlyList<AiHistoryComparisonDto> HistoryComparisons);
+
+public record AiHistoryComparisonDto(string SessionTitle, string Similarity);

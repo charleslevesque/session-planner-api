@@ -35,5 +35,14 @@ public class AiControllerTests : IClassFixture<CustomWebApplicationFactory>
         response.StatusCode.Should().BeOneOf(HttpStatusCode.OK, HttpStatusCode.ServiceUnavailable);
     }
 
+    [Fact]
+    public async Task AnalyzeNeed_ReturnsSuccessOrServiceUnavailable()
+    {
+        var response = await _client.PostAsJsonAsync($"{BaseUrl}/analyze-need",
+            new { sessionId = 1, needId = 1 });
+
+        response.StatusCode.Should().BeOneOf(HttpStatusCode.OK, HttpStatusCode.ServiceUnavailable);
+    }
+
     private record StatusResponse(bool Available);
 }
