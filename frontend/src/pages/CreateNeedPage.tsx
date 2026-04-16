@@ -26,6 +26,8 @@ import type {
 } from '../types/needs';
 import type { SessionResponse } from '../types/sessions';
 import type { OSResponse, LaboratoryLookupResponse, PhysicalServerResponse } from '../types/admin';
+import type { AiSuggestedItem } from '../types/ai';
+import { AiSuggestionsPanel } from '../components/AiSuggestionsPanel';
 
 const EMPTY_LOOKUPS: NeedItemLookups = {
   softwareNames: [],
@@ -259,6 +261,37 @@ export function CreateNeedPage() {
     }
   }
 
+  function handleAiSuggestion(suggestion: AiSuggestedItem) {
+    const type = (suggestion.itemType || 'software') as TeacherNeedItemType;
+    const schema = getNeedItemSchema(type, lookups);
+    const values = { ...schema.defaultValues };
+
+    if (type === 'software') {
+      if (suggestion.softwareName) values.softwareName = suggestion.softwareName;
+      if (suggestion.version) values.versionNumber = suggestion.version;
+      if (suggestion.os) {
+        const matchOs = lookups.osOptions.find(
+          (o) => o.label.toLowerCase() === suggestion.os!.toLowerCase()
+        );
+        if (matchOs) values.osId = matchOs.value;
+      }
+      if (suggestion.installCommand) values.installationDetails = suggestion.installCommand;
+      if (suggestion.notes) values.notes = suggestion.notes;
+    } else if (type === 'saas') {
+      if (suggestion.softwareName) values.name = suggestion.softwareName;
+      if (suggestion.notes) values.notes = suggestion.notes;
+    }
+
+    setItems((prev) => [
+      ...prev,
+      {
+        id: `ai-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        itemType: type,
+        values,
+      },
+    ]);
+  }
+
   function createApiPayloadFromDraft(item: NeedItemDraft) {
     const payload = createNeedItemPayload(item.itemType, item.values) as Record<string, unknown>;
 
@@ -489,6 +522,15 @@ export function CreateNeedPage() {
                 </ul>
               ) : null}
             </section>
+          ) : null}
+
+          {!isEditMode ? (
+            <AiSuggestionsPanel
+              sessionId={sId}
+              courseId={cId}
+              itemType={selectedType}
+              onApplySuggestion={handleAiSuggestion}
+            />
           ) : null}
 
           {isEditMode && existingStatus === 'Rejected' && rejectionReason ? (

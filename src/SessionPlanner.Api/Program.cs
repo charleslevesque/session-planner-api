@@ -96,6 +96,7 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ITeachingNeedService, TeachingNeedService>();
 builder.Services.AddScoped<ILaboratorySoftwareService, LaboratorySoftwareService>();
 builder.Services.AddScoped<IInstallationCheckService, InstallationCheckService>();
+builder.Services.AddHttpClient<IAiSuggestionService, AiSuggestionService>();
 
 var jwtKey = builder.Configuration["Jwt:Key"];
 
