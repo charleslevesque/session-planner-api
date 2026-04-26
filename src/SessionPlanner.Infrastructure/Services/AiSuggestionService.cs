@@ -375,6 +375,9 @@ public class AiSuggestionService : IAiSuggestionService
 
     private async Task<string> GetCompletionAsync(string prompt)
     {
+        if (_chatClient is null)
+            throw new InvalidOperationException("ChatClient is not initialized. Verify that IsConfigured is true before calling this method.");
+
         ChatMessage[] messages =
         [
             new SystemChatMessage("Tu es un assistant technique universitaire. Réponds uniquement en JSON valide."),
@@ -389,15 +392,27 @@ public class AiSuggestionService : IAiSuggestionService
 
         try
         {
-            var completion = await _chatClient!.CompleteChatAsync(messages, options);
+            var completion = await _chatClient.CompleteChatAsync(messages, options);
             return completion.Value.Content[0].Text;
         }
         catch (System.ClientModel.ClientResultException ex) when (ex.Status == 429)
         {
-            var isQuota = ex.Message.Contains("insufficient_quota");
-            throw new OpenAiQuotaException(isQuota
-                ? "Le quota de l'API OpenAI est épuisé. Veuillez vérifier le plan de facturation sur platform.openai.com."
-                : "Trop de requêtes vers l'API OpenAI. Veuillez réessayer dans quelques secondes.");
+            string? errorCode = null;
+            var rawBody = ex.GetRawResponse()?.Content?.ToString();
+            if (rawBody is not null)
+            {
+                try
+                {
+                    using var errDoc = JsonDocument.Parse(rawBody);
+                    errorCode = errDoc.RootElement.TryGetProperty("error", out var err)
+                        && err.TryGetProperty("code", out var c) ? c.GetString() : null;
+                }
+                catch (JsonException) { }
+            }
+
+            throw errorCode == "insufficient_quota"
+                ? new OpenAiQuotaException("Le quota de l'API OpenAI est épuisé. Veuillez vérifier le plan de facturation sur platform.openai.com.")
+                : new OpenAiQuotaException("Trop de requêtes vers l'API OpenAI. Veuillez réessayer dans quelques secondes.");
         }
         catch (System.ClientModel.ClientResultException ex)
         {
