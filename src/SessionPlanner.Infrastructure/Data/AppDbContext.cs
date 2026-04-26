@@ -39,6 +39,19 @@ public class AppDbContext : DbContext
     public DbSet<LaboratorySoftware> LaboratorySoftwares => Set<LaboratorySoftware>();
     public DbSet<SessionCourse> SessionCourses => Set<SessionCourse>();
 
+    // Join entity DbSets — all join tables are registered here for consistency
+    public DbSet<CourseSoftware> CourseSoftwares => Set<CourseSoftware>();
+    public DbSet<CourseSoftwareVersion> CourseSoftwareVersions => Set<CourseSoftwareVersion>();
+    public DbSet<CourseLaboratory> CourseLaboratories => Set<CourseLaboratory>();
+    public DbSet<CourseConfiguration> CourseConfigurations => Set<CourseConfiguration>();
+    public DbSet<CourseVirtualMachine> CourseVirtualMachines => Set<CourseVirtualMachine>();
+    public DbSet<CoursePhysicalServer> CoursePhysicalServers => Set<CoursePhysicalServer>();
+    public DbSet<CourseSaaSProduct> CourseSaaSProducts => Set<CourseSaaSProduct>();
+    public DbSet<CourseEquipmentModel> CourseEquipmentModels => Set<CourseEquipmentModel>();
+    public DbSet<CoursePersonnel> CoursePersonnels => Set<CoursePersonnel>();
+    public DbSet<LaboratoryConfiguration> LaboratoryConfigurations => Set<LaboratoryConfiguration>();
+    public DbSet<ConfigurationOS> ConfigurationOSes => Set<ConfigurationOS>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -54,14 +67,6 @@ public class AppDbContext : DbContext
             .WithMany()
             .HasForeignKey(s => s.CreatedByUserId)
             .OnDelete(DeleteBehavior.SetNull);
-
-        modelBuilder.Entity<User>()
-            .HasIndex(x => x.Username)
-            .IsUnique();
-
-        modelBuilder.Entity<Permission>()
-            .HasIndex(x => x.Name)
-            .IsUnique();
 
         // Configure composite keys for join entities
         modelBuilder.Entity<CourseSoftware>()
@@ -94,24 +99,6 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<LaboratoryConfiguration>()
             .HasKey(lc => new { lc.LaboratoryId, lc.ConfigurationId });
 
-        modelBuilder.Entity<WorkstationSoftware>()
-            .HasKey(ws => new { ws.WorkstationId, ws.SoftwareId });
-
-        modelBuilder.Entity<VirtualMachineSoftware>()
-            .HasKey(vms => new { vms.VirtualMachineId, vms.SoftwareId });
-
-        modelBuilder.Entity<VirtualMachineConfiguration>()
-            .HasKey(vmc => new { vmc.VirtualMachineId, vmc.ConfigurationId });
-
-        modelBuilder.Entity<PhysicalServerSoftware>()
-            .HasKey(pss => new { pss.PhysicalServerId, pss.SoftwareId });
-
-        modelBuilder.Entity<PhysicalServerConfiguration>()
-            .HasKey(psc => new { psc.PhysicalServerId, psc.ConfigurationId });
-
-        modelBuilder.Entity<SoftwareOS>()
-            .HasKey(so => new { so.SoftwareId, so.OSId });
-
         modelBuilder.Entity<LaboratorySoftware>()
             .HasKey(ls => new { ls.LaboratoryId, ls.SoftwareId });
 
@@ -143,10 +130,6 @@ public class AppDbContext : DbContext
             .HasOne(x => x.Role)
             .WithMany(x => x.RolePermissions)
             .HasForeignKey(x => x.RoleId);
-
-        modelBuilder.Entity<Role>()
-            .HasIndex(x => x.Name)
-            .IsUnique();
 
         modelBuilder.Entity<RefreshToken>()
             .HasOne(rt => rt.User)

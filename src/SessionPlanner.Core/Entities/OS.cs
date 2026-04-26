@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using SessionPlanner.Core.Entities.Joins;
 
 namespace SessionPlanner.Core.Entities;
@@ -5,6 +6,8 @@ namespace SessionPlanner.Core.Entities;
 public class OS
 {
     public int Id { get; set; }
+
+    [MaxLength(100)]
     public string Name { get; set; } = null!;
 
     public ICollection<SoftwareVersion> SoftwareVersions { get; set; } = new List<SoftwareVersion>();

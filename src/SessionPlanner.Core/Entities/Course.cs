@@ -1,13 +1,19 @@
+using System.ComponentModel.DataAnnotations;
 using SessionPlanner.Core.Entities.Joins;
+
 namespace SessionPlanner.Core.Entities;
 
-public class Course 
+public class Course
 {
     public int Id { get; set; }
+
+    [MaxLength(20)]
     public string Code { get; set; } = null!; // Ex: "LOG430"
+
+    [MaxLength(200)]
     public string? Name { get; set; }
 
-    //Joins
+    // Joins
     public ICollection<CourseSoftware> CourseSoftwares { get; set; } = new List<CourseSoftware>();
     public ICollection<CourseLaboratory> CourseLaboratories { get; set; } = new List<CourseLaboratory>();
     public ICollection<CourseConfiguration> CourseConfigurations { get; set; } = new List<CourseConfiguration>();

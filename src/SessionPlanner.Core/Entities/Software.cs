@@ -1,10 +1,16 @@
+using System.ComponentModel.DataAnnotations;
 using SessionPlanner.Core.Entities.Joins;
+
 namespace SessionPlanner.Core.Entities;
 
 public class Software
 {
     public int Id { get; set; }
+
+    [MaxLength(200)]
     public string Name { get; set; } = null!;
+
+    [MaxLength(500)]
     public string? InstallCommand { get; set; }  // Ex: "-7zip (choco)"
 
     // Joins

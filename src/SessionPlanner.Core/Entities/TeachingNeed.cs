@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using SessionPlanner.Core.Enums;
 
 namespace SessionPlanner.Core.Entities;
@@ -24,15 +25,22 @@ public class TeachingNeed
     public int? ReviewedByUserId { get; set; }
     public User? ReviewedByUser { get; set; }
 
+    [MaxLength(1000)]
     public string? RejectionReason { get; set; }
+
+    [MaxLength(2000)]
     public string? Notes { get; set; }
     public bool IsFastTrack { get; set; } = false;
 
     public int? ExpectedStudents { get; set; }
     public bool? HasTechNeeds { get; set; }
     public bool? FoundAllCourses { get; set; }
+
+    [MaxLength(2000)]
     public string? DesiredModifications { get; set; }
     public bool? AllowsUpdates { get; set; }
+
+    [MaxLength(2000)]
     public string? AdditionalComments { get; set; }
 
     public ICollection<TeachingNeedItem> Items { get; set; } = new List<TeachingNeedItem>();

@@ -280,10 +280,10 @@ public class UserService : IUserService
             }
             _db.TeachingNeeds.RemoveRange(teachingNeeds);
 
-            var coursePersonnels = await _db.Set<CoursePersonnel>()
+            var coursePersonnels = await _db.CoursePersonnels
                 .Where(cp => cp.PersonnelId == personnelId.Value)
                 .ToListAsync();
-            _db.Set<CoursePersonnel>().RemoveRange(coursePersonnels);
+            _db.CoursePersonnels.RemoveRange(coursePersonnels);
 
             var personnel = await _db.Personnel.FindAsync(personnelId.Value);
             if (personnel is not null)
