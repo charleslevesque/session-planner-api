@@ -1,0 +1,136 @@
+@page "/sessions/{Id:int}/needs"
+@attribute [Authorize(Roles = "admin,lab_instructor,professor,course_instructor")]
+@inject IApiClient Api
+
+<PageTitle>Besoins de la session</PageTitle>
+<h1>Besoins – Session #@Id</h1>
+
+@if (_loading) { <FluentProgressRing /> }
+else
+{
+    @if (!string.IsNullOrEmpty(_error)) { <FluentMessageBar Intent="MessageIntent.Error">@_error</FluentMessageBar> }
+
+    <AuthorizeView Roles="admin,lab_instructor" Context="adminLabCtx">
+        <Authorized>
+            <FluentDataGrid Items="@_needs.AsQueryable()" TGridItem="TeachingNeedResponse">
+                <PropertyColumn Property="@(n => n.PersonnelFullName)" Title="Demandeur" />
+                <PropertyColumn Property="@(n => n.CourseCode)" Title="Cours" />
+                <TemplateColumn Title="Statut"><NeedStatusBadge Status="@context.Status" /></TemplateColumn>
+                <PropertyColumn Property="@(n => n.SubmittedAt)" Title="Soumis le" />
+                <TemplateColumn Title="Actions">
+                    <FluentStack Orientation="Orientation.Horizontal">
+                        @if (context.Status == "Submitted" || context.Status == "UnderReview")
+                        {
+                            <FluentButton Appearance="Appearance.Accent" OnClick="@(() => ApproveAsync(context.Id))" Style="margin-right:4px">Approuver</FluentButton>
+                            <FluentButton OnClick="@(() => OpenRejectDialog(context))">Rejeter</FluentButton>
+                        }
+                    </FluentStack>
+                </TemplateColumn>
+            </FluentDataGrid>
+        </Authorized>
+    </AuthorizeView>
+
+    <AuthorizeView Roles="professor,course_instructor" Context="profCtx">
+        <Authorized>
+            @if (_needs.Count == 0)
+            {
+                <p>Aucun besoin pour cette session.</p>
+            }
+            else
+            {
+                <FluentDataGrid Items="@_needs.AsQueryable()" TGridItem="TeachingNeedResponse">
+                    <PropertyColumn Property="@(n => n.CourseCode)" Title="Cours" />
+                    <TemplateColumn Title="Statut"><NeedStatusBadge Status="@context.Status" /></TemplateColumn>
+                    <PropertyColumn Property="@(n => n.CreatedAt)" Title="Créé" />
+                    <TemplateColumn Title="Actions">
+                        <FluentStack Orientation="Orientation.Horizontal">
+                            @if (context.Status == "Draft")
+                            {
+                                <FluentButton Appearance="Appearance.Accent" OnClick="@(() => SubmitNeedAsync(context))" Style="margin-right:4px">Soumettre</FluentButton>
+                                <a href="/sessions/@Id/courses/@context.CourseId/needs/@context.Id/edit">Modifier</a>
+                            }
+                        </FluentStack>
+                    </TemplateColumn>
+                </FluentDataGrid>
+            }
+        </Authorized>
+    </AuthorizeView>
+}
+
+@if (_rejectingNeed != null)
+{
+    <FluentDialog @bind-Hidden="_hideRejectDialog" Modal="true" TrapFocus="true">
+        <FluentDialogHeader>Rejeter le besoin</FluentDialogHeader>
+        <FluentDialogBody>
+            <FluentTextField @bind-Value="_rejectReason" Label="Raison du rejet" Style="width:100%" />
+        </FluentDialogBody>
+        <FluentDialogFooter>
+            <FluentButton OnClick="@CancelReject">Annuler</FluentButton>
+            <FluentButton Appearance="Appearance.Accent" OnClick="@ConfirmRejectAsync">Rejeter</FluentButton>
+        </FluentDialogFooter>
+    </FluentDialog>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private List<TeachingNeedResponse> _needs = new();
+    private bool _loading = true;
+    private string? _error;
+    private TeachingNeedResponse? _rejectingNeed;
+    private bool _hideRejectDialog = true;
+    private string _rejectReason = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _needs = await Api.GetAsync<List<TeachingNeedResponse>>($"/sessions/{Id}/needs") ?? new(); }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally { _loading = false; }
+    }
+
+    private async Task ApproveAsync(int needId)
+    {
+        try
+        {
+            await Api.PostVoidAsync($"/teaching-needs/{needId}/approve");
+            _needs = await Api.GetAsync<List<TeachingNeedResponse>>($"/sessions/{Id}/needs") ?? new();
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+    }
+
+    private void OpenRejectDialog(TeachingNeedResponse need)
+    {
+        _rejectingNeed = need;
+        _rejectReason = "";
+        _hideRejectDialog = false;
+    }
+
+    private void CancelReject()
+    {
+        _hideRejectDialog = true;
+        _rejectingNeed = null;
+    }
+
+    private async Task ConfirmRejectAsync()
+    {
+        if (_rejectingNeed == null) return;
+        try
+        {
+            await Api.PostVoidAsync<RejectNeedRequest>($"/teaching-needs/{_rejectingNeed.Id}/reject",
+                new RejectNeedRequest(_rejectReason));
+            _needs = await Api.GetAsync<List<TeachingNeedResponse>>($"/sessions/{Id}/needs") ?? new();
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally { CancelReject(); }
+    }
+
+    private async Task SubmitNeedAsync(TeachingNeedResponse need)
+    {
+        try
+        {
+            await Api.PostVoidAsync($"/sessions/{Id}/courses/{need.CourseId}/needs/{need.Id}/submit");
+            _needs = await Api.GetAsync<List<TeachingNeedResponse>>($"/sessions/{Id}/needs") ?? new();
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+    }
+}

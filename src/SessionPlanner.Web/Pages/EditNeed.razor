@@ -1,0 +1,125 @@
+@page "/sessions/{SessionId:int}/courses/{CourseId:int}/needs/{NeedId:int}/edit"
+@attribute [Authorize(Roles = "professor,course_instructor")]
+@inject IApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Modifier le besoin</PageTitle>
+<h1>Modifier le besoin</h1>
+
+@if (_loading) { <FluentProgressRing /> }
+else
+{
+    @if (!string.IsNullOrEmpty(_error)) { <FluentMessageBar Intent="MessageIntent.Error">@_error</FluentMessageBar> }
+    @if (!string.IsNullOrEmpty(_success)) { <FluentMessageBar Intent="MessageIntent.Success">@_success</FluentMessageBar> }
+
+    <FluentCard Style="max-width:700px;padding:1.5rem">
+        <EditForm Model="@_model" OnValidSubmit="@SaveAsync">
+            <FluentStack Orientation="Orientation.Vertical">
+                <FluentTextField @bind-Value="_model.ExpectedStudentsText" Label="Étudiants attendus" Style="width:100%" />
+                <FluentCheckbox @bind-Value="_model.HasTechNeeds" Label="Besoins technologiques" />
+                <FluentCheckbox @bind-Value="_model.FoundAllCourses" Label="Cours complets trouvés" />
+                <FluentTextField @bind-Value="_model.DesiredModifications" Label="Modifications souhaitées" Style="width:100%" />
+                <FluentCheckbox @bind-Value="_model.AllowsUpdates" Label="Autorise les mises à jour" />
+                <FluentTextField @bind-Value="_model.AdditionalComments" Label="Commentaires additionnels" Style="width:100%" />
+                <FluentTextField @bind-Value="_model.Notes" Label="Notes" Style="width:100%" />
+
+                <h3>Articles</h3>
+                @foreach (var item in _items)
+                {
+                    <FluentCard Style="padding:1rem;margin-bottom:0.5rem">
+                        <FluentStack Orientation="Orientation.Horizontal">
+                            <span>@item.ItemType – @item.Description</span>
+                        </FluentStack>
+                    </FluentCard>
+                }
+
+                <FluentStack Orientation="Orientation.Horizontal">
+                    <FluentButton Type="ButtonType.Submit" Appearance="Appearance.Accent" Loading="@_saving">
+                        Enregistrer
+                    </FluentButton>
+                    <FluentButton OnClick="@Cancel">Annuler</FluentButton>
+                </FluentStack>
+            </FluentStack>
+        </EditForm>
+    </FluentCard>
+}
+
+@code {
+    [Parameter] public int SessionId { get; set; }
+    [Parameter] public int CourseId { get; set; }
+    [Parameter] public int NeedId { get; set; }
+
+    private NeedFormModel _model = new();
+    private List<ItemViewModel> _items = new();
+    private bool _loading = true;
+    private bool _saving;
+    private string? _error;
+    private string? _success;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var need = await Api.GetAsync<TeachingNeedResponse>($"/sessions/{SessionId}/needs/{NeedId}");
+            if (need != null)
+            {
+                _model = new NeedFormModel
+                {
+                    Notes = need.Notes,
+                    ExpectedStudentsText = need.ExpectedStudents?.ToString(),
+                    HasTechNeeds = need.HasTechNeeds ?? false,
+                    FoundAllCourses = need.FoundAllCourses ?? false,
+                    DesiredModifications = need.DesiredModifications,
+                    AllowsUpdates = need.AllowsUpdates ?? false,
+                    AdditionalComments = need.AdditionalComments,
+                };
+                _items = need.Items.Select(i => new ItemViewModel
+                {
+                    ItemType = i.ItemType ?? "",
+                    Description = i.Description,
+                }).ToList();
+            }
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally { _loading = false; }
+    }
+
+    private void Cancel() => Nav.NavigateTo($"/sessions/{SessionId}/courses/{CourseId}");
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        _error = null;
+        try
+        {
+            int? expectedStudents = int.TryParse(_model.ExpectedStudentsText, out var es) ? es : null;
+            await Api.PutAsync<UpdateTeachingNeedRequest, TeachingNeedResponse>(
+                $"/sessions/{SessionId}/courses/{CourseId}/needs/{NeedId}",
+                new UpdateTeachingNeedRequest(
+                    _model.Notes, expectedStudents,
+                    _model.HasTechNeeds, _model.FoundAllCourses,
+                    _model.DesiredModifications, _model.AllowsUpdates,
+                    _model.AdditionalComments));
+            _success = "Besoin mis à jour.";
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally { _saving = false; }
+    }
+
+    private class NeedFormModel
+    {
+        public string? Notes { get; set; }
+        public string? ExpectedStudentsText { get; set; }
+        public bool HasTechNeeds { get; set; }
+        public bool FoundAllCourses { get; set; }
+        public string? DesiredModifications { get; set; }
+        public bool AllowsUpdates { get; set; }
+        public string? AdditionalComments { get; set; }
+    }
+
+    private class ItemViewModel
+    {
+        public string ItemType { get; set; } = "";
+        public string? Description { get; set; }
+    }
+}
