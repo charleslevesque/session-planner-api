@@ -1,0 +1,30 @@
+@inject NavigationManager Nav
+
+<FluentNavMenu Style="width:220px;min-height:100%" Collapsible="true" Title="Navigation">
+    <FluentNavLink Href="/dashboard" Match="NavLinkMatch.All">Tableau de bord</FluentNavLink>
+
+    <AuthorizeView Roles="admin,lab_instructor">
+        <FluentNavLink Href="/sessions/manage">Sessions</FluentNavLink>
+    </AuthorizeView>
+
+    <AuthorizeView Roles="admin,lab_instructor,professor,course_instructor">
+        <FluentNavLink Href="/besoins">Besoins</FluentNavLink>
+    </AuthorizeView>
+
+    <AuthorizeView Roles="professor,course_instructor">
+        <FluentNavLink Href="/mes-demandes">Mes demandes</FluentNavLink>
+    </AuthorizeView>
+
+    <AuthorizeView Roles="admin,lab_instructor">
+        <FluentNavLink Href="/matrice">Matrice</FluentNavLink>
+    </AuthorizeView>
+
+    <FluentNavLink Href="/compte/securite">Securite</FluentNavLink>
+
+    <AuthorizeView Roles="admin">
+        <FluentNavGroup Title="Administration">
+            <FluentNavLink Href="/admin/users">Utilisateurs</FluentNavLink>
+            <FluentNavLink Href="/admin/courses-resources">Cours et ressources</FluentNavLink>
+        </FluentNavGroup>
+    </AuthorizeView>
+</FluentNavMenu>
