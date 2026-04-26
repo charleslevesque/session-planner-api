@@ -87,6 +87,14 @@
           "Microsoft.IdentityModel.Protocols.OpenIdConnect": "8.0.1"
         }
       },
+      "Microsoft.AspNetCore.Identity.EntityFrameworkCore": {
+        "type": "Transitive",
+        "resolved": "10.0.3",
+        "contentHash": "6SEGWi35DZ9syBqCT8v5vEkm9tWUayWxVkHWLwW2FdyXSwS0zzEpIzGPLVQGeug3VU8d+hK/PFxFwwZnblv/zA==",
+        "dependencies": {
+          "Microsoft.EntityFrameworkCore.Relational": "10.0.3"
+        }
+      },
       "Microsoft.Build.Framework": {
         "type": "Transitive",
         "resolved": "18.0.2",
@@ -424,6 +432,7 @@
         "type": "Project",
         "dependencies": {
           "Microsoft.AspNetCore.Authentication.JwtBearer": "[10.0.3, )",
+          "Microsoft.AspNetCore.Identity.EntityFrameworkCore": "[10.0.3, )",
           "Microsoft.EntityFrameworkCore": "[10.0.3, )",
           "Microsoft.EntityFrameworkCore.Sqlite": "[10.0.3, )",
           "SessionPlanner.Core": "[1.0.0, )",

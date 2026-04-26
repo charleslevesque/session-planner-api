@@ -347,7 +347,7 @@ public class UsersController : ControllerBase
 
         return Ok(new UserActivityResponse(
             user.Id,
-            user.Username,
+            user.UserName ?? string.Empty,
             fullName,
             roleName,
             user.IsActive,
