@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SessionPlanner.Core.Auth;
 using SessionPlanner.Core.Entities;
+using SessionPlanner.Core.Enums;
 using SessionPlanner.Infrastructure.Data;
 
 namespace SessionPlanner.Tests.Integration.Fixtures;

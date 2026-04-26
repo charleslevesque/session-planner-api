@@ -1,14 +1,22 @@
+using System.ComponentModel.DataAnnotations;
 using SessionPlanner.Core.Entities.Joins;
+
 namespace SessionPlanner.Core.Entities;
 
 public class PhysicalServer
 {
     public int Id { get; set; }
+
+    [MaxLength(200)]
     public string Hostname { get; set; } = null!;  // Ex: "atreides.logti.etsmtl.ca" (UNIQUE)
     public int CpuCores { get; set; }
     public int RamGb { get; set; }
     public int StorageGb { get; set; }
+
+    [MaxLength(50)]
     public string AccessType { get; set; } = "Team";
+
+    [MaxLength(1000)]
     public string? Notes { get; set; }
 
     // FK to OS
@@ -20,7 +28,5 @@ public class PhysicalServer
 
     // Joins
     public ICollection<CoursePhysicalServer> CoursePhysicalServers { get; set; } = new List<CoursePhysicalServer>();
-    public ICollection<PhysicalServerSoftware> PhysicalServerSoftwares { get; set; } = new List<PhysicalServerSoftware>();
-    public ICollection<PhysicalServerConfiguration> PhysicalServerConfigurations { get; set; } = new List<PhysicalServerConfiguration>();
 
 }

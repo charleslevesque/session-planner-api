@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using SessionPlanner.Core.Enums;
 
 namespace SessionPlanner.Core.Entities;
 
@@ -9,8 +10,7 @@ public class TeachingNeedItem
     public int TeachingNeedId { get; set; }
     public TeachingNeed TeachingNeed { get; set; } = null!;
 
-    [MaxLength(30)]
-    public string ItemType { get; set; } = "software";
+    public NeedItemType ItemType { get; set; } = NeedItemType.Software;
 
     public int? SoftwareId { get; set; }
     public Software? Software { get; set; }

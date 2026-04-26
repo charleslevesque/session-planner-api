@@ -1,19 +1,21 @@
+using System.ComponentModel.DataAnnotations;
 using SessionPlanner.Core.Entities.Joins;
-namespace SessionPlanner.Core.Entities;
+using SessionPlanner.Core.Enums;
 
-public enum PersonnelFunction
-{
-    Professor = 1, 
-    LabInstructor = 2, 
-    CourseInstructor = 3
-}
+namespace SessionPlanner.Core.Entities;
 
 public class Personnel
 {
     public int Id { get; set; }
+
+    [MaxLength(100)]
     public string FirstName { get; set; } = null!;
+
+    [MaxLength(100)]
     public string LastName { get; set; } = null!;
     public PersonnelFunction Function { get; set; }
+
+    [MaxLength(255)]
     public string Email { get; set; } = null!;  // UNIQUE
 
     public User? User { get; set; }

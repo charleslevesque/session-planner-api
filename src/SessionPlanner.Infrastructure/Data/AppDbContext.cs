@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using SessionPlanner.Core.Entities;
 using SessionPlanner.Core.Entities.Joins;
+using SessionPlanner.Core.Enums;
 
 namespace SessionPlanner.Infrastructure.Data;
 
@@ -37,6 +39,19 @@ public class AppDbContext : DbContext
     public DbSet<LaboratorySoftware> LaboratorySoftwares => Set<LaboratorySoftware>();
     public DbSet<SessionCourse> SessionCourses => Set<SessionCourse>();
 
+    // Join entity DbSets — all join tables are registered here for consistency
+    public DbSet<CourseSoftware> CourseSoftwares => Set<CourseSoftware>();
+    public DbSet<CourseSoftwareVersion> CourseSoftwareVersions => Set<CourseSoftwareVersion>();
+    public DbSet<CourseLaboratory> CourseLaboratories => Set<CourseLaboratory>();
+    public DbSet<CourseConfiguration> CourseConfigurations => Set<CourseConfiguration>();
+    public DbSet<CourseVirtualMachine> CourseVirtualMachines => Set<CourseVirtualMachine>();
+    public DbSet<CoursePhysicalServer> CoursePhysicalServers => Set<CoursePhysicalServer>();
+    public DbSet<CourseSaaSProduct> CourseSaaSProducts => Set<CourseSaaSProduct>();
+    public DbSet<CourseEquipmentModel> CourseEquipmentModels => Set<CourseEquipmentModel>();
+    public DbSet<CoursePersonnel> CoursePersonnels => Set<CoursePersonnel>();
+    public DbSet<LaboratoryConfiguration> LaboratoryConfigurations => Set<LaboratoryConfiguration>();
+    public DbSet<ConfigurationOS> ConfigurationOSes => Set<ConfigurationOS>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -52,14 +67,6 @@ public class AppDbContext : DbContext
             .WithMany()
             .HasForeignKey(s => s.CreatedByUserId)
             .OnDelete(DeleteBehavior.SetNull);
-
-        modelBuilder.Entity<User>()
-            .HasIndex(x => x.Username)
-            .IsUnique();
-
-        modelBuilder.Entity<Permission>()
-            .HasIndex(x => x.Name)
-            .IsUnique();
 
         // Configure composite keys for join entities
         modelBuilder.Entity<CourseSoftware>()
@@ -91,24 +98,6 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<LaboratoryConfiguration>()
             .HasKey(lc => new { lc.LaboratoryId, lc.ConfigurationId });
-
-        modelBuilder.Entity<WorkstationSoftware>()
-            .HasKey(ws => new { ws.WorkstationId, ws.SoftwareId });
-
-        modelBuilder.Entity<VirtualMachineSoftware>()
-            .HasKey(vms => new { vms.VirtualMachineId, vms.SoftwareId });
-
-        modelBuilder.Entity<VirtualMachineConfiguration>()
-            .HasKey(vmc => new { vmc.VirtualMachineId, vmc.ConfigurationId });
-
-        modelBuilder.Entity<PhysicalServerSoftware>()
-            .HasKey(pss => new { pss.PhysicalServerId, pss.SoftwareId });
-
-        modelBuilder.Entity<PhysicalServerConfiguration>()
-            .HasKey(psc => new { psc.PhysicalServerId, psc.ConfigurationId });
-
-        modelBuilder.Entity<SoftwareOS>()
-            .HasKey(so => new { so.SoftwareId, so.OSId });
 
         modelBuilder.Entity<LaboratorySoftware>()
             .HasKey(ls => new { ls.LaboratoryId, ls.SoftwareId });
@@ -142,18 +131,31 @@ public class AppDbContext : DbContext
             .WithMany(x => x.RolePermissions)
             .HasForeignKey(x => x.RoleId);
 
-        modelBuilder.Entity<Role>()
-            .HasIndex(x => x.Name)
-            .IsUnique();
-
         modelBuilder.Entity<RefreshToken>()
             .HasOne(rt => rt.User)
             .WithMany(u => u.RefreshTokens)
             .HasForeignKey(rt => rt.UserId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        modelBuilder.Entity<RefreshToken>()
-            .HasIndex(rt => rt.Token)
-            .IsUnique();    
+        // Store NeedItemType enum as its snake_case string representation (e.g. "virtual_machine")
+        // to match the values already persisted in the database and expected by the frontend.
+        modelBuilder.Entity<TeachingNeedItem>()
+            .Property(i => i.ItemType)
+            .HasMaxLength(30)
+            .HasConversion(
+                v => JsonNamingPolicy.SnakeCaseLower.ConvertName(v.ToString()),
+                v => StringToNeedItemType(v));
+    }
+
+    private static NeedItemType StringToNeedItemType(string value)
+    {
+        var normalized = value.Replace("_", "");
+
+        if (Enum.TryParse<NeedItemType>(normalized, ignoreCase: true, out var result) && Enum.IsDefined(result))
+            return result;
+
+        // Corrupt/unrecognised DB values fall back to Other so the row can still be loaded.
+        // This is logged implicitly — callers should investigate any unexpected Other values.
+        return NeedItemType.Other;
     }
 }

@@ -1,7 +1,9 @@
 using System.ComponentModel.DataAnnotations;
+using Microsoft.EntityFrameworkCore;
 
 namespace SessionPlanner.Core.Entities;
 
+[Index(nameof(Token), IsUnique = true)]
 public class RefreshToken
 {
     public int Id { get; set; }

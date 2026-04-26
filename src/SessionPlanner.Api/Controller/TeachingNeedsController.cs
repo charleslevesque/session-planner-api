@@ -428,7 +428,7 @@ public class TeachingNeedsController : ControllerBase
         {
             var item = await _needService.AddItemAsync(
                 sessionId, id,
-                request.ItemType ?? "software",
+                request.ItemType ?? NeedItemType.Software,
                 request.SoftwareId, request.SoftwareVersionId, request.OSId,
                 request.Quantity, request.Description, request.Notes, request.DetailsJson);
 

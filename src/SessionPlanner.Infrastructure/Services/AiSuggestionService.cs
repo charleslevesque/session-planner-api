@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SessionPlanner.Core.Entities;
+using SessionPlanner.Core.Enums;
 using SessionPlanner.Core.Interfaces;
 using SessionPlanner.Infrastructure.Data;
 
@@ -36,7 +37,7 @@ public class AiSuggestionService : IAiSuggestionService
 
     public bool IsConfigured => !string.IsNullOrWhiteSpace(_apiKey);
 
-    public async Task<AiSuggestionsResult> SuggestItemsAsync(int sessionId, int courseId, string? itemType = null)
+    public async Task<AiSuggestionsResult> SuggestItemsAsync(int sessionId, int courseId, NeedItemType? itemType = null)
     {
         if (!IsConfigured)
             return new AiSuggestionsResult([], "AI suggestions are not configured.");
@@ -142,8 +143,8 @@ public class AiSuggestionService : IAiSuggestionService
                 need.IsFastTrack ? "FastTrack: Oui (identique à une demande précédente approuvée)" : ""
             }.Where(s => s != "").ToList(),
             LabStatuses: labStatuses,
-            HistorySessions: courseHistory.Select(h => $"Session {h.Session?.Title ?? "?"}: {string.Join(", ", h.Items.Select(i => i.Software?.Name ?? i.Description ?? i.ItemType))}").ToList(),
-            OtherNeedsThisSession: otherSessionNeeds.Select(n => $"{n.Personnel?.FirstName} {n.Personnel?.LastName}: {string.Join(", ", n.Items.Select(i => i.Software?.Name ?? i.Description ?? i.ItemType))} ({n.Status})").ToList()
+            HistorySessions: courseHistory.Select(h => $"Session {h.Session?.Title ?? "?"}: {string.Join(", ", h.Items.Select(i => i.Software?.Name ?? i.Description ?? i.ItemType.ToSnakeCase()))}").ToList(),
+            OtherNeedsThisSession: otherSessionNeeds.Select(n => $"{n.Personnel?.FirstName} {n.Personnel?.LastName}: {string.Join(", ", n.Items.Select(i => i.Software?.Name ?? i.Description ?? i.ItemType.ToSnakeCase()))} ({n.Status})").ToList()
         );
     }
 
@@ -287,7 +288,7 @@ public class AiSuggestionService : IAiSuggestionService
             History: history.Select(n => new HistoryEntry(
                 Session: n.Session?.Title ?? "",
                 Items: n.Items.Select(i => new HistoryItem(
-                    Type: i.ItemType,
+                    Type: i.ItemType.ToSnakeCase(),
                     Software: i.Software?.Name,
                     Version: i.SoftwareVersion?.VersionNumber,
                     Os: i.OS?.Name,
@@ -304,12 +305,12 @@ public class AiSuggestionService : IAiSuggestionService
             )).ToList(),
             OperatingSystems: osList.Select(o => o.Name).ToList(),
             AlreadyRequested: existingNeeds.SelectMany(n => n.Items).Select(i =>
-                i.Software?.Name ?? i.Description ?? i.ItemType
+                i.Software?.Name ?? i.Description ?? i.ItemType.ToSnakeCase()
             ).Distinct().ToList()
         );
     }
 
-    private static string BuildPrompt(CourseContext ctx, string? itemType)
+    private static string BuildPrompt(CourseContext ctx, NeedItemType? itemType)
     {
         var sb = new StringBuilder();
         sb.AppendLine("Tu es un assistant pour un système de planification de besoins technologiques universitaires.");
@@ -351,7 +352,7 @@ public class AiSuggestionService : IAiSuggestionService
         sb.AppendLine();
 
         if (itemType != null)
-            sb.AppendLine($"Le professeur travaille sur un item de type: {itemType}");
+            sb.AppendLine($"Le professeur travaille sur un item de type: {JsonNamingPolicy.SnakeCaseLower.ConvertName(itemType.Value.ToString())}");
 
         sb.AppendLine();
         sb.AppendLine("Réponds en JSON strict avec ce format (pas de markdown, juste le JSON):");
@@ -455,7 +456,7 @@ public class AiSuggestionService : IAiSuggestionService
             foreach (var item in arr.EnumerateArray())
             {
                 suggestions.Add(new AiSuggestedItem(
-                    ItemType: item.TryGetProperty("itemType", out var it) ? it.GetString() ?? "software" : "software",
+                    ItemType: ParseNeedItemType(item.TryGetProperty("itemType", out var it) ? it.GetString() : null),
                     Label: item.TryGetProperty("label", out var l) ? l.GetString() ?? "" : "",
                     SoftwareName: item.TryGetProperty("softwareName", out var sn) ? sn.GetString() : null,
                     Version: item.TryGetProperty("version", out var v) ? v.GetString() : null,
@@ -468,6 +469,22 @@ public class AiSuggestionService : IAiSuggestionService
         }
 
         return new AiSuggestionsResult(suggestions, summary);
+    }
+
+    /// <summary>
+    /// Parses a snake_case itemType string from AI JSON output into a <see cref="NeedItemType"/> enum value.
+    /// Defaults to <see cref="NeedItemType.Software"/> for unknown or null values.
+    /// </summary>
+    private static NeedItemType ParseNeedItemType(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return NeedItemType.Software;
+
+        // Strip underscores and do a case-insensitive parse to handle snake_case ("virtual_machine" → VirtualMachine)
+        var normalized = value.Replace("_", "");
+        return Enum.TryParse<NeedItemType>(normalized, ignoreCase: true, out var result)
+            ? result
+            : NeedItemType.Software;
     }
 
     private record CourseContext(
@@ -615,12 +632,12 @@ public class AiSuggestionService : IAiSuggestionService
     {
         var result = request.ItemType switch
         {
-            "software" => await AutoFillSoftwareAsync(request),
-            "saas" => await AutoFillSaasAsync(request),
-            "virtual_machine" => await AutoFillVmAsync(request),
-            "physical_server" => await AutoFillServerAsync(request),
-            "configuration" => await AutoFillConfigurationAsync(request),
-            "equipment_loan" => await AutoFillEquipmentAsync(request),
+            NeedItemType.Software => await AutoFillSoftwareAsync(request),
+            NeedItemType.Saas => await AutoFillSaasAsync(request),
+            NeedItemType.VirtualMachine => await AutoFillVmAsync(request),
+            NeedItemType.PhysicalServer => await AutoFillServerAsync(request),
+            NeedItemType.Configuration => await AutoFillConfigurationAsync(request),
+            NeedItemType.EquipmentLoan => await AutoFillEquipmentAsync(request),
             _ => new AutoFillResult(new Dictionary<string, AutoFillSuggestion>(), "none")
         };
 
@@ -643,7 +660,7 @@ public class AiSuggestionService : IAiSuggestionService
             .Include(i => i.Software)
             .Include(i => i.SoftwareVersion)
             .Include(i => i.OS)
-            .Where(i => i.ItemType == "software" && i.Software != null
+            .Where(i => i.ItemType == NeedItemType.Software && i.Software != null
                         && EF.Functions.Like(i.Software.Name, softwareName))
             .Take(5)
             .ToListAsync();
@@ -731,7 +748,7 @@ public class AiSuggestionService : IAiSuggestionService
             .Where(n => n.CourseId == req.CourseId && n.Status == Core.Enums.NeedStatus.Approved)
             .OrderByDescending(n => n.ReviewedAt)
             .SelectMany(n => n.Items)
-            .Where(i => i.ItemType == "saas" && i.DetailsJson != null && i.DetailsJson.Contains(name))
+            .Where(i => i.ItemType == NeedItemType.Saas && i.DetailsJson != null && i.DetailsJson.Contains(name))
             .FirstOrDefaultAsync();
 
         if (historyItem?.DetailsJson != null)
@@ -760,7 +777,7 @@ public class AiSuggestionService : IAiSuggestionService
             .Where(n => n.CourseId == req.CourseId && n.Status == Core.Enums.NeedStatus.Approved)
             .OrderByDescending(n => n.ReviewedAt)
             .SelectMany(n => n.Items)
-            .Where(i => i.ItemType == "virtual_machine" && i.DetailsJson != null)
+            .Where(i => i.ItemType == NeedItemType.VirtualMachine && i.DetailsJson != null)
             .Take(3)
             .ToListAsync();
 
@@ -793,7 +810,7 @@ public class AiSuggestionService : IAiSuggestionService
             .Where(n => n.CourseId == req.CourseId && n.Status == Core.Enums.NeedStatus.Approved)
             .OrderByDescending(n => n.ReviewedAt)
             .SelectMany(n => n.Items)
-            .Where(i => i.ItemType == "physical_server" && i.DetailsJson != null)
+            .Where(i => i.ItemType == NeedItemType.PhysicalServer && i.DetailsJson != null)
             .Take(3)
             .ToListAsync();
 
@@ -824,7 +841,7 @@ public class AiSuggestionService : IAiSuggestionService
             .Where(n => n.CourseId == req.CourseId && n.Status == Core.Enums.NeedStatus.Approved)
             .OrderByDescending(n => n.ReviewedAt)
             .SelectMany(n => n.Items)
-            .Where(i => i.ItemType == "configuration" && i.DetailsJson != null)
+            .Where(i => i.ItemType == NeedItemType.Configuration && i.DetailsJson != null)
             .Take(3)
             .ToListAsync();
 
@@ -854,7 +871,7 @@ public class AiSuggestionService : IAiSuggestionService
             .Where(n => n.CourseId == req.CourseId && n.Status == Core.Enums.NeedStatus.Approved)
             .OrderByDescending(n => n.ReviewedAt)
             .SelectMany(n => n.Items)
-            .Where(i => i.ItemType == "equipment_loan" && i.DetailsJson != null && i.DetailsJson.Contains(name))
+            .Where(i => i.ItemType == NeedItemType.EquipmentLoan && i.DetailsJson != null && i.DetailsJson.Contains(name))
             .FirstOrDefaultAsync();
 
         if (historyItem?.DetailsJson != null)

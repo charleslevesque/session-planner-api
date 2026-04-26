@@ -1,8 +1,10 @@
 using System.ComponentModel.DataAnnotations;
+using Microsoft.EntityFrameworkCore;
 using SessionPlanner.Core.Entities.Joins;
 
 namespace SessionPlanner.Core.Entities;
 
+[Index(nameof(Name), IsUnique = true)]
 public class Permission
 {
     public int Id { get; set; }

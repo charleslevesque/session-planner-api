@@ -1,8 +1,10 @@
+using SessionPlanner.Core.Enums;
+
 namespace SessionPlanner.Api.Dtos.TeachingNeeds;
 
 public record TeachingNeedItemResponse(
     int Id,
-    string ItemType,
+    NeedItemType ItemType,
     int? SoftwareId,
     string? SoftwareName,
     int? SoftwareVersionId,

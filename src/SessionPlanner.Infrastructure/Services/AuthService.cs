@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using SessionPlanner.Core.Auth;
 using SessionPlanner.Core.Entities;
 using SessionPlanner.Core.Entities.Joins;
+using SessionPlanner.Core.Enums;
 using SessionPlanner.Core.Interfaces;
 using SessionPlanner.Infrastructure.Data;
 

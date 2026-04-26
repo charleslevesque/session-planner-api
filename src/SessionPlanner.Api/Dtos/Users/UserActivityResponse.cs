@@ -1,3 +1,5 @@
+using SessionPlanner.Core.Enums;
+
 namespace SessionPlanner.Api.Dtos.Users;
 
 public record UserActivityResponse(
@@ -28,7 +30,7 @@ public record UserTeachingNeedDetail(
 
 public record UserTeachingNeedItemDetail(
     int Id,
-    string ItemType,
+    NeedItemType ItemType,
     string? SoftwareName,
     string? VersionNumber,
     string? OsName,

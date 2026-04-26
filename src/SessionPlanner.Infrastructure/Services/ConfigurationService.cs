@@ -92,14 +92,14 @@ public class ConfigurationService : IConfigurationService
     private async Task SetOsAssociationsAsync(int configurationId, IReadOnlyList<int> osIds)
     {
         var requestedIds = osIds.Distinct().ToHashSet();
-        var existing = await _db.Set<ConfigurationOS>()
+        var existing = await _db.ConfigurationOSes
             .Where(x => x.ConfigurationId == configurationId)
             .ToListAsync();
 
         if (requestedIds.Count == 0)
         {
             if (existing.Count > 0)
-                _db.Set<ConfigurationOS>().RemoveRange(existing);
+                _db.ConfigurationOSes.RemoveRange(existing);
             return;
         }
 
@@ -121,24 +121,24 @@ public class ConfigurationService : IConfigurationService
             .ToList();
 
         if (toAdd.Count > 0)
-            _db.Set<ConfigurationOS>().AddRange(toAdd);
+            _db.ConfigurationOSes.AddRange(toAdd);
 
         var stale = existing.Where(x => !requestedIds.Contains(x.OSId)).ToList();
         if (stale.Count > 0)
-            _db.Set<ConfigurationOS>().RemoveRange(stale);
+            _db.ConfigurationOSes.RemoveRange(stale);
     }
 
     private async Task SetLaboratoryAssociationsAsync(int configurationId, IReadOnlyList<int> laboratoryIds)
     {
         var requestedIds = laboratoryIds.Distinct().ToHashSet();
-        var existing = await _db.Set<LaboratoryConfiguration>()
+        var existing = await _db.LaboratoryConfigurations
             .Where(x => x.ConfigurationId == configurationId)
             .ToListAsync();
 
         if (requestedIds.Count == 0)
         {
             if (existing.Count > 0)
-                _db.Set<LaboratoryConfiguration>().RemoveRange(existing);
+                _db.LaboratoryConfigurations.RemoveRange(existing);
             return;
         }
 
@@ -160,10 +160,10 @@ public class ConfigurationService : IConfigurationService
             .ToList();
 
         if (toAdd.Count > 0)
-            _db.Set<LaboratoryConfiguration>().AddRange(toAdd);
+            _db.LaboratoryConfigurations.AddRange(toAdd);
 
         var stale = existing.Where(x => !requestedIds.Contains(x.LaboratoryId)).ToList();
         if (stale.Count > 0)
-            _db.Set<LaboratoryConfiguration>().RemoveRange(stale);
+            _db.LaboratoryConfigurations.RemoveRange(stale);
     }
 }

@@ -1,5 +1,6 @@
 using Swashbuckle.AspNetCore.Filters;
 using SessionPlanner.Api.Dtos.TeachingNeeds;
+using SessionPlanner.Core.Enums;
 
 namespace SessionPlanner.Api.OpenApi.Examples.TeachingNeeds;
 
@@ -9,7 +10,7 @@ public sealed class TeachingNeedItemExample : IExamplesProvider<TeachingNeedItem
     {
         return new TeachingNeedItemResponse(
             Id: 1,
-            ItemType: "Item type example",
+            ItemType: NeedItemType.Software,
             Description: "License pour la session",
             SoftwareId: 10,
             SoftwareVersionId: 25,

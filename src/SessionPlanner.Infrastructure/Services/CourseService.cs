@@ -71,7 +71,7 @@ public class CourseService : ICourseService
 
     public async Task<List<SaaSProduct>> GetCourseSaaSProductsAsync(int courseId)
     {
-        return await _db.Set<CourseSaaSProduct>()
+        return await _db.CourseSaaSProducts
             .AsNoTracking()
             .Where(x => x.CourseId == courseId)
             .Select(x => x.SaaSProduct)
@@ -80,7 +80,7 @@ public class CourseService : ICourseService
 
     public async Task<List<Software>> GetCourseSoftwaresAsync(int courseId)
     {
-        return await _db.Set<CourseSoftware>()
+        return await _db.CourseSoftwares
             .AsNoTracking()
             .Where(x => x.CourseId == courseId)
             .Select(x => x.Software)
@@ -99,7 +99,7 @@ public class CourseService : ICourseService
 
     public async Task<List<VirtualMachine>> GetCourseVirtualMachinesAsync(int courseId)
     {
-        return await _db.Set<CourseVirtualMachine>()
+        return await _db.CourseVirtualMachines
             .AsNoTracking()
             .Where(x => x.CourseId == courseId)
             .Select(x => new VirtualMachine
@@ -121,7 +121,7 @@ public class CourseService : ICourseService
 
     public async Task<List<PhysicalServer>> GetCoursePhysicalServersAsync(int courseId)
     {
-        return await _db.Set<CoursePhysicalServer>()
+        return await _db.CoursePhysicalServers
             .AsNoTracking()
             .Where(x => x.CourseId == courseId)
             .Select(x => new PhysicalServer
@@ -141,7 +141,7 @@ public class CourseService : ICourseService
 
     public async Task<List<EquipmentModel>> GetCourseEquipmentModelsAsync(int courseId)
     {
-        return await _db.Set<CourseEquipmentModel>()
+        return await _db.CourseEquipmentModels
             .AsNoTracking()
             .Where(x => x.CourseId == courseId)
             .Select(x => x.EquipmentModel)
@@ -154,7 +154,7 @@ public class CourseService : ICourseService
     {
         if (!await _db.SaaSProducts.AnyAsync(r => r.Id == saasProductId))
             return null;
-        var set = _db.Set<CourseSaaSProduct>();
+        var set = _db.CourseSaaSProducts;
         if (await set.AnyAsync(j => j.CourseId == courseId && j.SaaSProductId == saasProductId))
             return false;
         set.Add(new CourseSaaSProduct { CourseId = courseId, SaaSProductId = saasProductId });
@@ -164,10 +164,10 @@ public class CourseService : ICourseService
 
     public async Task<bool> DissociateSaaSProductAsync(int courseId, int saasProductId)
     {
-        var join = await _db.Set<CourseSaaSProduct>()
+        var join = await _db.CourseSaaSProducts
             .FirstOrDefaultAsync(j => j.CourseId == courseId && j.SaaSProductId == saasProductId);
         if (join is null) return false;
-        _db.Set<CourseSaaSProduct>().Remove(join);
+        _db.CourseSaaSProducts.Remove(join);
         await _db.SaveChangesAsync();
         return true;
     }
@@ -176,7 +176,7 @@ public class CourseService : ICourseService
     {
         if (!await _db.Softwares.AnyAsync(r => r.Id == softwareId))
             return null;
-        var set = _db.Set<CourseSoftware>();
+        var set = _db.CourseSoftwares;
         if (await set.AnyAsync(j => j.CourseId == courseId && j.SoftwareId == softwareId))
             return false;
         set.Add(new CourseSoftware { CourseId = courseId, SoftwareId = softwareId });
@@ -186,10 +186,10 @@ public class CourseService : ICourseService
 
     public async Task<bool> DissociateSoftwareAsync(int courseId, int softwareId)
     {
-        var join = await _db.Set<CourseSoftware>()
+        var join = await _db.CourseSoftwares
             .FirstOrDefaultAsync(j => j.CourseId == courseId && j.SoftwareId == softwareId);
         if (join is null) return false;
-        _db.Set<CourseSoftware>().Remove(join);
+        _db.CourseSoftwares.Remove(join);
         await _db.SaveChangesAsync();
         return true;
     }
@@ -198,7 +198,7 @@ public class CourseService : ICourseService
     {
         if (!await _db.Configurations.AnyAsync(r => r.Id == configurationId))
             return null;
-        var set = _db.Set<CourseConfiguration>();
+        var set = _db.CourseConfigurations;
         if (await set.AnyAsync(j => j.CourseId == courseId && j.ConfigurationId == configurationId))
             return false;
         set.Add(new CourseConfiguration { CourseId = courseId, ConfigurationId = configurationId });
@@ -208,10 +208,10 @@ public class CourseService : ICourseService
 
     public async Task<bool> DissociateConfigurationAsync(int courseId, int configurationId)
     {
-        var join = await _db.Set<CourseConfiguration>()
+        var join = await _db.CourseConfigurations
             .FirstOrDefaultAsync(j => j.CourseId == courseId && j.ConfigurationId == configurationId);
         if (join is null) return false;
-        _db.Set<CourseConfiguration>().Remove(join);
+        _db.CourseConfigurations.Remove(join);
         await _db.SaveChangesAsync();
         return true;
     }
@@ -220,7 +220,7 @@ public class CourseService : ICourseService
     {
         if (!await _db.VirtualMachines.AnyAsync(r => r.Id == virtualMachineId))
             return null;
-        var set = _db.Set<CourseVirtualMachine>();
+        var set = _db.CourseVirtualMachines;
         if (await set.AnyAsync(j => j.CourseId == courseId && j.VirtualMachineId == virtualMachineId))
             return false;
         set.Add(new CourseVirtualMachine { CourseId = courseId, VirtualMachineId = virtualMachineId });
@@ -230,10 +230,10 @@ public class CourseService : ICourseService
 
     public async Task<bool> DissociateVirtualMachineAsync(int courseId, int virtualMachineId)
     {
-        var join = await _db.Set<CourseVirtualMachine>()
+        var join = await _db.CourseVirtualMachines
             .FirstOrDefaultAsync(j => j.CourseId == courseId && j.VirtualMachineId == virtualMachineId);
         if (join is null) return false;
-        _db.Set<CourseVirtualMachine>().Remove(join);
+        _db.CourseVirtualMachines.Remove(join);
         await _db.SaveChangesAsync();
         return true;
     }
@@ -242,7 +242,7 @@ public class CourseService : ICourseService
     {
         if (!await _db.PhysicalServers.AnyAsync(r => r.Id == physicalServerId))
             return null;
-        var set = _db.Set<CoursePhysicalServer>();
+        var set = _db.CoursePhysicalServers;
         if (await set.AnyAsync(j => j.CourseId == courseId && j.PhysicalServerId == physicalServerId))
             return false;
         set.Add(new CoursePhysicalServer { CourseId = courseId, PhysicalServerId = physicalServerId });
@@ -252,10 +252,10 @@ public class CourseService : ICourseService
 
     public async Task<bool> DissociatePhysicalServerAsync(int courseId, int physicalServerId)
     {
-        var join = await _db.Set<CoursePhysicalServer>()
+        var join = await _db.CoursePhysicalServers
             .FirstOrDefaultAsync(j => j.CourseId == courseId && j.PhysicalServerId == physicalServerId);
         if (join is null) return false;
-        _db.Set<CoursePhysicalServer>().Remove(join);
+        _db.CoursePhysicalServers.Remove(join);
         await _db.SaveChangesAsync();
         return true;
     }
@@ -264,7 +264,7 @@ public class CourseService : ICourseService
     {
         if (!await _db.EquipmentModels.AnyAsync(r => r.Id == equipmentModelId))
             return null;
-        var set = _db.Set<CourseEquipmentModel>();
+        var set = _db.CourseEquipmentModels;
         if (await set.AnyAsync(j => j.CourseId == courseId && j.EquipmentModelId == equipmentModelId))
             return false;
         set.Add(new CourseEquipmentModel { CourseId = courseId, EquipmentModelId = equipmentModelId });
@@ -274,10 +274,10 @@ public class CourseService : ICourseService
 
     public async Task<bool> DissociateEquipmentModelAsync(int courseId, int equipmentModelId)
     {
-        var join = await _db.Set<CourseEquipmentModel>()
+        var join = await _db.CourseEquipmentModels
             .FirstOrDefaultAsync(j => j.CourseId == courseId && j.EquipmentModelId == equipmentModelId);
         if (join is null) return false;
-        _db.Set<CourseEquipmentModel>().Remove(join);
+        _db.CourseEquipmentModels.Remove(join);
         await _db.SaveChangesAsync();
         return true;
     }
@@ -292,13 +292,18 @@ public class CourseService : ICourseService
         if (version is null)
             return null;
 
-        var csvSet = _db.Set<CourseSoftwareVersion>();
+        var csvSet = _db.CourseSoftwareVersions;
         if (await csvSet.AnyAsync(j => j.CourseId == courseId && j.SoftwareVersionId == softwareVersionId))
             return false;
 
         csvSet.Add(new CourseSoftwareVersion { CourseId = courseId, SoftwareVersionId = softwareVersionId });
 
-        var csSet = _db.Set<CourseSoftware>();
+        // Invariant: CourseSoftware acts as an aggregate "at least one version of this software is needed".
+        // When the first version of a software is linked to a course, a CourseSoftware entry is created.
+        // When the last version is removed (see DissociateSoftwareVersionAsync), the CourseSoftware entry is removed.
+        // Queries that only need to know which software titles are associated with a course use CourseSoftware
+        // as a fast lookup without needing to join through CourseSoftwareVersion → SoftwareVersion → Software.
+        var csSet = _db.CourseSoftwares;
         if (!await csSet.AnyAsync(j => j.CourseId == courseId && j.SoftwareId == version.SoftwareId))
             csSet.Add(new CourseSoftware { CourseId = courseId, SoftwareId = version.SoftwareId });
 
@@ -308,7 +313,7 @@ public class CourseService : ICourseService
 
     public async Task<bool> DissociateSoftwareVersionAsync(int courseId, int softwareVersionId)
     {
-        var join = await _db.Set<CourseSoftwareVersion>()
+        var join = await _db.CourseSoftwareVersions
             .FirstOrDefaultAsync(j => j.CourseId == courseId && j.SoftwareVersionId == softwareVersionId);
         if (join is null) return false;
 
@@ -317,9 +322,9 @@ public class CourseService : ICourseService
             .Select(sv => sv.SoftwareId)
             .FirstOrDefaultAsync();
 
-        _db.Set<CourseSoftwareVersion>().Remove(join);
+        _db.CourseSoftwareVersions.Remove(join);
 
-        var otherVersionsStillLinked = await _db.Set<CourseSoftwareVersion>()
+        var otherVersionsStillLinked = await _db.CourseSoftwareVersions
             .AnyAsync(j =>
                 j.CourseId == courseId &&
                 j.SoftwareVersionId != softwareVersionId &&
@@ -327,10 +332,10 @@ public class CourseService : ICourseService
 
         if (!otherVersionsStillLinked)
         {
-            var csJoin = await _db.Set<CourseSoftware>()
+            var csJoin = await _db.CourseSoftwares
                 .FirstOrDefaultAsync(j => j.CourseId == courseId && j.SoftwareId == softwareId);
             if (csJoin is not null)
-                _db.Set<CourseSoftware>().Remove(csJoin);
+                _db.CourseSoftwares.Remove(csJoin);
         }
 
         await _db.SaveChangesAsync();
@@ -339,7 +344,7 @@ public class CourseService : ICourseService
 
     public async Task<List<int>> GetCourseSoftwareVersionIdsAsync(int courseId)
     {
-        return await _db.Set<CourseSoftwareVersion>()
+        return await _db.CourseSoftwareVersions
             .AsNoTracking()
             .Where(j => j.CourseId == courseId)
             .Select(j => j.SoftwareVersionId)

@@ -1,8 +1,10 @@
 using System.ComponentModel.DataAnnotations;
+using Microsoft.EntityFrameworkCore;
 using SessionPlanner.Core.Entities.Joins;
 
 namespace SessionPlanner.Core.Entities;
 
+[Index(nameof(Username), IsUnique = true)]
 public class User
 {
     public int Id { get; set; }

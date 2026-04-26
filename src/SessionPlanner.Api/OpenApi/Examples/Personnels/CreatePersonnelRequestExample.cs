@@ -1,6 +1,7 @@
 using SessionPlanner.Api.Dtos.Personnel;
 using Swashbuckle.AspNetCore.Filters;
 using SessionPlanner.Core.Entities;
+using SessionPlanner.Core.Enums;
 
 namespace SessionPlanner.Api.OpenApi.Examples.Personnel;
 

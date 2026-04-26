@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using SessionPlanner.Core.Auth;
+using SessionPlanner.Core.Enums;
 using SessionPlanner.Core.Interfaces;
 using SessionPlanner.Infrastructure.Auth;
 using SessionPlanner.Infrastructure.Data;
@@ -136,6 +137,9 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
+        // NeedItemType uses snake_case (e.g. "virtual_machine") and must be registered
+        // before the generic converter so it takes precedence for that specific type.
+        options.JsonSerializerOptions.Converters.Add(new NeedItemTypeJsonConverter());
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
 

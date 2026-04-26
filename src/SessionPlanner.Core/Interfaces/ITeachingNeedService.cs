@@ -24,7 +24,7 @@ public interface ITeachingNeedService
     Task<bool> DeleteAsync(int sessionId, int id);
 
     /// <summary>Adds an item to a need. Returns null if need not found. Throws InvalidOperationException if status is not Draft, Submitted, or Rejected.</summary>
-    Task<TeachingNeedItem?> AddItemAsync(int sessionId, int needId, string itemType, int? softwareId, int? softwareVersionId, int? osId, int? quantity, string? description, string? notes, string? detailsJson);
+    Task<TeachingNeedItem?> AddItemAsync(int sessionId, int needId, NeedItemType itemType, int? softwareId, int? softwareVersionId, int? osId, int? quantity, string? description, string? notes, string? detailsJson);
 
     /// <summary>Removes an item from a need. Returns false if need or item not found. Throws InvalidOperationException if status is not Draft, Submitted, or Rejected.</summary>
     Task<bool> RemoveItemAsync(int sessionId, int needId, int itemId);
