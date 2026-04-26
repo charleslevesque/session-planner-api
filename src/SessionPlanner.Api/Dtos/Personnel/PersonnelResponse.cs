@@ -1,4 +1,4 @@
-using SessionPlanner.Core.Entities;
+using SessionPlanner.Core.Enums;
 
 namespace SessionPlanner.Api.Dtos.Personnel;
 

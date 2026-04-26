@@ -1,5 +1,6 @@
 using PersonnelEntity = SessionPlanner.Core.Entities.Personnel;
 using SessionPlanner.Core.Entities;
+using SessionPlanner.Core.Enums;
 
 namespace SessionPlanner.Core.Interfaces;
 

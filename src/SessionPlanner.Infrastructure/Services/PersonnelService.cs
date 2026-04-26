@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SessionPlanner.Core.Entities;
+using SessionPlanner.Core.Enums;
 using SessionPlanner.Core.Interfaces;
 using SessionPlanner.Infrastructure.Data;
 using PersonnelEntity = SessionPlanner.Core.Entities.Personnel;

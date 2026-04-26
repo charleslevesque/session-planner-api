@@ -1,13 +1,15 @@
+using SessionPlanner.Core.Enums;
+
 namespace SessionPlanner.Api.Dtos.Ai;
 
-public record AiSuggestRequest(int SessionId, int CourseId, string? ItemType = null);
+public record AiSuggestRequest(int SessionId, int CourseId, NeedItemType? ItemType = null);
 
 public record AiSuggestResponse(
     IReadOnlyList<AiSuggestedItemDto> Suggestions,
     string? Summary);
 
 public record AiSuggestedItemDto(
-    string ItemType,
+    NeedItemType ItemType,
     string Label,
     string? SoftwareName,
     string? Version,
@@ -30,7 +32,7 @@ public record AiHistoryComparisonDto(string SessionTitle, string Similarity);
 public record AutoFillRequestDto(
     int SessionId,
     int CourseId,
-    string ItemType,
+    NeedItemType ItemType,
     Dictionary<string, string> CurrentValues);
 
 public record AutoFillResponseDto(

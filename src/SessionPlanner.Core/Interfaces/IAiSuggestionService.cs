@@ -1,8 +1,10 @@
+using SessionPlanner.Core.Enums;
+
 namespace SessionPlanner.Core.Interfaces;
 
 public interface IAiSuggestionService
 {
-    Task<AiSuggestionsResult> SuggestItemsAsync(int sessionId, int courseId, string? itemType = null);
+    Task<AiSuggestionsResult> SuggestItemsAsync(int sessionId, int courseId, NeedItemType? itemType = null);
     Task<AiReviewAnalysis> AnalyzeNeedForReviewAsync(int sessionId, int needId);
     Task<AutoFillResult> AutoFillFieldsAsync(AutoFillRequest request);
     Task<RejectionAssistResult> GetRejectionAssistanceAsync(int sessionId, int needId);
@@ -10,7 +12,7 @@ public interface IAiSuggestionService
 }
 
 public record AiSuggestedItem(
-    string ItemType,
+    NeedItemType ItemType,
     string Label,
     string? SoftwareName,
     string? Version,
@@ -35,7 +37,7 @@ public record AiHistoryComparison(string SessionTitle, string Similarity);
 public record AutoFillRequest(
     int SessionId,
     int CourseId,
-    string ItemType,
+    NeedItemType ItemType,
     Dictionary<string, string> CurrentValues);
 
 public record AutoFillResult(

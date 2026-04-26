@@ -3,9 +3,9 @@ namespace SessionPlanner.Core.Entities;
 
 public class Course 
 {
-    public int Id {get; set;}
-    public string Code {get; set;} = null!; // Ex: "LOG430"
-    public string? Name {get; set; }
+    public int Id { get; set; }
+    public string Code { get; set; } = null!; // Ex: "LOG430"
+    public string? Name { get; set; }
 
     //Joins
     public ICollection<CourseSoftware> CourseSoftwares { get; set; } = new List<CourseSoftware>();

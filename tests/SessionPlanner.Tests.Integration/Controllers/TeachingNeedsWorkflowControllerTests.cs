@@ -7,6 +7,7 @@ using SessionPlanner.Api.Dtos.Courses;
 using SessionPlanner.Api.Dtos.Sessions;
 using SessionPlanner.Api.Dtos.Softwares;
 using SessionPlanner.Api.Dtos.TeachingNeeds;
+using SessionPlanner.Core.Enums;
 using SessionPlanner.Tests.Integration.Fixtures;
 
 namespace SessionPlanner.Tests.Integration.Controllers;
@@ -106,7 +107,7 @@ public class TeachingNeedsWorkflowControllerTests : IClassFixture<TeachingNeedWo
         SetRole("professor");
         (await _client.PostAsJsonAsync(
             $"/api/v1/sessions/{sessionId}/needs/{need1.Id}/items",
-            new AddNeedItemRequest("software", 1, 1, 1, 1, null, null, null)))
+            new AddNeedItemRequest(NeedItemType.Software, 1, 1, 1, 1, null, null, null)))
             .StatusCode.Should().Be(HttpStatusCode.Created);
 
         var submitNeed1 = await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need1.Id}/submit", null);
@@ -120,7 +121,7 @@ public class TeachingNeedsWorkflowControllerTests : IClassFixture<TeachingNeedWo
         var need2 = await CreateNeedAsTeacherAsync(sessionId, courseId);
         (await _client.PostAsJsonAsync(
             $"/api/v1/sessions/{sessionId}/needs/{need2.Id}/items",
-            new AddNeedItemRequest("software", 1, 2, 1, 1, null, null, null)))
+            new AddNeedItemRequest(NeedItemType.Software, 1, 2, 1, 1, null, null, null)))
             .StatusCode.Should().Be(HttpStatusCode.Created);
 
         var submitNeed2 = await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need2.Id}/submit", null);
@@ -152,7 +153,7 @@ public class TeachingNeedsWorkflowControllerTests : IClassFixture<TeachingNeedWo
         });
         var addItemResponse = await _client.PostAsJsonAsync(
             $"/api/v1/sessions/{sessionId}/needs/{need.Id}/items",
-            new AddNeedItemRequest("software", null, null, null, null, null, null, details));
+            new AddNeedItemRequest(NeedItemType.Software, null, null, null, null, null, null, details));
         addItemResponse.StatusCode.Should().Be(HttpStatusCode.Created);
 
         (await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need.Id}/submit", null)).StatusCode.Should().Be(HttpStatusCode.OK);
@@ -262,7 +263,7 @@ public class TeachingNeedsWorkflowControllerTests : IClassFixture<TeachingNeedWo
         SetRole("professor");
         var addResponse = await _client.PostAsJsonAsync(
             $"/api/v1/sessions/{sessionId}/needs/{need.Id}/items",
-            new AddNeedItemRequest("other", null, null, null, null, "Extra", null, null));
+            new AddNeedItemRequest(NeedItemType.Other, null, null, null, null, "Extra", null, null));
         addResponse.StatusCode.Should().Be(HttpStatusCode.Created);
         var addedItem = await addResponse.Content.ReadFromJsonAsync<TeachingNeedItemResponse>();
 
@@ -316,7 +317,7 @@ public class TeachingNeedsWorkflowControllerTests : IClassFixture<TeachingNeedWo
         var badDetails = JsonSerializer.Serialize(new { softwareName = "StrictTool", versionNumber = "9.0" });
         var addResp = await _client.PostAsJsonAsync(
             $"/api/v1/sessions/{sessionId}/needs/{need.Id}/items",
-            new AddNeedItemRequest("software", null, null, null, null, null, null, badDetails));
+            new AddNeedItemRequest(NeedItemType.Software, null, null, null, null, null, null, badDetails));
         addResp.StatusCode.Should().Be(HttpStatusCode.Created);
 
         (await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need.Id}/submit", null)).StatusCode.Should().Be(HttpStatusCode.OK);
@@ -344,7 +345,7 @@ public class TeachingNeedsWorkflowControllerTests : IClassFixture<TeachingNeedWo
         var saasDetails = JsonSerializer.Serialize(new { name = "SaaSToolDedup", numberOfAccounts = "10" });
         (await _client.PostAsJsonAsync(
             $"/api/v1/sessions/{sessionId}/needs/{need.Id}/items",
-            new AddNeedItemRequest("saas", null, null, null, null, null, null, saasDetails))).StatusCode.Should().Be(HttpStatusCode.Created);
+            new AddNeedItemRequest(NeedItemType.Saas, null, null, null, null, null, null, saasDetails))).StatusCode.Should().Be(HttpStatusCode.Created);
 
         (await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need.Id}/submit", null)).StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -358,7 +359,7 @@ public class TeachingNeedsWorkflowControllerTests : IClassFixture<TeachingNeedWo
         SetRole("professor");
         (await _client.PostAsJsonAsync(
             $"/api/v1/sessions/{sessionId}/needs/{need2.Id}/items",
-            new AddNeedItemRequest("saas", null, null, null, null, null, null, saasDetails))).StatusCode.Should().Be(HttpStatusCode.Created);
+            new AddNeedItemRequest(NeedItemType.Saas, null, null, null, null, null, null, saasDetails))).StatusCode.Should().Be(HttpStatusCode.Created);
         (await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need2.Id}/submit", null)).StatusCode.Should().Be(HttpStatusCode.OK);
 
         SetRole("admin");
@@ -371,30 +372,22 @@ public class TeachingNeedsWorkflowControllerTests : IClassFixture<TeachingNeedWo
     }
 
     [Fact]
-    public async Task Workflow_Approve_UnknownItemType_Returns409_And_StatusStaysUnderReview()
+    public async Task Workflow_AddItem_UnknownItemType_Returns400()
     {
-        var sessionId = await CreateOpenSessionAsync("Approve Unknown Type Fail");
+        // With NeedItemType as a typed enum, the API now rejects unknown item types at
+        // model binding rather than at approval time, so no invalid type can ever reach
+        // the approval logic.
+        var sessionId = await CreateOpenSessionAsync("AddItem Unknown Type Fail");
         var courseId = await CreateCourseAsync("WFUNK");
         var need = await CreateNeedAsTeacherAsync(sessionId, courseId);
 
         SetRole("professor");
+        // Sending an unknown enum value must be rejected immediately by the model binder
+        var payload = new { itemType = "new_future_type", description = "unsupported item" };
         var addResponse = await _client.PostAsJsonAsync(
             $"/api/v1/sessions/{sessionId}/needs/{need.Id}/items",
-            new AddNeedItemRequest("new_future_type", null, null, null, null, "unsupported item", null, null));
-        addResponse.StatusCode.Should().Be(HttpStatusCode.Created);
-
-        (await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need.Id}/submit", null)).StatusCode.Should().Be(HttpStatusCode.OK);
-
-        SetRole("admin");
-        (await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need.Id}/review", null)).StatusCode.Should().Be(HttpStatusCode.OK);
-
-        var approveResp = await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need.Id}/approve", null);
-        approveResp.StatusCode.Should().Be(HttpStatusCode.Conflict);
-
-        var getResp = await _client.GetAsync($"/api/v1/sessions/{sessionId}/needs/{need.Id}");
-        getResp.StatusCode.Should().Be(HttpStatusCode.OK);
-        var stillUnderReview = await getResp.Content.ReadFromJsonAsync<TeachingNeedResponse>();
-        stillUnderReview!.Status.Should().Be("UnderReview");
+            payload);
+        addResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     [Fact]
@@ -415,7 +408,7 @@ public class TeachingNeedsWorkflowControllerTests : IClassFixture<TeachingNeedWo
         SetRole("professor");
         (await _client.PostAsJsonAsync(
             $"/api/v1/sessions/{sessionId}/needs/{need1.Id}/items",
-            new AddNeedItemRequest("configuration", null, null, null, null, null, null, details))).StatusCode.Should().Be(HttpStatusCode.Created);
+            new AddNeedItemRequest(NeedItemType.Configuration, null, null, null, null, null, null, details))).StatusCode.Should().Be(HttpStatusCode.Created);
         (await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need1.Id}/submit", null)).StatusCode.Should().Be(HttpStatusCode.OK);
 
         SetRole("admin");
@@ -426,7 +419,7 @@ public class TeachingNeedsWorkflowControllerTests : IClassFixture<TeachingNeedWo
         SetRole("professor");
         (await _client.PostAsJsonAsync(
             $"/api/v1/sessions/{sessionId}/needs/{need2.Id}/items",
-            new AddNeedItemRequest("configuration", null, null, null, null, null, null, details))).StatusCode.Should().Be(HttpStatusCode.Created);
+            new AddNeedItemRequest(NeedItemType.Configuration, null, null, null, null, null, null, details))).StatusCode.Should().Be(HttpStatusCode.Created);
         (await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need2.Id}/submit", null)).StatusCode.Should().Be(HttpStatusCode.OK);
 
         SetRole("admin");
@@ -508,7 +501,7 @@ public class TeachingNeedsWorkflowControllerTests : IClassFixture<TeachingNeedWo
         });
         var addResp1 = await _client.PostAsJsonAsync(
             $"/api/v1/sessions/{sessionId}/needs/{need.Id}/items",
-            new AddNeedItemRequest("virtual_machine", null, null, null, null, null, null, details1));
+            new AddNeedItemRequest(NeedItemType.VirtualMachine, null, null, null, null, null, null, details1));
         addResp1.StatusCode.Should().Be(HttpStatusCode.Created);
         var addedItem = await addResp1.Content.ReadFromJsonAsync<TeachingNeedItemResponse>();
 
@@ -540,7 +533,7 @@ public class TeachingNeedsWorkflowControllerTests : IClassFixture<TeachingNeedWo
         });
         (await _client.PostAsJsonAsync(
             $"/api/v1/sessions/{sessionId}/needs/{need.Id}/items",
-            new AddNeedItemRequest("virtual_machine", null, null, null, null, null, null, details2)))
+            new AddNeedItemRequest(NeedItemType.VirtualMachine, null, null, null, null, null, null, details2)))
             .StatusCode.Should().Be(HttpStatusCode.Created);
 
         // 4. Revise → resubmit.
@@ -585,7 +578,7 @@ public class TeachingNeedsWorkflowControllerTests : IClassFixture<TeachingNeedWo
         });
         (await _client.PostAsJsonAsync(
             $"/api/v1/sessions/{sessionId}/needs/{need.Id}/items",
-            new AddNeedItemRequest("saas", null, null, null, null, null, null, itemDetails)))
+            new AddNeedItemRequest(NeedItemType.Saas, null, null, null, null, null, null, itemDetails)))
             .StatusCode.Should().Be(HttpStatusCode.Created);
 
         (await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need.Id}/submit", null))
@@ -603,7 +596,7 @@ public class TeachingNeedsWorkflowControllerTests : IClassFixture<TeachingNeedWo
         var approvedNeed = await getResp.Content.ReadFromJsonAsync<TeachingNeedResponse>();
         approvedNeed!.Status.Should().Be("Approved");
         approvedNeed.Items.Should().HaveCount(1, "the item snapshot must be preserved after approval");
-        approvedNeed.Items.First().ItemType.Should().Be("saas");
+        approvedNeed.Items.First().ItemType.Should().Be(NeedItemType.Saas);
     }
 
     // ------------------------------------------------------------------ One-Click Renewal
@@ -617,7 +610,7 @@ public class TeachingNeedsWorkflowControllerTests : IClassFixture<TeachingNeedWo
         SetRole("professor");
         var addItemResp = await _client.PostAsJsonAsync(
             $"/api/v1/sessions/{sessionId}/needs/{need.Id}/items",
-            new AddNeedItemRequest("software", 1, 1, 1, null, null, null, null));
+            new AddNeedItemRequest(NeedItemType.Software, 1, 1, 1, null, null, null, null));
         addItemResp.StatusCode.Should().Be(HttpStatusCode.Created);
 
         var submitResp = await _client.PostAsync($"/api/v1/sessions/{sessionId}/needs/{need.Id}/submit", null);
@@ -702,7 +695,7 @@ public class TeachingNeedsWorkflowControllerTests : IClassFixture<TeachingNeedWo
         SetRole("professor");
         var addItemResp = await _client.PostAsJsonAsync(
             $"/api/v1/sessions/{session1}/needs/{need.Id}/items",
-            new AddNeedItemRequest("software", 1, 1, 1, null, null, null, null));
+            new AddNeedItemRequest(NeedItemType.Software, 1, 1, 1, null, null, null, null));
         addItemResp.StatusCode.Should().Be(HttpStatusCode.Created);
 
         (await _client.PostAsync($"/api/v1/sessions/{session1}/needs/{need.Id}/submit", null))

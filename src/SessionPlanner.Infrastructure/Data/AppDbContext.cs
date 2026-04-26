@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using SessionPlanner.Core.Entities;
 using SessionPlanner.Core.Entities.Joins;
+using SessionPlanner.Core.Enums;
 
 namespace SessionPlanner.Infrastructure.Data;
 
@@ -152,8 +154,19 @@ public class AppDbContext : DbContext
             .HasForeignKey(rt => rt.UserId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        modelBuilder.Entity<RefreshToken>()
-            .HasIndex(rt => rt.Token)
-            .IsUnique();    
+        // Store NeedItemType enum as its snake_case string representation (e.g. "virtual_machine")
+        // to match the values already persisted in the database and expected by the frontend.
+        modelBuilder.Entity<TeachingNeedItem>()
+            .Property(i => i.ItemType)
+            .HasMaxLength(30)
+            .HasConversion(
+                v => JsonNamingPolicy.SnakeCaseLower.ConvertName(v.ToString()),
+                v => StringToNeedItemType(v));
+    }
+
+    private static NeedItemType StringToNeedItemType(string value)
+    {
+        var normalized = value.Replace("_", "");
+        return Enum.TryParse<NeedItemType>(normalized, ignoreCase: true, out var result) ? result : NeedItemType.Software;
     }
 }

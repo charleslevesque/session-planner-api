@@ -1,12 +1,7 @@
 using SessionPlanner.Core.Entities.Joins;
-namespace SessionPlanner.Core.Entities;
+using SessionPlanner.Core.Enums;
 
-public enum PersonnelFunction
-{
-    Professor = 1, 
-    LabInstructor = 2, 
-    CourseInstructor = 3
-}
+namespace SessionPlanner.Core.Entities;
 
 public class Personnel
 {

@@ -1,7 +1,9 @@
+using SessionPlanner.Core.Enums;
+
 namespace SessionPlanner.Api.Dtos.TeachingNeeds;
 
 public record AddNeedItemRequest(
-    string? ItemType,
+    NeedItemType? ItemType,
     int? SoftwareId,
     int? SoftwareVersionId,
     int? OSId,

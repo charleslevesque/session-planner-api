@@ -249,7 +249,7 @@ public class TeachingNeedService : ITeachingNeedService
         return true;
     }
 
-    public async Task<TeachingNeedItem?> AddItemAsync(int sessionId, int needId, string itemType, int? softwareId, int? softwareVersionId, int? osId, int? quantity, string? description, string? notes, string? detailsJson)
+    public async Task<TeachingNeedItem?> AddItemAsync(int sessionId, int needId, NeedItemType itemType, int? softwareId, int? softwareVersionId, int? osId, int? quantity, string? description, string? notes, string? detailsJson)
     {
         var need = await _db.TeachingNeeds
             .FirstOrDefaultAsync(n => n.SessionId == sessionId && n.Id == needId);
@@ -340,7 +340,7 @@ public class TeachingNeedService : ITeachingNeedService
         var warnings = new List<string>();
 
         var softwareItems = need.Items
-            .Where(i => (i.ItemType ?? string.Empty).Trim().Equals("software", StringComparison.OrdinalIgnoreCase))
+            .Where(i => i.ItemType == NeedItemType.Software)
             .ToList();
 
         foreach (var item in softwareItems)
@@ -352,7 +352,7 @@ public class TeachingNeedService : ITeachingNeedService
             {
                 var conflicting = other.Items.FirstOrDefault(oi =>
                 {
-                    if (!(oi.ItemType ?? string.Empty).Trim().Equals("software", StringComparison.OrdinalIgnoreCase))
+                    if (oi.ItemType != NeedItemType.Software)
                         return false;
 
                     var sameSoftware = false;
@@ -435,15 +435,13 @@ public class TeachingNeedService : ITeachingNeedService
 
         foreach (var item in currentItems)
         {
-            var type = (item.ItemType ?? string.Empty).Trim().ToLowerInvariant();
             bool matched = false;
 
             foreach (var approved in approvedItems)
             {
-                var approvedType = (approved.ItemType ?? string.Empty).Trim().ToLowerInvariant();
-                if (approvedType != type) continue;
+                if (approved.ItemType != item.ItemType) continue;
 
-                if (type == "software")
+                if (item.ItemType == NeedItemType.Software)
                 {
                     if (item.SoftwareId.HasValue && item.SoftwareVersionId.HasValue
                         && item.SoftwareId == approved.SoftwareId
@@ -535,28 +533,27 @@ public class TeachingNeedService : ITeachingNeedService
     {
         foreach (var item in items)
         {
-            var type = (item.ItemType ?? string.Empty).Trim().ToLowerInvariant();
-            switch (type)
+            switch (item.ItemType)
             {
-                case "software":
+                case NeedItemType.Software:
                     await PropagateSoftwareItemAsync(courseId, item);
                     break;
-                case "saas":
+                case NeedItemType.Saas:
                     await PropagateSaasItemAsync(courseId, item);
                     break;
-                case "virtual_machine":
+                case NeedItemType.VirtualMachine:
                     await PropagateVirtualMachineItemAsync(courseId, item);
                     break;
-                case "physical_server":
+                case NeedItemType.PhysicalServer:
                     await PropagatePhysicalServerItemAsync(courseId, item);
                     break;
-                case "equipment_loan":
+                case NeedItemType.EquipmentLoan:
                     await PropagateEquipmentItemAsync(courseId, item);
                     break;
-                case "configuration":
+                case NeedItemType.Configuration:
                     await PropagateConfigurationItemAsync(courseId, item);
                     break;
-                case "other":
+                case NeedItemType.Other:
                     _logger.LogInformation(
                         "Skipping teaching need item {ItemId} (type other) — no course resource to create.",
                         item.Id);
