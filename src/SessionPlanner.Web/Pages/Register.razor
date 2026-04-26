@@ -1,0 +1,66 @@
+@page "/register"
+@layout SessionPlanner.Web.Layout.EmptyLayout
+@inject IAuthService AuthService
+@inject NavigationManager Nav
+@attribute [AllowAnonymous]
+
+<div style="display:flex;justify-content:center;align-items:center;min-height:100vh;background:#f3f2f1">
+    <FluentCard Style="width:450px;padding:2rem">
+        <h2 style="text-align:center;margin-bottom:1.5rem">Créer un compte</h2>
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <FluentMessageBar Intent="MessageIntent.Error" Style="margin-bottom:1rem">@_error</FluentMessageBar>
+        }
+        @if (_success)
+        {
+            <FluentMessageBar Intent="MessageIntent.Success">Compte créé. <a href="/login">Se connecter</a></FluentMessageBar>
+        }
+        else
+        {
+            <EditForm Model="@_model" OnValidSubmit="@HandleRegister">
+                <FluentStack Orientation="Orientation.Vertical">
+                    <FluentTextField @bind-Value="_model.FirstName" Label="Prénom" Style="width:100%" />
+                    <FluentTextField @bind-Value="_model.LastName" Label="Nom" Style="width:100%" />
+                    <FluentTextField @bind-Value="_model.Email" Label="Courriel" InputMode="InputMode.Email" Style="width:100%" />
+                    <FluentTextField @bind-Value="_model.Password" Label="Mot de passe" TextFieldType="TextFieldType.Password" Style="width:100%" />
+                    <FluentSelect TOption="string" @bind-Value="_model.Role" Label="Rôle" Style="width:100%">
+                        <FluentOption TOption="string" Value="professor">Professeur</FluentOption>
+                        <FluentOption TOption="string" Value="course_instructor">Chargé de cours</FluentOption>
+                        <FluentOption TOption="string" Value="lab_instructor">Technicien de labo</FluentOption>
+                    </FluentSelect>
+                    <FluentButton Type="ButtonType.Submit" Appearance="Appearance.Accent" Style="width:100%" Loading="@_loading">
+                        S'inscrire
+                    </FluentButton>
+                </FluentStack>
+            </EditForm>
+        }
+        <p style="text-align:center;margin-top:1rem"><a href="/login">Retour à la connexion</a></p>
+    </FluentCard>
+</div>
+
+@code {
+    private RegisterModel _model = new();
+    private string? _error;
+    private bool _success;
+    private bool _loading;
+
+    private async Task HandleRegister()
+    {
+        _loading = true;
+        _error = null;
+        var ok = await AuthService.RegisterAsync(new RegisterRequest(
+            _model.Email, _model.Password, _model.FirstName, _model.LastName, _model.Role));
+        _loading = false;
+        if (ok) _success = true;
+        else _error = "Impossible de créer le compte. Vérifiez les informations.";
+    }
+
+    private class RegisterModel
+    {
+        public string FirstName { get; set; } = "";
+        public string LastName { get; set; } = "";
+        public string Email { get; set; } = "";
+        public string Password { get; set; } = "";
+        public string Role { get; set; } = "professor";
+    }
+}

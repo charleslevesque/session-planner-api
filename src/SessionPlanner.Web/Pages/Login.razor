@@ -1,0 +1,54 @@
+@page "/login"
+@layout SessionPlanner.Web.Layout.EmptyLayout
+@inject IAuthService AuthService
+@inject NavigationManager Nav
+@attribute [AllowAnonymous]
+
+<div style="display:flex;justify-content:center;align-items:center;min-height:100vh;background:#f3f2f1">
+    <FluentCard Style="width:400px;padding:2rem">
+        <h2 style="margin-bottom:1.5rem;text-align:center">Session Planner</h2>
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <FluentMessageBar Intent="MessageIntent.Error" Style="margin-bottom:1rem">@_error</FluentMessageBar>
+        }
+        <EditForm Model="@_model" OnValidSubmit="@HandleLogin">
+            <DataAnnotationsValidator />
+            <FluentStack Orientation="Orientation.Vertical">
+                <FluentTextField @bind-Value="_model.Email" Label="Courriel" InputMode="InputMode.Email" Style="width:100%" />
+                <FluentTextField @bind-Value="_model.Password" Label="Mot de passe" TextFieldType="TextFieldType.Password" Style="width:100%" />
+                <FluentButton Type="ButtonType.Submit" Appearance="Appearance.Accent" Style="width:100%" Loading="@_loading">
+                    Se connecter
+                </FluentButton>
+            </FluentStack>
+        </EditForm>
+        <p style="text-align:center;margin-top:1rem">
+            Pas de compte ? <a href="/register">S'inscrire</a>
+        </p>
+    </FluentCard>
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
+
+    private LoginModel _model = new();
+    private string? _error;
+    private bool _loading;
+
+    private async Task HandleLogin()
+    {
+        _loading = true;
+        _error = null;
+        var ok = await AuthService.LoginAsync(_model.Email, _model.Password);
+        _loading = false;
+        if (ok)
+            Nav.NavigateTo(string.IsNullOrEmpty(ReturnUrl) ? "/dashboard" : Uri.UnescapeDataString(ReturnUrl));
+        else
+            _error = "Courriel ou mot de passe incorrect.";
+    }
+
+    private class LoginModel
+    {
+        public string Email { get; set; } = "";
+        public string Password { get; set; } = "";
+    }
+}

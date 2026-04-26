@@ -1,0 +1,17 @@
+@if (!string.IsNullOrEmpty(Status))
+{
+    <FluentBadge Appearance="@GetAppearance()">@Status</FluentBadge>
+}
+
+@code {
+    [Parameter] public string? Status { get; set; }
+
+    private Appearance GetAppearance() => Status switch
+    {
+        "Open" => Appearance.Accent,
+        "Draft" => Appearance.Neutral,
+        "Closed" => Appearance.Lightweight,
+        "Archived" => Appearance.Lightweight,
+        _ => Appearance.Neutral
+    };
+}

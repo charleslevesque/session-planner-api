@@ -1,0 +1,142 @@
+@page "/sessions/{SessionId:int}/courses/{CourseId:int}/create-need"
+@attribute [Authorize(Roles = "professor,course_instructor")]
+@inject IApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Nouveau besoin</PageTitle>
+<h1>Nouveau besoin</h1>
+
+@if (_loading) { <FluentProgressRing /> }
+else
+{
+    @if (!string.IsNullOrEmpty(_error)) { <FluentMessageBar Intent="MessageIntent.Error">@_error</FluentMessageBar> }
+
+    <FluentCard Style="max-width:700px;padding:1.5rem">
+        <EditForm Model="@_model" OnValidSubmit="@SaveAsync">
+            <FluentStack Orientation="Orientation.Vertical">
+                <FluentTextField @bind-Value="_model.ExpectedStudentsText" Label="Étudiants attendus" Style="width:100%" />
+                <FluentCheckbox @bind-Value="_model.HasTechNeeds" Label="Besoins technologiques" />
+                <FluentCheckbox @bind-Value="_model.FoundAllCourses" Label="Cours complets trouvés" />
+                <FluentTextField @bind-Value="_model.DesiredModifications" Label="Modifications souhaitées" Style="width:100%" />
+                <FluentCheckbox @bind-Value="_model.AllowsUpdates" Label="Autorise les mises à jour" />
+                <FluentTextField @bind-Value="_model.AdditionalComments" Label="Commentaires additionnels" Style="width:100%" />
+                <FluentTextField @bind-Value="_model.Notes" Label="Notes" Style="width:100%" />
+
+                <h3>Articles</h3>
+                @foreach (var item in _items)
+                {
+                    <FluentCard Style="padding:1rem;margin-bottom:0.5rem">
+                        <FluentStack Orientation="Orientation.Horizontal">
+                            <span>@item.ItemType – @item.Description</span>
+                            <FluentButton OnClick="@(() => RemoveItem(item))">Retirer</FluentButton>
+                        </FluentStack>
+                    </FluentCard>
+                }
+                <FluentCard Style="padding:1rem;background:#f9f9f9">
+                    <h4>Ajouter un article</h4>
+                    <FluentStack Orientation="Orientation.Vertical">
+                        <FluentSelect TOption="string" @bind-Value="_newItem.ItemType" Label="Type" Style="width:100%">
+                            <FluentOption TOption="string" Value="saas">SaaS</FluentOption>
+                            <FluentOption TOption="string" Value="software">Logiciel</FluentOption>
+                            <FluentOption TOption="string" Value="configuration">Configuration</FluentOption>
+                            <FluentOption TOption="string" Value="virtual_machine">Machine virtuelle</FluentOption>
+                            <FluentOption TOption="string" Value="physical_server">Serveur physique</FluentOption>
+                            <FluentOption TOption="string" Value="equipment_loan">Prêt d'équipement</FluentOption>
+                            <FluentOption TOption="string" Value="other">Autre</FluentOption>
+                        </FluentSelect>
+                        <FluentTextField @bind-Value="_newItem.Description" Label="Description" Style="width:100%" />
+                        <FluentTextField @bind-Value="_newItem.QuantityText" Label="Quantité" Style="width:100%" />
+                        <FluentTextField @bind-Value="_newItem.Notes" Label="Notes" Style="width:100%" />
+                        <FluentButton OnClick="@AddItem">Ajouter</FluentButton>
+                    </FluentStack>
+                </FluentCard>
+
+                <FluentStack Orientation="Orientation.Horizontal">
+                    <FluentButton Type="ButtonType.Submit" Appearance="Appearance.Accent" Loading="@_saving">
+                        Créer
+                    </FluentButton>
+                    <FluentButton OnClick="@Cancel">Annuler</FluentButton>
+                </FluentStack>
+            </FluentStack>
+        </EditForm>
+    </FluentCard>
+}
+
+@code {
+    [Parameter] public int SessionId { get; set; }
+    [Parameter] public int CourseId { get; set; }
+
+    private NeedFormModel _model = new();
+    private List<NewItemModel> _items = new();
+    private NewItemModel _newItem = new();
+    private bool _loading = false;
+    private bool _saving;
+    private string? _error;
+
+    private void AddItem()
+    {
+        _items.Add(new NewItemModel
+        {
+            ItemType = _newItem.ItemType,
+            Description = _newItem.Description,
+            QuantityText = _newItem.QuantityText,
+            Notes = _newItem.Notes,
+        });
+        _newItem = new();
+    }
+
+    private void RemoveItem(NewItemModel item) => _items.Remove(item);
+
+    private void Cancel() => Nav.NavigateTo($"/sessions/{SessionId}/courses/{CourseId}");
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        _error = null;
+        try
+        {
+            int? expectedStudents = int.TryParse(_model.ExpectedStudentsText, out var es) ? es : null;
+            var created = await Api.PostAsync<CreateTeachingNeedRequest, TeachingNeedResponse>(
+                $"/sessions/{SessionId}/courses/{CourseId}/needs",
+                new CreateTeachingNeedRequest(
+                    CourseId, null, _model.Notes, expectedStudents,
+                    _model.HasTechNeeds, _model.FoundAllCourses,
+                    _model.DesiredModifications, _model.AllowsUpdates,
+                    _model.AdditionalComments));
+
+            if (created != null)
+            {
+                foreach (var item in _items)
+                {
+                    int? qty = int.TryParse(item.QuantityText, out var q) ? q : null;
+                    await Api.PostAsync<AddNeedItemRequest, TeachingNeedItemResponse>(
+                        $"/sessions/{SessionId}/courses/{CourseId}/needs/{created.Id}/items",
+                        new AddNeedItemRequest(item.ItemType, null, null, null,
+                            qty, item.Description, item.Notes, null));
+                }
+                Nav.NavigateTo($"/sessions/{SessionId}/courses/{CourseId}");
+            }
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally { _saving = false; }
+    }
+
+    private class NeedFormModel
+    {
+        public string? Notes { get; set; }
+        public string? ExpectedStudentsText { get; set; }
+        public bool HasTechNeeds { get; set; }
+        public bool FoundAllCourses { get; set; }
+        public string? DesiredModifications { get; set; }
+        public bool AllowsUpdates { get; set; }
+        public string? AdditionalComments { get; set; }
+    }
+
+    private class NewItemModel
+    {
+        public string ItemType { get; set; } = "software";
+        public string? QuantityText { get; set; }
+        public string? Description { get; set; }
+        public string? Notes { get; set; }
+    }
+}
