@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using SessionPlanner.Core.Entities;
@@ -6,7 +8,15 @@ using SessionPlanner.Core.Enums;
 
 namespace SessionPlanner.Infrastructure.Data;
 
-public class AppDbContext : DbContext
+public class AppDbContext : IdentityDbContext<
+    AppUser,
+    AppRole,
+    int,
+    IdentityUserClaim<int>,
+    AppUserRole,
+    IdentityUserLogin<int>,
+    IdentityRoleClaim<int>,
+    IdentityUserToken<int>>
 {
     public AppDbContext(DbContextOptions<AppDbContext> options)
         : base(options)
@@ -27,14 +37,8 @@ public class AppDbContext : DbContext
     public DbSet<SaaSProduct> SaaSProducts => Set<SaaSProduct>();
     public DbSet<EquipmentModel> EquipmentModels => Set<EquipmentModel>();
     public DbSet<Personnel> Personnel => Set<Personnel>();
-    public DbSet<User> Users => Set<User>();
-    public DbSet<Permission> Permissions => Set<Permission>();
-    public DbSet<UserPermission> UserPermissions => Set<UserPermission>();
     public DbSet<TeachingNeed> TeachingNeeds => Set<TeachingNeed>();
     public DbSet<TeachingNeedItem> TeachingNeedItems => Set<TeachingNeedItem>();
-    public DbSet<Role> Roles => Set<Role>();
-    public DbSet<UserRole> UserRoles => Set<UserRole>();
-    public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<LaboratorySoftware> LaboratorySoftwares => Set<LaboratorySoftware>();
     public DbSet<SessionCourse> SessionCourses => Set<SessionCourse>();
@@ -54,12 +58,32 @@ public class AppDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        // Identity must be configured first
         base.OnModelCreating(modelBuilder);
 
-        modelBuilder.Entity<User>()
+        // Extend the Identity User → UserRole navigation with our AppUserRole type
+        modelBuilder.Entity<AppUser>(b =>
+        {
+            b.HasMany<AppUserRole>(u => u.UserRoles)
+                .WithOne()
+                .HasForeignKey(ur => ur.UserId)
+                .IsRequired()
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Add Role navigation on AppUserRole
+        modelBuilder.Entity<AppUserRole>(b =>
+        {
+            b.HasOne<AppRole>(ur => ur.Role)
+                .WithMany()
+                .HasForeignKey(ur => ur.RoleId)
+                .IsRequired();
+        });
+
+        modelBuilder.Entity<AppUser>()
             .HasOne(u => u.Personnel)
             .WithOne(p => p.User)
-            .HasForeignKey<User>(u => u.PersonnelId)
+            .HasForeignKey<AppUser>(u => u.PersonnelId)
             .OnDelete(DeleteBehavior.SetNull);
 
         modelBuilder.Entity<Session>()
@@ -107,29 +131,6 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<SessionCourse>()
             .HasKey(sc => new { sc.SessionId, sc.CourseId });
-        modelBuilder.Entity<UserPermission>()
-            .HasKey(x => new { x.UserId, x.PermissionId });  
-        
-        modelBuilder.Entity<UserRole>()
-            .HasKey(x => new { x.UserId, x.RoleId });
-
-        modelBuilder.Entity<UserRole>()
-            .HasOne(x => x.User)
-            .WithMany(x => x.UserRoles)
-            .HasForeignKey(x => x.UserId);
-
-        modelBuilder.Entity<UserRole>()
-            .HasOne(x => x.Role)
-            .WithMany(x => x.UserRoles)
-            .HasForeignKey(x => x.RoleId);
-
-        modelBuilder.Entity<RolePermission>()
-            .HasKey(x => new { x.RoleId, x.Permission });
-
-        modelBuilder.Entity<RolePermission>()
-            .HasOne(x => x.Role)
-            .WithMany(x => x.RolePermissions)
-            .HasForeignKey(x => x.RoleId);
 
         modelBuilder.Entity<RefreshToken>()
             .HasOne(rt => rt.User)

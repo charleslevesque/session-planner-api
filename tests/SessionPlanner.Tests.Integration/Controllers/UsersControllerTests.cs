@@ -72,14 +72,16 @@ public class UsersControllerTests
         await using var factory = new AuthWebApplicationFactory();
         using var client = factory.CreateClient();
 
-        var email = $"teacher.{Guid.NewGuid():N}@local.dev";
-        await client.PostAsJsonAsync(
-            $"{AuthBaseUrl}/register",
-            new RegisterRequest(email, "Password123", "User", "Teacher"));
+        // Create a teacher account via admin endpoint
+        var (adminClient, _) = await LoginAsAdminAsync(factory);
+        var teacherEmail = $"teacher.{Guid.NewGuid():N}@local.dev";
+        await adminClient.PostAsJsonAsync(
+            $"{UsersBaseUrl}",
+            new { username = teacherEmail, password = "Password123!", roleName = "professor" });
 
         var loginResponse = await client.PostAsJsonAsync(
             $"{AuthBaseUrl}/login",
-            new LoginRequest(email, "Password123"));
+            new LoginRequest(teacherEmail, "Password123!"));
 
         loginResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         var tokens = await loginResponse.Content.ReadFromJsonAsync<AuthResponse>();
@@ -89,7 +91,7 @@ public class UsersControllerTests
 
         var updateResponse = await client.PutAsJsonAsync(
             $"{UsersBaseUrl}/me/email",
-            new { newEmail = $"updated.{Guid.NewGuid():N}@local.dev", currentPassword = "Password123" });
+            new { newEmail = $"updated.{Guid.NewGuid():N}@local.dev", currentPassword = "Password123!" });
 
         updateResponse.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
@@ -100,10 +102,12 @@ public class UsersControllerTests
         await using var factory = new AuthWebApplicationFactory();
         using var client = factory.CreateClient();
 
+        // Create an existing user via the admin endpoint so its email is taken
+        var (adminClient, _) = await LoginAsAdminAsync(factory);
         var existingEmail = $"existing.{Guid.NewGuid():N}@local.dev";
-        await client.PostAsJsonAsync(
-            $"{AuthBaseUrl}/register",
-            new RegisterRequest(existingEmail, "Password123", "Existing", "User"));
+        await adminClient.PostAsJsonAsync(
+            $"{UsersBaseUrl}",
+            new { username = existingEmail, password = "Password123!", roleName = "professor" });
 
         var loginResponse = await client.PostAsJsonAsync(
             $"{AuthBaseUrl}/login",

@@ -70,7 +70,7 @@ public class TeachingNeedService : ITeachingNeedService
         if (user.PersonnelId is not null)
             return user.PersonnelId;
 
-        var rawUsername = (user.Username ?? string.Empty).Trim();
+        var rawUsername = (user.UserName ?? string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(rawUsername))
             return null;
 

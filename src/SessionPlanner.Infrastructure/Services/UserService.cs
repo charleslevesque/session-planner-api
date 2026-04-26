@@ -1,7 +1,7 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using SessionPlanner.Core.Auth;
 using SessionPlanner.Core.Entities;
-using SessionPlanner.Core.Entities.Joins;
 using SessionPlanner.Core.Enums;
 using SessionPlanner.Core.Interfaces;
 using SessionPlanner.Infrastructure.Data;
@@ -11,30 +11,30 @@ namespace SessionPlanner.Infrastructure.Services;
 public class UserService : IUserService
 {
     private readonly AppDbContext _db;
-    private readonly IPasswordService _passwordService;
+    private readonly UserManager<AppUser> _userManager;
 
-    public UserService(AppDbContext db, IPasswordService passwordService)
+    public UserService(AppDbContext db, UserManager<AppUser> userManager)
     {
         _db = db;
-        _passwordService = passwordService;
+        _userManager = userManager;
     }
 
-    private IQueryable<User> ActiveUsersWithRoles()
+    private IQueryable<AppUser> ActiveUsersWithRoles()
     {
-        return _db.Users
+        return _userManager.Users
             .Include(u => u.UserRoles)
                 .ThenInclude(ur => ur.Role)
             .Where(u => u.IsActive);
     }
 
-    public async Task<List<User>> GetAllActiveWithRolesAsync()
+    public async Task<List<AppUser>> GetAllActiveWithRolesAsync()
     {
         return await ActiveUsersWithRoles().ToListAsync();
     }
 
-    public async Task<List<User>> GetAllWithRolesAsync(bool includeInactive = false)
+    public async Task<List<AppUser>> GetAllWithRolesAsync(bool includeInactive = false)
     {
-        var query = _db.Users
+        var query = _userManager.Users
             .Include(u => u.UserRoles)
                 .ThenInclude(ur => ur.Role);
 
@@ -43,15 +43,15 @@ public class UserService : IUserService
             : await query.Where(u => u.IsActive).ToListAsync();
     }
 
-    public async Task<User?> GetByIdActiveWithRolesAsync(int id)
+    public async Task<AppUser?> GetByIdActiveWithRolesAsync(int id)
     {
         return await ActiveUsersWithRoles()
             .FirstOrDefaultAsync(u => u.Id == id);
     }
 
-    public async Task<User?> GetByIdWithRolesAsync(int id)
+    public async Task<AppUser?> GetByIdWithRolesAsync(int id)
     {
-        return await _db.Users
+        return await _userManager.Users
             .Include(u => u.UserRoles)
                 .ThenInclude(ur => ur.Role)
             .FirstOrDefaultAsync(u => u.Id == id);
@@ -59,35 +59,27 @@ public class UserService : IUserService
 
     public async Task<CreateUserResult> CreateAsync(string username, string password, string? roleName)
     {
-        var existingUser = await _db.Users
-            .AnyAsync(u => u.Username == username);
+        var existingUser = await _userManager.FindByNameAsync(username);
 
-        if (existingUser)
+        if (existingUser is not null)
             return new CreateUserResult(CreateUserStatus.UsernameAlreadyExists, null);
 
-        Role role;
+        var resolvedRole = ResolveRoleName(roleName);
 
-        if (!string.IsNullOrWhiteSpace(roleName))
-        {
-            role = await _db.Roles
-                .FirstAsync(r => r.Name == roleName);
-        }
-        else
-        {
-            role = await _db.Roles
-                .FirstAsync(r => r.Name == Roles.Professor);
-        }
+        var roleExists = await _userManager.Users
+            .AnyAsync(_ => false) || await _db.Roles.AnyAsync(r => r.Name == resolvedRole);
 
-        var user = new User
+        var user = new AppUser
         {
-            Username = username,
+            UserName = username,
             IsActive = true,
         };
 
-        user.PasswordHash = _passwordService.HashPassword(user, password);
+        var createResult = await _userManager.CreateAsync(user, password);
+        if (!createResult.Succeeded)
+            return new CreateUserResult(CreateUserStatus.UsernameAlreadyExists, null);
 
-        _db.Users.Add(user);
-        await _db.SaveChangesAsync();
+        await _userManager.AddToRoleAsync(user, resolvedRole);
 
         var existingPersonnel = await _db.Personnel
             .FirstOrDefaultAsync(p => p.Email == username);
@@ -110,7 +102,7 @@ public class UserService : IUserService
                 FirstName = firstName,
                 LastName = lastName,
                 Email = username,
-                Function = MapRoleToPersonnelFunction(role.Name),
+                Function = MapRoleToPersonnelFunction(resolvedRole),
             };
 
             _db.Personnel.Add(personnel);
@@ -118,20 +110,25 @@ public class UserService : IUserService
             user.PersonnelId = personnel.Id;
         }
 
-        await _db.SaveChangesAsync();
+        await _userManager.UpdateAsync(user);
 
-        _db.UserRoles.Add(new UserRole
-        {
-            UserId = user.Id,
-            RoleId = role.Id
-        });
-
-        await _db.SaveChangesAsync();
-
-        var createdUser = await ActiveUsersWithRoles()
+        var createdUser = await _userManager.Users
+            .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
             .FirstAsync(u => u.Id == user.Id);
 
         return new CreateUserResult(CreateUserStatus.Success, createdUser);
+    }
+
+    private static string ResolveRoleName(string? roleName)
+    {
+        return roleName?.Trim()?.ToLowerInvariant() switch
+        {
+            Roles.LabInstructor or "labinstructor" => Roles.LabInstructor,
+            Roles.CourseInstructor or "courseinstructor" => Roles.CourseInstructor,
+            Roles.Professor => Roles.Professor,
+            _ => Roles.Professor,
+        };
     }
 
     private static PersonnelFunction MapRoleToPersonnelFunction(string roleName)
@@ -153,42 +150,31 @@ public class UserService : IUserService
 
     public async Task<UpdateUserRoleStatus> UpdateRoleAsync(int id, string roleName)
     {
-        var user = await _db.Users
-            .Include(u => u.UserRoles)
-            .FirstOrDefaultAsync(u => u.Id == id);
+        var user = await _userManager.FindByIdAsync(id.ToString());
 
         if (user is null)
             return UpdateUserRoleStatus.UserNotFound;
 
-        var role = await _db.Roles
-            .FirstOrDefaultAsync(r => r.Name == roleName);
-
-        if (role is null)
+        var roleExists = await _db.Roles.AnyAsync(r => r.Name == roleName);
+        if (!roleExists)
             return UpdateUserRoleStatus.RoleNotFound;
 
-        _db.UserRoles.RemoveRange(user.UserRoles);
-
-        _db.UserRoles.Add(new UserRole
-        {
-            UserId = user.Id,
-            RoleId = role.Id
-        });
-
-        await _db.SaveChangesAsync();
+        var currentRoles = await _userManager.GetRolesAsync(user);
+        await _userManager.RemoveFromRolesAsync(user, currentRoles);
+        await _userManager.AddToRoleAsync(user, roleName);
 
         return UpdateUserRoleStatus.Success;
     }
 
     public async Task<UpdateUserPasswordStatus> UpdatePasswordAsync(int id, string newPassword)
     {
-        var user = await _db.Users
-            .FirstOrDefaultAsync(u => u.Id == id && u.IsActive);
+        var user = await _userManager.FindByIdAsync(id.ToString());
 
-        if (user is null)
+        if (user is null || !user.IsActive)
             return UpdateUserPasswordStatus.UserNotFound;
 
-        user.PasswordHash = _passwordService.HashPassword(user, newPassword);
-        await _db.SaveChangesAsync();
+        await _userManager.RemovePasswordAsync(user);
+        await _userManager.AddPasswordAsync(user, newPassword);
 
         return UpdateUserPasswordStatus.Success;
     }
@@ -197,75 +183,58 @@ public class UserService : IUserService
     {
         var normalizedEmail = (newEmail ?? string.Empty).Trim().ToLowerInvariant();
 
-        var user = await _db.Users
-            .Include(u => u.UserRoles)
-                .ThenInclude(ur => ur.Role)
-            .FirstOrDefaultAsync(u => u.Id == userId && u.IsActive);
+        var user = await _userManager.FindByIdAsync(userId.ToString());
 
-        if (user is null)
+        if (user is null || !user.IsActive)
             return UpdateCurrentUserEmailStatus.UserNotFound;
 
-        var isAdmin = user.UserRoles.Any(ur => ur.Role.Name == Roles.Admin);
+        var isAdmin = await _userManager.IsInRoleAsync(user, Roles.Admin);
         if (!isAdmin)
             return UpdateCurrentUserEmailStatus.ForbiddenForNonAdmin;
 
-        if (!_passwordService.VerifyPassword(user, user.PasswordHash, currentPassword))
+        if (!await _userManager.CheckPasswordAsync(user, currentPassword))
             return UpdateCurrentUserEmailStatus.InvalidCurrentPassword;
 
-        var emailAlreadyExists = await _db.Users
-            .AnyAsync(u => u.Id != userId && u.Username.ToLower() == normalizedEmail);
-
-        if (emailAlreadyExists)
+        var duplicate = await _userManager.FindByNameAsync(normalizedEmail);
+        if (duplicate is not null && duplicate.Id != userId)
             return UpdateCurrentUserEmailStatus.EmailAlreadyExists;
 
-        user.Username = normalizedEmail;
+        await _userManager.SetUserNameAsync(user, normalizedEmail);
 
         if (user.PersonnelId.HasValue)
         {
             var personnel = await _db.Personnel.FirstOrDefaultAsync(p => p.Id == user.PersonnelId.Value);
             if (personnel is not null)
-            {
                 personnel.Email = normalizedEmail;
-            }
+
+            await _db.SaveChangesAsync();
         }
 
-        await _db.SaveChangesAsync();
         return UpdateCurrentUserEmailStatus.Success;
     }
 
     public async Task<bool> DeleteAsync(int id)
     {
-        var user = await _db.Users
-            .Include(u => u.UserRoles)
-                .ThenInclude(ur => ur.Role)
-            .FirstOrDefaultAsync(u => u.Id == id);
+        var user = await _userManager.FindByIdAsync(id.ToString());
 
         if (user is null)
             return false;
 
-        var isAdmin = user.UserRoles.Any(ur => ur.Role.Name == Roles.Admin);
+        var isAdmin = await _userManager.IsInRoleAsync(user, Roles.Admin);
         if (isAdmin)
             return false;
 
         var personnelId = user.PersonnelId;
 
-        _db.UserRoles.RemoveRange(user.UserRoles);
-
-        var userPermissions = await _db.UserPermissions
-            .Where(up => up.UserId == id)
-            .ToListAsync();
-        _db.UserPermissions.RemoveRange(userPermissions);
-
         var reviewedNeeds = await _db.TeachingNeeds
             .Where(tn => tn.ReviewedByUserId == id)
             .ToListAsync();
         foreach (var need in reviewedNeeds)
-        {
             need.ReviewedByUserId = null;
-        }
 
-        _db.Users.Remove(user);
         await _db.SaveChangesAsync();
+
+        await _userManager.DeleteAsync(user);
 
         if (personnelId.HasValue)
         {
@@ -275,9 +244,8 @@ public class UserService : IUserService
                 .ToListAsync();
 
             foreach (var need in teachingNeeds)
-            {
                 _db.TeachingNeedItems.RemoveRange(need.Items);
-            }
+
             _db.TeachingNeeds.RemoveRange(teachingNeeds);
 
             var coursePersonnels = await _db.CoursePersonnels
@@ -287,9 +255,7 @@ public class UserService : IUserService
 
             var personnel = await _db.Personnel.FindAsync(personnelId.Value);
             if (personnel is not null)
-            {
                 _db.Personnel.Remove(personnel);
-            }
 
             await _db.SaveChangesAsync();
         }
@@ -299,15 +265,12 @@ public class UserService : IUserService
 
     public async Task<DeactivateUserStatus> DeactivateAsync(int id)
     {
-        var user = await _db.Users
-            .Include(u => u.UserRoles)
-                .ThenInclude(ur => ur.Role)
-            .FirstOrDefaultAsync(u => u.Id == id);
+        var user = await _userManager.FindByIdAsync(id.ToString());
 
         if (user is null)
             return DeactivateUserStatus.UserNotFound;
 
-        if (user.UserRoles.Any(ur => ur.Role.Name == Roles.Admin))
+        if (await _userManager.IsInRoleAsync(user, Roles.Admin))
             return DeactivateUserStatus.CannotDeactivateAdmin;
 
         user.IsActive = false;
@@ -318,14 +281,15 @@ public class UserService : IUserService
         foreach (var token in refreshTokens)
             token.RevokedAtUtc = DateTime.UtcNow;
 
+        await _userManager.UpdateAsync(user);
         await _db.SaveChangesAsync();
+
         return DeactivateUserStatus.Success;
     }
 
     public async Task<ReactivateUserStatus> ReactivateAsync(int id)
     {
-        var user = await _db.Users
-            .FirstOrDefaultAsync(u => u.Id == id);
+        var user = await _userManager.FindByIdAsync(id.ToString());
 
         if (user is null)
             return ReactivateUserStatus.UserNotFound;
@@ -334,13 +298,14 @@ public class UserService : IUserService
             return ReactivateUserStatus.AlreadyActive;
 
         user.IsActive = true;
-        await _db.SaveChangesAsync();
+        await _userManager.UpdateAsync(user);
+
         return ReactivateUserStatus.Success;
     }
 
-    public async Task<User?> GetByIdWithFullProfileAsync(int id)
+    public async Task<AppUser?> GetByIdWithFullProfileAsync(int id)
     {
-        return await _db.Users
+        return await _userManager.Users
             .Include(u => u.UserRoles)
                 .ThenInclude(ur => ur.Role)
             .Include(u => u.Personnel)
