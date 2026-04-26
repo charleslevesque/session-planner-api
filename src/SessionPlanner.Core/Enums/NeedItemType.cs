@@ -3,10 +3,10 @@ using System.Text.Json.Serialization;
 namespace SessionPlanner.Core.Enums;
 
 /// <summary>
-/// Converter that serializes NeedItemType as a snake_case string (e.g. "virtual_machine"),
-/// matching the convention used by the frontend and stored in the database.
+/// Converts <see cref="NeedItemType"/> to and from its snake_case string representation
+/// (e.g. "virtual_machine"), matching the convention used by the frontend and stored in the database.
 /// </summary>
-internal sealed class NeedItemTypeJsonConverter()
+public sealed class NeedItemTypeJsonConverter()
     : JsonStringEnumConverter<NeedItemType>(System.Text.Json.JsonNamingPolicy.SnakeCaseLower);
 
 [JsonConverter(typeof(NeedItemTypeJsonConverter))]

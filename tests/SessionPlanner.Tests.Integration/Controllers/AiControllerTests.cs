@@ -83,8 +83,10 @@ public class AiControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
-    public async Task AutoFill_UnknownItemType_ReturnsEmpty()
+    public async Task AutoFill_UnknownItemType_Returns400()
     {
+        // With NeedItemType as a typed enum, the API now rejects unknown item types at
+        // model binding, so an invalid itemType string returns 400 Bad Request.
         var response = await _client.PostAsJsonAsync($"{BaseUrl}/auto-fill",
             new
             {
@@ -94,10 +96,7 @@ public class AiControllerTests : IClassFixture<CustomWebApplicationFactory>
                 currentValues = new Dictionary<string, string> { ["foo"] = "bar" }
             });
 
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var body = await response.Content.ReadFromJsonAsync<AutoFillResponse>();
-        body.Should().NotBeNull();
-        body!.Source.Should().Be("none");
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     [Fact]
