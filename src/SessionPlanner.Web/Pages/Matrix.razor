@@ -1,0 +1,82 @@
+@page "/matrice"
+@attribute [Authorize(Roles = "admin,lab_instructor")]
+@inject IApiClient Api
+
+<PageTitle>Matrice</PageTitle>
+<h1>Matrice logiciels – laboratoires</h1>
+
+@if (_loading) { <FluentProgressRing /> }
+else
+{
+    @if (!string.IsNullOrEmpty(_error)) { <FluentMessageBar Intent="MessageIntent.Error">@_error</FluentMessageBar> }
+
+    <FluentTextField @bind-Value="_search" Label="Rechercher" Placeholder="Nom de logiciel..." Style="margin-bottom:1rem;width:300px" @oninput="OnSearch" />
+
+    @if (_filteredSoftwares.Count == 0) { <p>Aucun logiciel.</p> }
+    else
+    {
+        <div style="overflow-x:auto">
+            <table style="border-collapse:collapse;min-width:600px">
+                <thead>
+                    <tr>
+                        <th style="padding:8px;border:1px solid #ccc;background:#f3f2f1">Logiciel</th>
+                        @foreach (var lab in _labs)
+                        {
+                            <th style="padding:8px;border:1px solid #ccc;background:#f3f2f1">@lab.Name</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var sw in _filteredSoftwares)
+                    {
+                        <tr>
+                            <td style="padding:8px;border:1px solid #ccc">@sw.Name</td>
+                            @foreach (var lab in _labs)
+                            {
+                                var installed = _labSoftwares.Any(ls => ls.SoftwareId == sw.Id && ls.LaboratoryId == lab.Id && ls.IsInstalled);
+                                <td style="padding:8px;border:1px solid #ccc;text-align:center;background:@(installed ? "#dff6dd" : "#fde7e9")">
+                                    @(installed ? "✓" : "✗")
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+
+@code {
+    private List<LaboratoryResponse> _labs = new();
+    private List<SoftwareResponse> _softwares = new();
+    private List<LaboratorySoftwareResponse> _labSoftwares = new();
+    private List<SoftwareResponse> _filteredSoftwares = new();
+    private string _search = "";
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var labTask = Api.GetAsync<List<LaboratoryResponse>>("/laboratories");
+            var swTask = Api.GetAsync<List<SoftwareResponse>>("/softwares");
+            var lsTask = Api.GetAsync<List<LaboratorySoftwareResponse>>("/laboratorysoftwares");
+            await Task.WhenAll(labTask, swTask, lsTask);
+            _labs = await labTask ?? new();
+            _softwares = await swTask ?? new();
+            _labSoftwares = await lsTask ?? new();
+            _filteredSoftwares = _softwares;
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally { _loading = false; }
+    }
+
+    private void OnSearch(ChangeEventArgs e)
+    {
+        _search = e.Value?.ToString() ?? "";
+        _filteredSoftwares = string.IsNullOrWhiteSpace(_search)
+            ? _softwares
+            : _softwares.Where(s => s.Name.Contains(_search, StringComparison.OrdinalIgnoreCase)).ToList();
+    }
+}

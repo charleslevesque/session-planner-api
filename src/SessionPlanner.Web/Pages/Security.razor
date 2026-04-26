@@ -1,0 +1,87 @@
+@page "/compte/securite"
+@attribute [Authorize]
+@inject IApiClient Api
+
+<PageTitle>Sécurité du compte</PageTitle>
+<h1>Sécurité du compte</h1>
+
+@if (!string.IsNullOrEmpty(_pwError)) { <FluentMessageBar Intent="MessageIntent.Error">@_pwError</FluentMessageBar> }
+@if (!string.IsNullOrEmpty(_pwSuccess)) { <FluentMessageBar Intent="MessageIntent.Success">@_pwSuccess</FluentMessageBar> }
+
+<FluentCard Style="max-width:480px;padding:1.5rem;margin-bottom:2rem">
+    <h2>Changer le mot de passe</h2>
+    <EditForm Model="@_pwModel" OnValidSubmit="@ChangePasswordAsync">
+        <FluentStack Orientation="Orientation.Vertical">
+            <FluentTextField @bind-Value="_pwModel.CurrentPassword" Label="Mot de passe actuel" TextFieldType="TextFieldType.Password" Style="width:100%" />
+            <FluentTextField @bind-Value="_pwModel.NewPassword" Label="Nouveau mot de passe" TextFieldType="TextFieldType.Password" Style="width:100%" />
+            <FluentButton Type="ButtonType.Submit" Appearance="Appearance.Accent" Loading="@_savingPw">Changer</FluentButton>
+        </FluentStack>
+    </EditForm>
+</FluentCard>
+
+<AuthorizeView>
+    <Authorized Context="authCtx">
+        @if (authCtx.User.IsInRole("admin"))
+        {
+            <FluentCard Style="max-width:480px;padding:1.5rem">
+                <h2>Changer le courriel</h2>
+                @if (!string.IsNullOrEmpty(_emailError)) { <FluentMessageBar Intent="MessageIntent.Error">@_emailError</FluentMessageBar> }
+                @if (!string.IsNullOrEmpty(_emailSuccess)) { <FluentMessageBar Intent="MessageIntent.Success">@_emailSuccess</FluentMessageBar> }
+                <EditForm Model="@_emailModel" OnValidSubmit="@ChangeEmailAsync">
+                    <FluentStack Orientation="Orientation.Vertical">
+                        <FluentTextField @bind-Value="_emailModel.NewEmail" Label="Nouveau courriel" InputMode="InputMode.Email" Style="width:100%" />
+                        <FluentTextField @bind-Value="_emailModel.CurrentPassword" Label="Mot de passe actuel" TextFieldType="TextFieldType.Password" Style="width:100%" />
+                        <FluentButton Type="ButtonType.Submit" Appearance="Appearance.Accent" Loading="@_savingEmail">Changer</FluentButton>
+                    </FluentStack>
+                </EditForm>
+            </FluentCard>
+        }
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    private PwModel _pwModel = new();
+    private EmailModel _emailModel = new();
+    private bool _savingPw, _savingEmail;
+    private string? _pwError, _pwSuccess, _emailError, _emailSuccess;
+
+    private async Task ChangePasswordAsync()
+    {
+        _savingPw = true; _pwError = null; _pwSuccess = null;
+        try
+        {
+            await Api.PostVoidAsync<ChangePasswordRequest>("/auth/change-password",
+                new ChangePasswordRequest(_pwModel.CurrentPassword, _pwModel.NewPassword));
+            _pwSuccess = "Mot de passe changé.";
+            _pwModel = new();
+        }
+        catch (ApiException ex) { _pwError = ex.Message; }
+        finally { _savingPw = false; }
+    }
+
+    private async Task ChangeEmailAsync()
+    {
+        _savingEmail = true; _emailError = null; _emailSuccess = null;
+        try
+        {
+            await Api.PutAsync<UpdateEmailRequest, object>("/users/me/email",
+                new UpdateEmailRequest(_emailModel.NewEmail, _emailModel.CurrentPassword));
+            _emailSuccess = "Courriel mis à jour.";
+            _emailModel = new();
+        }
+        catch (ApiException ex) { _emailError = ex.Message; }
+        finally { _savingEmail = false; }
+    }
+
+    private class PwModel
+    {
+        public string CurrentPassword { get; set; } = "";
+        public string NewPassword { get; set; } = "";
+    }
+
+    private class EmailModel
+    {
+        public string NewEmail { get; set; } = "";
+        public string CurrentPassword { get; set; } = "";
+    }
+}

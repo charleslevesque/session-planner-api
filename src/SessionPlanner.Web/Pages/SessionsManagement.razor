@@ -1,0 +1,58 @@
+@page "/sessions/manage"
+@attribute [Authorize(Roles = "admin,lab_instructor")]
+@inject IApiClient Api
+
+<PageTitle>Gestion des sessions</PageTitle>
+<h1>Gestion des sessions</h1>
+
+@if (_loading) { <FluentProgressRing /> }
+else
+{
+    @if (!string.IsNullOrEmpty(_error)) { <FluentMessageBar Intent="MessageIntent.Error">@_error</FluentMessageBar> }
+    <FluentDataGrid Items="@_sessions.AsQueryable()" TGridItem="SessionResponse">
+        <PropertyColumn Property="@(s => s.Title)" Title="Titre" />
+        <TemplateColumn Title="Statut"><SessionStatusBadge Status="@context.Status" /></TemplateColumn>
+        <PropertyColumn Property="@(s => s.StartDate)" Title="Début" />
+        <PropertyColumn Property="@(s => s.EndDate)" Title="Fin" />
+        <TemplateColumn Title="Actions">
+            <FluentStack Orientation="Orientation.Horizontal">
+                @if (context.Status == "Draft")
+                {
+                    <FluentButton OnClick="@(() => TransitionAsync(context, "open"))" Appearance="Appearance.Accent" Style="margin-right:4px">Ouvrir</FluentButton>
+                }
+                @if (context.Status == "Open")
+                {
+                    <FluentButton OnClick="@(() => TransitionAsync(context, "close"))" Style="margin-right:4px">Fermer</FluentButton>
+                }
+                @if (context.Status == "Closed")
+                {
+                    <FluentButton OnClick="@(() => TransitionAsync(context, "archive"))">Archiver</FluentButton>
+                }
+                <a href="/sessions/@context.Id/needs" style="margin-left:8px">Besoins</a>
+            </FluentStack>
+        </TemplateColumn>
+    </FluentDataGrid>
+}
+
+@code {
+    private List<SessionResponse> _sessions = new();
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _sessions = await Api.GetAsync<List<SessionResponse>>("/sessions") ?? new(); }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally { _loading = false; }
+    }
+
+    private async Task TransitionAsync(SessionResponse session, string action)
+    {
+        try
+        {
+            await Api.PostVoidAsync($"/sessions/{session.Id}/{action}");
+            _sessions = await Api.GetAsync<List<SessionResponse>>("/sessions") ?? new();
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+    }
+}

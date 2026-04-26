@@ -1,0 +1,42 @@
+@page "/besoins"
+@attribute [Authorize(Roles = "admin,lab_instructor,professor,course_instructor")]
+@inject IApiClient Api
+
+<PageTitle>Besoins</PageTitle>
+<h1>Besoins par session</h1>
+
+@if (_loading) { <FluentProgressRing /> }
+else
+{
+    @if (!string.IsNullOrEmpty(_error)) { <FluentMessageBar Intent="MessageIntent.Error">@_error</FluentMessageBar> }
+    <FluentDataGrid Items="@_sessions.AsQueryable()" TGridItem="SessionResponse">
+        <PropertyColumn Property="@(s => s.Title)" Title="Session" />
+        <TemplateColumn Title="Statut"><SessionStatusBadge Status="@context.Status" /></TemplateColumn>
+        <PropertyColumn Property="@(s => s.StartDate)" Title="Début" />
+        <TemplateColumn Title="Actions">
+            <AuthorizeView Roles="admin,lab_instructor" Context="authContext">
+                <Authorized>
+                    <a href="/sessions/@context.Id/needs">Voir les besoins</a>
+                </Authorized>
+            </AuthorizeView>
+            <AuthorizeView Roles="professor,course_instructor" Context="authContext2">
+                <Authorized>
+                    <a href="/sessions/@context.Id/courses">Mes cours</a>
+                </Authorized>
+            </AuthorizeView>
+        </TemplateColumn>
+    </FluentDataGrid>
+}
+
+@code {
+    private List<SessionResponse> _sessions = new();
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _sessions = await Api.GetAsync<List<SessionResponse>>("/sessions") ?? new(); }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally { _loading = false; }
+    }
+}

@@ -1,0 +1,37 @@
+@page "/sessions/{SessionId:int}/courses"
+@attribute [Authorize(Roles = "admin,lab_instructor,professor,course_instructor")]
+@inject IApiClient Api
+
+<PageTitle>Cours de la session</PageTitle>
+<h1>Cours – Session #@SessionId</h1>
+
+@if (_loading) { <FluentProgressRing /> }
+else
+{
+    @if (!string.IsNullOrEmpty(_error)) { <FluentMessageBar Intent="MessageIntent.Error">@_error</FluentMessageBar> }
+    @if (_courses.Count == 0) { <p>Aucun cours.</p> }
+    else
+    {
+        <FluentDataGrid Items="@_courses.AsQueryable()" TGridItem="SessionCourseResponse">
+            <PropertyColumn Property="@(c => c.Code)" Title="Code" />
+            <PropertyColumn Property="@(c => c.Name)" Title="Nom" />
+            <TemplateColumn Title="Actions">
+                <a href="/sessions/@SessionId/courses/@context.Id">Voir</a>
+            </TemplateColumn>
+        </FluentDataGrid>
+    }
+}
+
+@code {
+    [Parameter] public int SessionId { get; set; }
+    private List<SessionCourseResponse> _courses = new();
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _courses = await Api.GetAsync<List<SessionCourseResponse>>($"/sessions/{SessionId}/courses") ?? new(); }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally { _loading = false; }
+    }
+}
