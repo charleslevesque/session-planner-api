@@ -1,9 +1,13 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using System.Security.Cryptography;
+using System.Text;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.IdentityModel.Tokens;
 using SessionPlanner.Core.Auth;
 using SessionPlanner.Core.Entities;
-using SessionPlanner.Core.Entities.Joins;
-using SessionPlanner.Core.Enums;
 using SessionPlanner.Core.Interfaces;
 using SessionPlanner.Infrastructure.Data;
 
@@ -12,106 +16,30 @@ namespace SessionPlanner.Infrastructure.Services;
 public class AuthService : IAuthService
 {
     private readonly AppDbContext _db;
-    private readonly IJWTTokenService _jwtTokenService;
-    private readonly IPasswordService _passwordService;
+    private readonly UserManager<AppUser> _userManager;
+    private readonly RoleManager<AppRole> _roleManager;
+    private readonly IConfiguration _configuration;
 
-    public AuthService(AppDbContext db, IJWTTokenService jwtTokenService, IPasswordService passwordService)
+    public AuthService(
+        AppDbContext db,
+        UserManager<AppUser> userManager,
+        RoleManager<AppRole> roleManager,
+        IConfiguration configuration)
     {
         _db = db;
-        _jwtTokenService = jwtTokenService;
-        _passwordService = passwordService;
-    }
-
-    private static string MapRoleToDbName(string? role) => role?.Trim()?.ToLowerInvariant() switch
-    {
-        "labinstructor" or "lab_instructor" => Roles.LabInstructor,
-        "courseinstructor" or "course_instructor" => Roles.CourseInstructor,
-        "professor" => Roles.Professor,
-        _ => Roles.Professor,
-    };
-
-    public async Task<LoginTokenResponse> RegisterAsync(string email, string password, string firstName, string lastName, string? role = null)
-    {
-        var existingUser = await _db.Users
-            .Include(u => u.UserRoles)
-            .FirstOrDefaultAsync(u => u.Username == email);
-
-        if (existingUser is not null)
-        {
-            if (existingUser.IsActive)
-                throw new InvalidOperationException("Un utilisateur avec ce courriel existe déjà.");
-
-            _db.UserRoles.RemoveRange(existingUser.UserRoles);
-
-            var oldPermissions = await _db.UserPermissions
-                .Where(up => up.UserId == existingUser.Id)
-                .ToListAsync();
-            _db.UserPermissions.RemoveRange(oldPermissions);
-
-            _db.Users.Remove(existingUser);
-            await _db.SaveChangesAsync();
-        }
-
-        var resolvedRole = MapRoleToDbName(role);
-
-        var dbRole = await _db.Roles.FirstAsync(r => r.Name == resolvedRole);
-
-        var user = new User
-        {
-            Username = email,
-            IsActive = true,
-        };
-        user.PasswordHash = _passwordService.HashPassword(user, password);
-
-        _db.Users.Add(user);
-        await _db.SaveChangesAsync();
-
-        _db.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = dbRole.Id });
-
-        var personnelFunction = resolvedRole switch
-        {
-            Roles.LabInstructor => PersonnelFunction.LabInstructor,
-            Roles.CourseInstructor => PersonnelFunction.CourseInstructor,
-            _ => PersonnelFunction.Professor,
-        };
-
-        var personnel = await _db.Personnel
-            .FirstOrDefaultAsync(p => p.Email == email);
-
-        if (personnel is null)
-        {
-            personnel = new Personnel
-            {
-                FirstName = firstName,
-                LastName = lastName,
-                Email = email,
-                Function = personnelFunction,
-            };
-            _db.Personnel.Add(personnel);
-            await _db.SaveChangesAsync();
-        }
-        else
-        {
-            personnel.FirstName = firstName;
-            personnel.LastName = lastName;
-            personnel.Function = personnelFunction;
-        }
-
-        user.PersonnelId = personnel.Id;
-        await _db.SaveChangesAsync();
-
-        return await GenerateTokensAsync(user);
+        _userManager = userManager;
+        _roleManager = roleManager;
+        _configuration = configuration;
     }
 
     public async Task<LoginResult> LoginAsync(string username, string password)
     {
-        var user = await UsersWithRolesAndPermissions()
-            .FirstOrDefaultAsync(u => u.Username == username);
+        var user = await _userManager.FindByNameAsync(username);
 
         if (user is null)
             return new LoginResult(LoginStatus.InvalidCredentials);
 
-        if (!_passwordService.VerifyPassword(user, user.PasswordHash, password))
+        if (!await _userManager.CheckPasswordAsync(user, password))
             return new LoginResult(LoginStatus.InvalidCredentials);
 
         if (!user.IsActive)
@@ -120,9 +48,9 @@ public class AuthService : IAuthService
         return new LoginResult(LoginStatus.Success, await GenerateTokensAsync(user));
     }
 
-    public async Task<User?> GetCurrentUserAsync(int userId)
+    public async Task<AppUser?> GetCurrentUserAsync(int userId)
     {
-        return await _db.Users
+        return await _userManager.Users
             .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
             .Include(u => u.Personnel)
             .FirstOrDefaultAsync(u => u.Id == userId && u.IsActive);
@@ -132,8 +60,6 @@ public class AuthService : IAuthService
     {
         var token = await _db.RefreshTokens
             .Include(rt => rt.User)
-                .ThenInclude(u => u.UserRoles).ThenInclude(ur => ur.Role)
-                    .ThenInclude(r => r.RolePermissions)
             .FirstOrDefaultAsync(rt => rt.Token == refreshToken);
 
         if (token is null || !token.IsActive || !token.User.IsActive)
@@ -149,17 +75,14 @@ public class AuthService : IAuthService
 
     public async Task<ChangePasswordStatus> ChangePasswordAsync(int userId, string currentPassword, string newPassword)
     {
-        var user = await _db.Users
-            .FirstOrDefaultAsync(u => u.Id == userId && u.IsActive);
+        var user = await _userManager.FindByIdAsync(userId.ToString());
 
-        if (user is null)
+        if (user is null || !user.IsActive)
             return ChangePasswordStatus.UserNotFound;
 
-        if (!_passwordService.VerifyPassword(user, user.PasswordHash, currentPassword))
+        var result = await _userManager.ChangePasswordAsync(user, currentPassword, newPassword);
+        if (!result.Succeeded)
             return ChangePasswordStatus.InvalidCurrentPassword;
-
-        user.PasswordHash = _passwordService.HashPassword(user, newPassword);
-        await _db.SaveChangesAsync();
 
         return ChangePasswordStatus.Success;
     }
@@ -176,29 +99,65 @@ public class AuthService : IAuthService
         }
     }
 
-    private IQueryable<User> UsersWithRolesAndPermissions()
+    private async Task<LoginTokenResponse> GenerateTokensAsync(AppUser user)
     {
-        return _db.Users
-            .Include(u => u.UserRoles)
-                .ThenInclude(ur => ur.Role)
-                    .ThenInclude(r => r.RolePermissions);
-    }
+        var key = _configuration["Jwt:Key"]
+            ?? throw new InvalidOperationException("Jwt:Key is missing.");
 
-    private async Task<LoginTokenResponse> GenerateTokensAsync(User user)
-    {
-        if (!user.UserRoles.Any())
+        var issuer = _configuration["Jwt:Issuer"]
+            ?? throw new InvalidOperationException("Jwt:Issuer is missing.");
+
+        var audience = _configuration["Jwt:Audience"]
+            ?? throw new InvalidOperationException("Jwt:Audience is missing.");
+
+        var expiryMinutesValue = _configuration["Jwt:ExpiryMinutes"]
+            ?? throw new InvalidOperationException("Jwt:ExpiryMinutes is missing.");
+
+        if (!int.TryParse(expiryMinutesValue, out var expiryMinutes))
+            throw new InvalidOperationException("Jwt:ExpiryMinutes must be a valid integer.");
+
+        var expiresAt = DateTime.UtcNow.AddMinutes(expiryMinutes);
+
+        var roleNames = await _userManager.GetRolesAsync(user);
+
+        var permissions = new List<string>();
+        foreach (var roleName in roleNames)
         {
-            user = await UsersWithRolesAndPermissions().FirstAsync(u => u.Id == user.Id);
+            var role = await _roleManager.FindByNameAsync(roleName);
+            if (role is not null)
+            {
+                var claims = await _roleManager.GetClaimsAsync(role);
+                permissions.AddRange(claims
+                    .Where(c => c.Type == "perm")
+                    .Select(c => c.Value));
+            }
         }
 
-        var roles = user.UserRoles.Select(x => x.Role.Name).Distinct().ToList();
-        var permissions = user.UserRoles
-            .SelectMany(ur => ur.Role.RolePermissions)
-            .Select(rp => rp.Permission)
-            .Distinct()
-            .ToList();
+        var jwtClaims = new List<Claim>
+        {
+            new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+            new(JwtRegisteredClaimNames.UniqueName, user.UserName ?? string.Empty),
+            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new(ClaimTypes.Name, user.UserName ?? string.Empty)
+        };
 
-        var (accessToken, expiresAtUtc) = _jwtTokenService.CreateToken(user, roles, permissions);
+        foreach (var role in roleNames.Distinct())
+            jwtClaims.Add(new Claim(ClaimTypes.Role, role));
+
+        foreach (var permission in permissions.Distinct())
+            jwtClaims.Add(new Claim("perm", permission));
+
+        var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key));
+        var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+
+        var jwtToken = new JwtSecurityToken(
+            issuer: issuer,
+            audience: audience,
+            claims: jwtClaims,
+            expires: expiresAt,
+            signingCredentials: credentials);
+
+        var accessToken = new JwtSecurityTokenHandler().WriteToken(jwtToken);
 
         var refreshTokenValue = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
         _db.RefreshTokens.Add(new RefreshToken
@@ -211,6 +170,6 @@ public class AuthService : IAuthService
 
         await _db.SaveChangesAsync();
 
-        return new LoginTokenResponse(accessToken, refreshTokenValue, expiresAtUtc);
+        return new LoginTokenResponse(accessToken, refreshTokenValue, expiresAt);
     }
 }

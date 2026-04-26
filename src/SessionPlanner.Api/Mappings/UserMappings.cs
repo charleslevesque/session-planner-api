@@ -5,7 +5,7 @@ namespace SessionPlanner.Api.Mappings;
 
 public static class UserMappings
 {
-    public static UserResponse ToResponse(this User user)
+    public static UserResponse ToResponse(this AppUser user)
     {
         var roleName = user.UserRoles
             .Select(ur => ur.Role.Name)
@@ -13,7 +13,7 @@ public static class UserMappings
 
         return new UserResponse(
             user.Id,
-            user.Username,
+            user.UserName ?? string.Empty,
             roleName,
             user.IsActive
         );

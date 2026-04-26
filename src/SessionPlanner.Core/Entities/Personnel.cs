@@ -18,7 +18,7 @@ public class Personnel
     [MaxLength(255)]
     public string Email { get; set; } = null!;  // UNIQUE
 
-    public User? User { get; set; }
+    public AppUser? User { get; set; }
 
     public ICollection<CoursePersonnel> CoursePersonnels { get; set; } = new List<CoursePersonnel>();
     public ICollection<TeachingNeed> TeachingNeeds { get; set; } = new List<TeachingNeed>();

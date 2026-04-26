@@ -23,7 +23,7 @@ public class TeachingNeed
     public DateTime? ReviewedAt { get; set; }
 
     public int? ReviewedByUserId { get; set; }
-    public User? ReviewedByUser { get; set; }
+    public AppUser? ReviewedByUser { get; set; }
 
     [MaxLength(1000)]
     public string? RejectionReason { get; set; }

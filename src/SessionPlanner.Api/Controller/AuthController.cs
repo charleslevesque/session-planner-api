@@ -28,41 +28,6 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// Creates a new account.
-    /// </summary>
-    /// <remarks>
-    /// Registers a new user account and immediately returns JWT authentication tokens.
-    /// </remarks>
-    /// <param name="request">The registration details, including email, password, first name, and last name.</param>
-    /// <returns>The created account's authentication tokens.</returns>
-    /// <response code="201">The account was created successfully.</response>
-    /// <response code="400">The request is invalid or the account could not be created.</response>
-    [HttpPost("register")]
-    [SwaggerOperation(
-        Summary = "Register a new account",
-        Description = "Creates a new account and returns an access token and refresh token."
-    )]
-    [SwaggerRequestExample(typeof(RegisterRequest), typeof(RegisterRequestExample))]
-    [SwaggerResponseExample(StatusCodes.Status201Created, typeof(AuthResponseExample))]
-    [SwaggerResponseExample(StatusCodes.Status400BadRequest, typeof(AccountAlreadyExistsExample))]
-    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status201Created)]
-    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> Register(RegisterRequest request)
-    {
-        try
-        {
-            var result = await _authService.RegisterAsync(
-                request.Email, request.Password, request.FirstName, request.LastName, request.Role);
-
-            return Created(string.Empty, new AuthResponse(result.AccessToken, result.RefreshToken, result.ExpiresAtUtc));
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new ApiErrorResponse(ex.Message, ErrorCodes.Conflict));
-        }
-    }
-
-    /// <summary>
     /// Authenticates a user and returns JWT tokens.
     /// </summary>
     /// <remarks>
@@ -136,9 +101,9 @@ public class AuthController : ControllerBase
         var role = user.UserRoles.Select(ur => ur.Role.Name).FirstOrDefault() ?? string.Empty;
         var name = user.Personnel is not null
             ? $"{user.Personnel.FirstName} {user.Personnel.LastName}"
-            : user.Username;
+            : user.UserName ?? string.Empty;
 
-        return Ok(new MeResponse(user.Id, user.Username, name, role));
+        return Ok(new MeResponse(user.Id, user.UserName ?? string.Empty, name, role));
     }
 
     /// <summary>
@@ -226,3 +191,4 @@ public class AuthController : ControllerBase
         return NoContent();
     }
 }
+
