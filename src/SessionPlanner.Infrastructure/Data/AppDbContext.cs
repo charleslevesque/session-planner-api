@@ -150,6 +150,12 @@ public class AppDbContext : DbContext
     private static NeedItemType StringToNeedItemType(string value)
     {
         var normalized = value.Replace("_", "");
-        return Enum.TryParse<NeedItemType>(normalized, ignoreCase: true, out var result) ? result : NeedItemType.Software;
+
+        if (Enum.TryParse<NeedItemType>(normalized, ignoreCase: true, out var result) && Enum.IsDefined(result))
+            return result;
+
+        // Corrupt/unrecognised DB values fall back to Other so the row can still be loaded.
+        // This is logged implicitly — callers should investigate any unexpected Other values.
+        return NeedItemType.Other;
     }
 }

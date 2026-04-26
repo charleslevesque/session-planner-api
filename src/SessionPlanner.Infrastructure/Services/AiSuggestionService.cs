@@ -143,8 +143,8 @@ public class AiSuggestionService : IAiSuggestionService
                 need.IsFastTrack ? "FastTrack: Oui (identique à une demande précédente approuvée)" : ""
             }.Where(s => s != "").ToList(),
             LabStatuses: labStatuses,
-            HistorySessions: courseHistory.Select(h => $"Session {h.Session?.Title ?? "?"}: {string.Join(", ", h.Items.Select(i => i.Software?.Name ?? i.Description ?? i.ItemType.ToString()))}").ToList(),
-            OtherNeedsThisSession: otherSessionNeeds.Select(n => $"{n.Personnel?.FirstName} {n.Personnel?.LastName}: {string.Join(", ", n.Items.Select(i => i.Software?.Name ?? i.Description ?? i.ItemType.ToString()))} ({n.Status})").ToList()
+            HistorySessions: courseHistory.Select(h => $"Session {h.Session?.Title ?? "?"}: {string.Join(", ", h.Items.Select(i => i.Software?.Name ?? i.Description ?? i.ItemType.ToSnakeCase()))}").ToList(),
+            OtherNeedsThisSession: otherSessionNeeds.Select(n => $"{n.Personnel?.FirstName} {n.Personnel?.LastName}: {string.Join(", ", n.Items.Select(i => i.Software?.Name ?? i.Description ?? i.ItemType.ToSnakeCase()))} ({n.Status})").ToList()
         );
     }
 
@@ -288,7 +288,7 @@ public class AiSuggestionService : IAiSuggestionService
             History: history.Select(n => new HistoryEntry(
                 Session: n.Session?.Title ?? "",
                 Items: n.Items.Select(i => new HistoryItem(
-                    Type: i.ItemType.ToString(),
+                    Type: i.ItemType.ToSnakeCase(),
                     Software: i.Software?.Name,
                     Version: i.SoftwareVersion?.VersionNumber,
                     Os: i.OS?.Name,
@@ -305,7 +305,7 @@ public class AiSuggestionService : IAiSuggestionService
             )).ToList(),
             OperatingSystems: osList.Select(o => o.Name).ToList(),
             AlreadyRequested: existingNeeds.SelectMany(n => n.Items).Select(i =>
-                i.Software?.Name ?? i.Description ?? i.ItemType.ToString()
+                i.Software?.Name ?? i.Description ?? i.ItemType.ToSnakeCase()
             ).Distinct().ToList()
         );
     }
