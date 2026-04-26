@@ -1,10 +1,10 @@
-using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using OpenAI.Chat;
 using SessionPlanner.Core.Entities;
 using SessionPlanner.Core.Enums;
 using SessionPlanner.Core.Interfaces;
@@ -15,24 +15,19 @@ namespace SessionPlanner.Infrastructure.Services;
 public class AiSuggestionService : IAiSuggestionService
 {
     private readonly AppDbContext _db;
-    private readonly HttpClient _httpClient;
     private readonly string? _apiKey;
-    private readonly string _model;
+    private readonly ChatClient? _chatClient;
     private readonly ILogger<AiSuggestionService> _logger;
 
-    private static readonly JsonSerializerOptions JsonOpts = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    };
-
-    public AiSuggestionService(AppDbContext db, HttpClient httpClient, IConfiguration config, ILogger<AiSuggestionService> logger)
+    public AiSuggestionService(AppDbContext db, IConfiguration config, ILogger<AiSuggestionService> logger)
     {
         _db = db;
-        _httpClient = httpClient;
         _logger = logger;
         _apiKey = config["OpenAI:ApiKey"];
-        _model = config["OpenAI:Model"] ?? "gpt-4o-mini";
+        var model = config["OpenAI:Model"] ?? "gpt-4o-mini";
+
+        if (!string.IsNullOrWhiteSpace(_apiKey))
+            _chatClient = new ChatClient(model: model, apiKey: _apiKey);
     }
 
     public bool IsConfigured => !string.IsNullOrWhiteSpace(_apiKey);
@@ -47,7 +42,7 @@ public class AiSuggestionService : IAiSuggestionService
 
         try
         {
-            var response = await CallOpenAiAsync(prompt);
+            var response = await GetCompletionAsync(prompt);
             return ParseResponse(response);
         }
         catch (OpenAiQuotaException ex)
@@ -70,7 +65,7 @@ public class AiSuggestionService : IAiSuggestionService
         {
             var context = await BuildReviewContextAsync(sessionId, needId);
             var prompt = BuildReviewPrompt(context);
-            var response = await CallOpenAiAsync(prompt);
+            var response = await GetCompletionAsync(prompt);
             return ParseReviewResponse(response);
         }
         catch (OpenAiQuotaException ex)
@@ -378,55 +373,52 @@ public class AiSuggestionService : IAiSuggestionService
         return sb.ToString();
     }
 
-    private async Task<string> CallOpenAiAsync(string prompt)
+    private async Task<string> GetCompletionAsync(string prompt)
     {
-        var requestBody = new
+        if (_chatClient is null)
+            throw new InvalidOperationException("ChatClient is not initialized. Verify that IsConfigured is true before calling this method.");
+
+        ChatMessage[] messages =
+        [
+            new SystemChatMessage("Tu es un assistant technique universitaire. Réponds uniquement en JSON valide."),
+            new UserChatMessage(prompt)
+        ];
+
+        var options = new ChatCompletionOptions
         {
-            model = _model,
-            messages = new[]
-            {
-                new { role = "system", content = "Tu es un assistant technique universitaire. Réponds uniquement en JSON valide." },
-                new { role = "user", content = prompt }
-            },
-            temperature = 0.3,
-            max_tokens = 1500
+            Temperature = 0.3f,
+            MaxOutputTokenCount = 1500
         };
 
-        var request = new HttpRequestMessage(HttpMethod.Post, "https://api.openai.com/v1/chat/completions")
+        try
         {
-            Content = new StringContent(JsonSerializer.Serialize(requestBody, JsonOpts), Encoding.UTF8, "application/json")
-        };
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
-
-        var response = await _httpClient.SendAsync(request);
-
-        if (!response.IsSuccessStatusCode)
+            var completion = await _chatClient.CompleteChatAsync(messages, options);
+            return completion.Value.Content[0].Text;
+        }
+        catch (System.ClientModel.ClientResultException ex) when (ex.Status == 429)
         {
-            var errorBody = await response.Content.ReadAsStringAsync();
-            var statusCode = (int)response.StatusCode;
-
-            if (statusCode == 429)
+            string? errorCode = null;
+            var rawBody = ex.GetRawResponse()?.Content?.ToString();
+            if (rawBody is not null)
             {
-                using var errDoc = JsonDocument.Parse(errorBody);
-                var code = errDoc.RootElement.TryGetProperty("error", out var err)
-                    && err.TryGetProperty("code", out var c) ? c.GetString() : null;
-
-                throw code == "insufficient_quota"
-                    ? new OpenAiQuotaException("Le quota de l'API OpenAI est épuisé. Veuillez vérifier le plan de facturation sur platform.openai.com.")
-                    : new OpenAiQuotaException("Trop de requêtes vers l'API OpenAI. Veuillez réessayer dans quelques secondes.");
+                try
+                {
+                    using var errDoc = JsonDocument.Parse(rawBody);
+                    errorCode = errDoc.RootElement.TryGetProperty("error", out var err)
+                        && err.TryGetProperty("code", out var c) ? c.GetString() : null;
+                }
+                catch (JsonException) { }
             }
 
-            _logger.LogError("OpenAI returned {StatusCode}: {Body}", statusCode, errorBody);
-            throw new HttpRequestException($"OpenAI API error ({statusCode})");
+            throw errorCode == "insufficient_quota"
+                ? new OpenAiQuotaException("Le quota de l'API OpenAI est épuisé. Veuillez vérifier le plan de facturation sur platform.openai.com.")
+                : new OpenAiQuotaException("Trop de requêtes vers l'API OpenAI. Veuillez réessayer dans quelques secondes.");
         }
-
-        var responseJson = await response.Content.ReadAsStringAsync();
-        using var doc = JsonDocument.Parse(responseJson);
-        return doc.RootElement
-            .GetProperty("choices")[0]
-            .GetProperty("message")
-            .GetProperty("content")
-            .GetString() ?? "{}";
+        catch (System.ClientModel.ClientResultException ex)
+        {
+            _logger.LogError(ex, "OpenAI returned {StatusCode}", ex.Status);
+            throw new HttpRequestException($"OpenAI API error ({ex.Status})");
+        }
     }
 
     public class OpenAiQuotaException : Exception
@@ -520,7 +512,7 @@ public class AiSuggestionService : IAiSuggestionService
 
         try
         {
-            var json = await CallOpenAiAsync(prompt);
+            var json = await GetCompletionAsync(prompt);
             return ParseRejectionAssistResponse(json);
         }
         catch (OpenAiQuotaException ex)
