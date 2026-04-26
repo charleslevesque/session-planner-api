@@ -66,9 +66,6 @@ public class UserService : IUserService
 
         var resolvedRole = ResolveRoleName(roleName);
 
-        var roleExists = await _userManager.Users
-            .AnyAsync(_ => false) || await _db.Roles.AnyAsync(r => r.Name == resolvedRole);
-
         var user = new AppUser
         {
             UserName = username,
@@ -199,16 +196,16 @@ public class UserService : IUserService
         if (duplicate is not null && duplicate.Id != userId)
             return UpdateCurrentUserEmailStatus.EmailAlreadyExists;
 
-        await _userManager.SetUserNameAsync(user, normalizedEmail);
-
+        // Update the personnel email in the same tracked context so both changes
+        // are written in the single SaveChangesAsync triggered by SetUserNameAsync.
         if (user.PersonnelId.HasValue)
         {
             var personnel = await _db.Personnel.FirstOrDefaultAsync(p => p.Id == user.PersonnelId.Value);
             if (personnel is not null)
                 personnel.Email = normalizedEmail;
-
-            await _db.SaveChangesAsync();
         }
+
+        await _userManager.SetUserNameAsync(user, normalizedEmail);
 
         return UpdateCurrentUserEmailStatus.Success;
     }
