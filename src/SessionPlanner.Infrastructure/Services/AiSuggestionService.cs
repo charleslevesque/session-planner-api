@@ -12,23 +12,32 @@ using SessionPlanner.Infrastructure.Data;
 
 namespace SessionPlanner.Infrastructure.Services;
 
-public class AiSuggestionService : IAiSuggestionService
+public class AiSuggestionService(
+    AppDbContext db,
+    IConfiguration config,
+    ILogger<AiSuggestionService> logger
+    ) : IAiSuggestionService
 {
-    private readonly AppDbContext _db;
-    private readonly string? _apiKey;
-    private readonly ChatClient? _chatClient;
-    private readonly ILogger<AiSuggestionService> _logger;
+    private const string DefaultOpenAiModel = "gpt-4o-mini";
 
-    public AiSuggestionService(AppDbContext db, IConfiguration config, ILogger<AiSuggestionService> logger)
+    private readonly AppDbContext _db = db;
+    private readonly string? _apiKey = config["OpenAI:ApiKey"];
+    private readonly string? _model = config["OpenAI:Model"];
+    private ChatClient? ChatClient
     {
-        _db = db;
-        _logger = logger;
-        _apiKey = config["OpenAI:ApiKey"];
-        var model = config["OpenAI:Model"] ?? "gpt-4o-mini";
+        get
+        {
+            if (string.IsNullOrWhiteSpace(_apiKey))
+                return null;
 
-        if (!string.IsNullOrWhiteSpace(_apiKey))
-            _chatClient = new ChatClient(model: model, apiKey: _apiKey);
+            return new ChatClient(_model ?? DefaultOpenAiModel, apiKey: _apiKey);
+        }
     }
+    private readonly ILogger<AiSuggestionService> _logger = logger;
+    private static readonly JsonSerializerOptions _writeIntendedJsonOptions = new()
+    {
+        WriteIndented = true,
+    };
 
     public bool IsConfigured => !string.IsNullOrWhiteSpace(_apiKey);
 
@@ -97,29 +106,32 @@ public class AiSuggestionService : IAiSuggestionService
             .Include(n => n.Items).ThenInclude(i => i.Software)
             .Include(n => n.Items).ThenInclude(i => i.SoftwareVersion)
             .Include(n => n.Session)
-            .Where(n => n.CourseId == need.CourseId && n.Id != needId && n.Status == Core.Enums.NeedStatus.Approved)
+            .Where(n => n.CourseId == need.CourseId && n.Id != needId && n.Status == NeedStatus.Approved)
             .OrderByDescending(n => n.ReviewedAt)
             .Take(5)
             .ToListAsync();
 
-        var labStatuses = new List<string>();
-        foreach (var item in need.Items.Where(i => i.SoftwareId.HasValue))
+        var labStatuses = need.Items.Where(i => i.SoftwareId.HasValue).Aggregate(new List<string>(), (list, item) =>
         {
-            var entries = await _db.LaboratorySoftwares
+            var entries = _db.LaboratorySoftwares
                 .Include(ls => ls.Laboratory)
                 .Where(ls => ls.SoftwareId == item.SoftwareId!.Value)
-                .ToListAsync();
+                .ToList();
             var installed = entries.Count(e => e.Status == "W");
             var total = entries.Count;
-            labStatuses.Add($"{item.Software?.Name ?? "?"}: installé dans {installed}/{total} labos" +
-                (entries.Any(e => e.Status == "M") ? $" (manquant dans: {string.Join(", ", entries.Where(e => e.Status == "M").Select(e => e.Laboratory.Name))})" : ""));
-        }
+            var softwareName = item.Software?.Name ?? "?";
+            var missingLabNames = entries.Where(e => e.Status == "M").Select(e => e.Laboratory.Name);
+            var missingLabsSuffix = missingLabNames.Any() ? $"(manquant dans: {string.Join(", ", missingLabNames)})" : "";
+
+            list.Add($"{softwareName}: installé dans {installed}/{total} labos {missingLabsSuffix}");
+            return list;
+        });
 
         var otherSessionNeeds = await _db.TeachingNeeds
             .Include(n => n.Items).ThenInclude(i => i.Software)
             .Include(n => n.Personnel)
             .Where(n => n.SessionId == sessionId && n.CourseId == need.CourseId && n.Id != needId
-                        && n.Status != Core.Enums.NeedStatus.Draft)
+                        && n.Status != NeedStatus.Draft)
             .ToListAsync();
 
         return new ReviewContext(
@@ -143,65 +155,77 @@ public class AiSuggestionService : IAiSuggestionService
         );
     }
 
+    /// <summary>
+    /// Exemple de format de réponse attendu de l'IA pour l'analyse de révision, utilisé dans le prompt pour guider la structure de la réponse.
+    /// </summary>
+    private static readonly string ReviewResponseFormatExample = JsonSerializer.Serialize(new
+    {
+        summary = "Résumé de l'analyse en 2-3 phrases en français",
+        alerts = new[] { "Alerte 1 si problème détecté", "Alerte 2..." },
+        suggestedAction = "approve ou review ou reject",
+        draftRejectReason = "Si reject, raison suggérée en français (null sinon)",
+        historyComparisons = new[] { new {
+            sessionTitle = "Session X",
+            similarity = "Identique / Similaire / Différent + détail court"
+        } }
+    }, options: _writeIntendedJsonOptions);
+
     private static string BuildReviewPrompt(ReviewContext ctx)
     {
-        var sb = new StringBuilder();
-        sb.AppendLine("Tu es un assistant pour un administrateur universitaire qui révise les demandes de besoins technologiques des professeurs.");
-        sb.AppendLine("Analyse cette demande et donne un avis structuré pour aider l'admin à prendre une décision (approuver ou rejeter).");
-        sb.AppendLine();
-        sb.AppendLine($"Session: {ctx.SessionTitle}");
-        sb.AppendLine($"Cours: {ctx.CourseCode} {ctx.CourseName}");
-        sb.AppendLine($"Professeur: {ctx.ProfessorName}");
-        sb.AppendLine($"Statut: {ctx.NeedStatus}");
-        sb.AppendLine();
+        var promptBuilder = new StringBuilder();
+        void AppendAsNewLines(List<string> lines, uint indent = 0)
+        {
+            var indentation = new string(' ', (int)indent);
+            foreach (var line in lines)
+                promptBuilder.AppendLine($"{indentation}{line}");
+        }
+        void AppendAsNewLinesIndent2(List<string> lines) => AppendAsNewLines(lines, indent: 2);
+        promptBuilder.AppendLine("Tu es un assistant pour un administrateur universitaire qui révise les demandes de besoins technologiques des professeurs.");
+        promptBuilder.AppendLine("Analyse cette demande et donne un avis structuré pour aider l'admin à prendre une décision (approuver ou rejeter).");
+        promptBuilder.AppendLine();
+        promptBuilder.AppendLine($"Session: {ctx.SessionTitle}");
+        promptBuilder.AppendLine($"Cours: {ctx.CourseCode} {ctx.CourseName}");
+        promptBuilder.AppendLine($"Professeur: {ctx.ProfessorName}");
+        promptBuilder.AppendLine($"Statut: {ctx.NeedStatus}");
+        promptBuilder.AppendLine();
 
         if (ctx.NeedMeta.Count > 0)
         {
-            sb.AppendLine("=== CONTEXTE DE LA DEMANDE ===");
-            foreach (var m in ctx.NeedMeta) sb.AppendLine($"  {m}");
-            sb.AppendLine();
+            promptBuilder.AppendLine("=== CONTEXTE DE LA DEMANDE ===");
+            AppendAsNewLinesIndent2(ctx.NeedMeta);
+            promptBuilder.AppendLine();
         }
 
-        sb.AppendLine("=== ITEMS DEMANDÉS ===");
-        foreach (var item in ctx.Items) sb.AppendLine($"  {item}");
-        sb.AppendLine();
+        promptBuilder.AppendLine("=== ITEMS DEMANDÉS ===");
+        AppendAsNewLinesIndent2(ctx.Items);
+        promptBuilder.AppendLine();
 
         if (ctx.LabStatuses.Count > 0)
         {
-            sb.AppendLine("=== STATUT DANS LES LABOS (matrice d'installation) ===");
-            foreach (var ls in ctx.LabStatuses) sb.AppendLine($"  {ls}");
-            sb.AppendLine();
+            promptBuilder.AppendLine("=== STATUT DANS LES LABOS (matrice d'installation) ===");
+            AppendAsNewLinesIndent2(ctx.LabStatuses);
+            promptBuilder.AppendLine();
         }
 
         if (ctx.HistorySessions.Count > 0)
         {
-            sb.AppendLine("=== HISTORIQUE APPROUVÉ POUR CE COURS ===");
-            foreach (var h in ctx.HistorySessions) sb.AppendLine($"  {h}");
-            sb.AppendLine();
+            promptBuilder.AppendLine("=== HISTORIQUE APPROUVÉ POUR CE COURS ===");
+            AppendAsNewLinesIndent2(ctx.HistorySessions);
+            promptBuilder.AppendLine();
         }
 
         if (ctx.OtherNeedsThisSession.Count > 0)
         {
-            sb.AppendLine("=== AUTRES DEMANDES POUR CE COURS CETTE SESSION ===");
-            foreach (var o in ctx.OtherNeedsThisSession) sb.AppendLine($"  {o}");
-            sb.AppendLine();
+            promptBuilder.AppendLine("=== AUTRES DEMANDES POUR CE COURS CETTE SESSION ===");
+            AppendAsNewLinesIndent2(ctx.OtherNeedsThisSession);
+            promptBuilder.AppendLine();
         }
 
-        sb.AppendLine("Réponds en JSON strict (pas de markdown) avec ce format:");
-        sb.AppendLine("""
-{
-  "summary": "Résumé de l'analyse en 2-3 phrases en français",
-  "alerts": ["Alerte 1 si problème détecté", "Alerte 2..."],
-  "suggestedAction": "approve" ou "review" ou "reject",
-  "draftRejectReason": "Si reject, raison suggérée en français (null sinon)",
-  "historyComparisons": [
-    {"sessionTitle": "Session X", "similarity": "Identique / Similaire / Différent + détail court"}
-  ]
-}
-""");
-        sb.AppendLine("Sois concis. Les alertes sont pour les incohérences (version qui n'existe pas dans le catalogue, conflits avec d'autres demandes, logiciel déjà installé partout). suggestedAction='approve' si tout semble cohérent.");
+        promptBuilder.AppendLine("Réponds en JSON strict (pas de markdown) avec ce format:");
+        promptBuilder.AppendLine(ReviewResponseFormatExample);
+        promptBuilder.AppendLine("Sois concis. Les alertes sont pour les incohérences (version qui n'existe pas dans le catalogue, conflits avec d'autres demandes, logiciel déjà installé partout). suggestedAction='approve' si tout semble cohérent.");
 
-        return sb.ToString();
+        return promptBuilder.ToString();
     }
 
     private static AiReviewAnalysis ParseReviewResponse(string json)
@@ -237,11 +261,17 @@ public class AiSuggestionService : IAiSuggestionService
     }
 
     private record ReviewContext(
-        string SessionTitle, string CourseCode, string CourseName,
-        string ProfessorName, string NeedStatus,
-        List<string> Items, List<string> NeedMeta,
-        List<string> LabStatuses, List<string> HistorySessions,
-        List<string> OtherNeedsThisSession);
+        string SessionTitle,
+        string CourseCode,
+        string CourseName,
+        string ProfessorName,
+        string NeedStatus,
+        List<string> Items,
+        List<string> NeedMeta,
+        List<string> LabStatuses,
+        List<string> HistorySessions,
+        List<string> OtherNeedsThisSession
+    );
 
     private async Task<CourseContext> BuildContextAsync(int sessionId, int courseId)
     {
@@ -254,7 +284,7 @@ public class AiSuggestionService : IAiSuggestionService
             .Include(n => n.Items).ThenInclude(i => i.SoftwareVersion)
             .Include(n => n.Items).ThenInclude(i => i.OS)
             .Include(n => n.Session)
-            .Where(n => n.CourseId == courseId && n.Status == Core.Enums.NeedStatus.Approved)
+            .Where(n => n.CourseId == courseId && n.Status == NeedStatus.Approved)
             .OrderByDescending(n => n.ReviewedAt)
             .Take(10)
             .ToListAsync();
@@ -273,109 +303,126 @@ public class AiSuggestionService : IAiSuggestionService
             .Include(n => n.Items).ThenInclude(i => i.Software)
             .Include(n => n.Items).ThenInclude(i => i.SoftwareVersion)
             .Where(n => n.SessionId == sessionId && n.CourseId == courseId
-                        && n.Status != Core.Enums.NeedStatus.Draft)
+                        && n.Status != NeedStatus.Draft)
             .ToListAsync();
 
         return new CourseContext(
             SessionTitle: session?.Title ?? "",
             CourseCode: course?.Code ?? "",
             CourseName: course?.Name ?? "",
-            History: history.Select(n => new HistoryEntry(
+            History: [.. history.Select(n => new HistoryEntry(
                 Session: n.Session?.Title ?? "",
-                Items: n.Items.Select(i => new HistoryItem(
+                Items: [.. n.Items.Select(i => new HistoryItem(
                     Type: i.ItemType.ToSnakeCase(),
                     Software: i.Software?.Name,
                     Version: i.SoftwareVersion?.VersionNumber,
                     Os: i.OS?.Name,
                     Notes: i.Notes
-                )).ToList()
-            )).ToList(),
-            CatalogSoftware: catalog.Select(s => new CatalogEntry(
+                ))]
+            ))],
+            CatalogSoftware: [.. catalog.Select(s => new CatalogEntry(
                 Name: s.Name,
                 InstallCommand: s.InstallCommand,
-                Versions: s.SoftwareVersions.Select(v => new CatalogVersion(
+                Versions: [.. s.SoftwareVersions.Select(v => new CatalogVersion(
                     Version: v.VersionNumber,
                     Os: v.OS?.Name ?? ""
-                )).ToList()
-            )).ToList(),
-            OperatingSystems: osList.Select(o => o.Name).ToList(),
-            AlreadyRequested: existingNeeds.SelectMany(n => n.Items).Select(i =>
+                ))]
+            ))],
+            OperatingSystems: [.. osList.Select(o => o.Name)],
+            AlreadyRequested: [.. existingNeeds.SelectMany(n => n.Items).Select(i =>
                 i.Software?.Name ?? i.Description ?? i.ItemType.ToSnakeCase()
-            ).Distinct().ToList()
+            ).Distinct()]
         );
     }
 
+    private static readonly string BuildPromptJsonResponseFormat = JsonSerializer.Serialize(new
+    {
+        summary = "Résumé court de ta recommandation en français (1-2 phrases)",
+        suggestions = new[] {
+            new {
+                itemType = "software ou vm ou saas etc.",
+                label = "Nom affiché de la suggestion",
+                softwareName = "Nom exact du logiciel (du catalogue si possible)",
+                version = "Version suggérée",
+                os = "Nom de l'OS",
+                installCommand = "Commande d'installation si connue",
+                notes = "Notes optionnelles",
+                reason = "Pourquoi cette suggestion (en français, 1 phrase)"
+            }
+        }
+    }, options: _writeIntendedJsonOptions);
+
     private static string BuildPrompt(CourseContext ctx, NeedItemType? itemType)
     {
-        var sb = new StringBuilder();
-        sb.AppendLine("Tu es un assistant pour un système de planification de besoins technologiques universitaires.");
-        sb.AppendLine("Un professeur prépare une demande de besoins pour son cours. Ton rôle est de suggérer les logiciels et ressources qu'il pourrait avoir besoin, basé sur l'historique du cours et le catalogue disponible.");
-        sb.AppendLine();
-        sb.AppendLine($"Session: {ctx.SessionTitle}");
-        sb.AppendLine($"Cours: {ctx.CourseCode} {ctx.CourseName}");
-        sb.AppendLine();
+        var promptBuilder = new StringBuilder();
+        // Le prompt explique clairement le contexte du cours et de la session, puis fournit des informations détaillées sur l'historique des besoins approuvés pour ce cours, le catalogue de logiciels disponibles et les demandes déjà soumises pour cette session. L'IA est guidée pour suggérer des éléments pertinents en se basant sur ces données, tout en évitant les doublons avec les demandes existantes.
+        promptBuilder.AppendLine($"""
+        Tu es un assistant pour un système de planification de besoins technologiques universitaires.
+        Un professeur prépare une demande de besoins pour son cours. Ton rôle est de suggérer les logiciels et ressources qu'il pourrait avoir besoin, basé sur l'historique du cours et le catalogue disponible.
 
+        Session: {ctx.SessionTitle}
+        Cours: {ctx.CourseCode} {ctx.CourseName}
+
+        """);
+
+        // Affiche l'historique des demandes approuvées pour ce cours, en mettant en évidence les logiciels utilisés. Cela aidera l'IA à suggérer des éléments cohérents avec les pratiques passées du cours.
         if (ctx.History.Count > 0)
         {
-            sb.AppendLine("=== HISTORIQUE DES DEMANDES APPROUVÉES POUR CE COURS ===");
+            promptBuilder.AppendLine("=== HISTORIQUE DES DEMANDES APPROUVÉES POUR CE COURS ===");
             foreach (var h in ctx.History.Take(5))
             {
-                sb.AppendLine($"Session {h.Session}:");
+                promptBuilder.AppendLine($"Session {h.Session}:");
                 foreach (var item in h.Items)
-                    sb.AppendLine($"  - [{item.Type}] {item.Software ?? item.Notes ?? "N/A"} {item.Version ?? ""} ({item.Os ?? ""})");
+                {
+                    var softwarePart = item.Software ?? item.Notes ?? "N/A";
+                    var versionPart = item.Version ?? "";
+                    var osPart = item.Os ?? "";
+
+                    promptBuilder.AppendLine($"  - [{item.Type}] {softwarePart} {versionPart} ({osPart})");
+                }
             }
-            sb.AppendLine();
+            promptBuilder.AppendLine();
         }
 
         if (ctx.AlreadyRequested.Count > 0)
         {
-            sb.AppendLine("=== DÉJÀ DEMANDÉ POUR CETTE SESSION (ne pas re-suggérer) ===");
+            promptBuilder.AppendLine("=== DÉJÀ DEMANDÉ POUR CETTE SESSION (ne pas suggérer à nouveau) ===");
             foreach (var r in ctx.AlreadyRequested)
-                sb.AppendLine($"  - {r}");
-            sb.AppendLine();
+                promptBuilder.AppendLine($"  - {r}");
+            promptBuilder.AppendLine();
         }
 
-        sb.AppendLine("=== CATALOGUE LOGICIEL DISPONIBLE (extraits) ===");
+        promptBuilder.AppendLine("=== CATALOGUE LOGICIEL DISPONIBLE (extraits) ===");
         foreach (var s in ctx.CatalogSoftware.Take(30))
         {
             var versions = string.Join(", ", s.Versions.Select(v => $"{v.Version} ({v.Os})").Take(3));
-            sb.AppendLine($"  - {s.Name}: {versions}{(s.InstallCommand != null ? $" | cmd: {s.InstallCommand}" : "")}");
-        }
-        sb.AppendLine();
+            var installCmd = s.InstallCommand != null ? $" | cmd: {s.InstallCommand}" : "";
 
-        sb.AppendLine($"Systèmes d'exploitation disponibles: {string.Join(", ", ctx.OperatingSystems)}");
-        sb.AppendLine();
+            promptBuilder.AppendLine($"  - {s.Name}: {versions}{installCmd}");
+        }
+        promptBuilder.AppendLine();
+
+        promptBuilder.AppendLine($"Systèmes d'exploitation disponibles: {string.Join(", ", ctx.OperatingSystems)}");
+        promptBuilder.AppendLine();
 
         if (itemType != null)
-            sb.AppendLine($"Le professeur travaille sur un item de type: {JsonNamingPolicy.SnakeCaseLower.ConvertName(itemType.Value.ToString())}");
+        {
+            var jsonItemType = JsonNamingPolicy.SnakeCaseLower.ConvertName(itemType.Value.ToString());
 
-        sb.AppendLine();
-        sb.AppendLine("Réponds en JSON strict avec ce format (pas de markdown, juste le JSON):");
-        sb.AppendLine("""
-{
-  "summary": "Résumé court de ta recommandation en français (1-2 phrases)",
-  "suggestions": [
-    {
-      "itemType": "software",
-      "label": "Nom affiché de la suggestion",
-      "softwareName": "Nom exact du logiciel (du catalogue si possible)",
-      "version": "Version suggérée",
-      "os": "Nom de l'OS",
-      "installCommand": "Commande d'installation si connue",
-      "notes": "Notes optionnelles",
-      "reason": "Pourquoi cette suggestion (en français, 1 phrase)"
-    }
-  ]
-}
-""");
-        sb.AppendLine("Donne entre 2 et 6 suggestions pertinentes. Priorise les logiciels de l'historique du cours. Utilise les noms exacts du catalogue quand possible. Ne suggère PAS ce qui est déjà demandé pour cette session.");
+            promptBuilder.AppendLine($"Le professeur travaille sur un item de type: {jsonItemType}");
+        }
 
-        return sb.ToString();
+        promptBuilder.AppendLine();
+        promptBuilder.AppendLine("Réponds en JSON strict avec ce format (pas de markdown, juste le JSON):");
+        promptBuilder.AppendLine(BuildPromptJsonResponseFormat);
+        promptBuilder.AppendLine("Donne entre 2 et 6 suggestions pertinentes. Priorise les logiciels de l'historique du cours. Utilise les noms exacts du catalogue quand c'est possible. Ne suggère PAS ce qui est déjà demandé pour cette session.");
+
+        return promptBuilder.ToString();
     }
 
     private async Task<string> GetCompletionAsync(string prompt)
     {
-        if (_chatClient is null)
+        if (ChatClient is null)
             throw new InvalidOperationException("ChatClient is not initialized. Verify that IsConfigured is true before calling this method.");
 
         ChatMessage[] messages =
@@ -383,7 +430,6 @@ public class AiSuggestionService : IAiSuggestionService
             new SystemChatMessage("Tu es un assistant technique universitaire. Réponds uniquement en JSON valide."),
             new UserChatMessage(prompt)
         ];
-
         var options = new ChatCompletionOptions
         {
             Temperature = 0.3f,
@@ -392,7 +438,7 @@ public class AiSuggestionService : IAiSuggestionService
 
         try
         {
-            var completion = await _chatClient.CompleteChatAsync(messages, options);
+            var completion = await ChatClient.CompleteChatAsync(messages, options);
             return completion.Value.Content[0].Text;
         }
         catch (System.ClientModel.ClientResultException ex) when (ex.Status == 429)
@@ -417,14 +463,12 @@ public class AiSuggestionService : IAiSuggestionService
         catch (System.ClientModel.ClientResultException ex)
         {
             _logger.LogError(ex, "OpenAI returned {StatusCode}", ex.Status);
-            throw new HttpRequestException($"OpenAI API error ({ex.Status})");
+            throw new HttpRequestException($"OpenAI API error ({ex.Status})", ex);
         }
     }
 
-    public class OpenAiQuotaException : Exception
-    {
-        public OpenAiQuotaException(string message) : base(message) { }
-    }
+    public class OpenAiQuotaException(string message) : Exception(message)
+    { }
 
     private static AiSuggestionsResult ParseResponse(string json)
     {
@@ -433,21 +477,26 @@ public class AiSuggestionService : IAiSuggestionService
         if (trimmed.StartsWith("```"))
         {
             var firstNewline = trimmed.IndexOf('\n');
-            if (firstNewline > 0) trimmed = trimmed[(firstNewline + 1)..];
-            if (trimmed.EndsWith("```")) trimmed = trimmed[..^3].TrimEnd();
+
+            if (firstNewline > 0)
+                trimmed = trimmed[(firstNewline + 1)..];
+            if (trimmed.EndsWith("```"))
+                trimmed = trimmed[..^3].TrimEnd();
         }
 
         using var doc = JsonDocument.Parse(trimmed);
         var root = doc.RootElement;
 
-        var summary = root.TryGetProperty("summary", out var s) ? s.GetString() : null;
+        var summary = root.TryGetProperty("summary", out var s)
+            ? s.GetString()
+            : null;
 
         var suggestions = new List<AiSuggestedItem>();
         if (root.TryGetProperty("suggestions", out var arr))
         {
-            foreach (var item in arr.EnumerateArray())
+            suggestions = arr.EnumerateArray().Aggregate(new List<AiSuggestedItem>(), (list, item) =>
             {
-                suggestions.Add(new AiSuggestedItem(
+                list.Add(new AiSuggestedItem(
                     ItemType: ParseNeedItemType(item.TryGetProperty("itemType", out var it) ? it.GetString() : null),
                     Label: item.TryGetProperty("label", out var l) ? l.GetString() ?? "" : "",
                     SoftwareName: item.TryGetProperty("softwareName", out var sn) ? sn.GetString() : null,
@@ -457,7 +506,8 @@ public class AiSuggestionService : IAiSuggestionService
                     Notes: item.TryGetProperty("notes", out var n) ? n.GetString() : null,
                     Reason: item.TryGetProperty("reason", out var r) ? r.GetString() ?? "" : ""
                 ));
-            }
+                return list;
+            });
         }
 
         return new AiSuggestionsResult(suggestions, summary);
@@ -495,6 +545,9 @@ public class AiSuggestionService : IAiSuggestionService
 
     public async Task<RejectionAssistResult> GetRejectionAssistanceAsync(int sessionId, int needId)
     {
+        if (!IsConfigured)
+            return new RejectionAssistResult("AI suggestions are not configured.", [], null);
+
         var need = await _db.TeachingNeeds
             .Include(n => n.Personnel)
             .Include(n => n.Course)
@@ -527,63 +580,77 @@ public class AiSuggestionService : IAiSuggestionService
         }
     }
 
+    private static readonly string JsonBuildRejectionAssistPromptFormat = JsonSerializer.Serialize(new
+    {
+        explanation = "Explication claire en français du problème identifié par l'admin, en 1-2 phrases simples",
+        steps = new[]
+        {
+            new
+            {
+                action = "modifier | ajouter | retirer | vérifier",
+                target = "Nom de l'élément concerné (ex: 'IntelliJ', 'Notes de la demande', 'Nombre d'étudiants')",
+                detail = "Instruction précise de ce qu'il faut faire (ex: 'Changer la version de 2023.1 à 2024.1')"
+            }
+        },
+        revisedNotes = "Si les notes de la demande devraient être modifiées, proposer le nouveau texte ici (null sinon)"
+    }, options: _writeIntendedJsonOptions);
+
     private static string BuildRejectionAssistPrompt(TeachingNeed need)
     {
-        var sb = new StringBuilder();
-        sb.AppendLine("Tu es un assistant qui aide un professeur à corriger une demande de besoins technologiques qui a été rejetée par l'administration.");
-        sb.AppendLine("Analyse le motif de rejet et la demande actuelle, puis propose des étapes concrètes de correction.");
-        sb.AppendLine();
-        sb.AppendLine($"Cours: {need.Course?.Code} {need.Course?.Name}");
-        sb.AppendLine($"Session: {need.Session?.Title}");
-        sb.AppendLine();
-        sb.AppendLine($"=== MOTIF DE REJET ===");
-        sb.AppendLine(need.RejectionReason);
-        sb.AppendLine();
+        var promptBuilder = new StringBuilder();
+        promptBuilder.AppendLine($"""
+        Tu es un assistant qui aide un professeur à corriger une demande de besoins technologiques qui a été rejetée par l'administration.
+        Analyse le motif de rejet et la demande actuelle, puis propose des étapes concrètes de correction.
 
-        sb.AppendLine("=== CONTENU ACTUEL DE LA DEMANDE ===");
+        Cours: {need.Course?.Code} {need.Course?.Name}
+        Session: {need.Session?.Title}
+
+        === MOTIF DE REJET ===
+        {need.RejectionReason}
+
+        === CONTENU ACTUEL DE LA DEMANDE ===
+        """);
+
         if (!string.IsNullOrWhiteSpace(need.Notes))
-            sb.AppendLine($"Notes: {need.Notes}");
+            promptBuilder.AppendLine($"Notes: {need.Notes}");
         if (need.ExpectedStudents.HasValue)
-            sb.AppendLine($"Étudiants attendus: {need.ExpectedStudents}");
+            promptBuilder.AppendLine($"Étudiants attendus: {need.ExpectedStudents}");
         if (!string.IsNullOrWhiteSpace(need.DesiredModifications))
-            sb.AppendLine($"Modifications souhaitées: {need.DesiredModifications}");
+            promptBuilder.AppendLine($"Modifications souhaitées: {need.DesiredModifications}");
         if (!string.IsNullOrWhiteSpace(need.AdditionalComments))
-            sb.AppendLine($"Commentaires: {need.AdditionalComments}");
-        sb.AppendLine();
+            promptBuilder.AppendLine($"Commentaires: {need.AdditionalComments}");
+        promptBuilder.AppendLine();
 
-        sb.AppendLine("=== ITEMS DE LA DEMANDE ===");
+        promptBuilder.AppendLine("=== ITEMS DE LA DEMANDE ===");
         foreach (var item in need.Items)
         {
             var parts = new List<string> { $"[{item.ItemType}]" };
-            if (item.Software != null) parts.Add(item.Software.Name);
-            if (item.SoftwareVersion != null) parts.Add($"v{item.SoftwareVersion.VersionNumber}");
-            if (item.OS != null) parts.Add($"({item.OS.Name})");
-            if (item.Quantity.HasValue) parts.Add($"Qté: {item.Quantity}");
-            if (!string.IsNullOrWhiteSpace(item.Description)) parts.Add(item.Description);
-            if (!string.IsNullOrWhiteSpace(item.Notes)) parts.Add($"— {item.Notes}");
-            sb.AppendLine($"  {string.Join(" ", parts)}");
+
+            if (item.Software != null)
+                parts.Add(item.Software.Name);
+            if (item.SoftwareVersion != null)
+                parts.Add($"v{item.SoftwareVersion.VersionNumber}");
+            if (item.OS != null)
+                parts.Add($"({item.OS.Name})");
+            if (item.Quantity.HasValue)
+                parts.Add($"Qté: {item.Quantity}");
+            if (!string.IsNullOrWhiteSpace(item.Description))
+                parts.Add(item.Description);
+            if (!string.IsNullOrWhiteSpace(item.Notes))
+                parts.Add($"— {item.Notes}");
+
+            promptBuilder.AppendLine($"  {string.Join(" ", parts)}");
         }
+
         if (need.Items.Count == 0)
-            sb.AppendLine("  (aucun item)");
-        sb.AppendLine();
+            promptBuilder.AppendLine("  (aucun item)");
+        promptBuilder.AppendLine();
 
-        sb.AppendLine("Réponds en JSON strict (pas de markdown) avec ce format:");
-        sb.AppendLine("""
-{
-  "explanation": "Explication claire en français du problème identifié par l'admin, en 1-2 phrases simples",
-  "steps": [
-    {
-      "action": "modifier" ou "ajouter" ou "retirer" ou "vérifier",
-      "target": "Nom de l'élément concerné (ex: 'IntelliJ', 'Notes de la demande', 'Nombre d'étudiants')",
-      "detail": "Instruction précise de ce qu'il faut faire (ex: 'Changer la version de 2023.1 à 2024.1')"
-    }
-  ],
-  "revisedNotes": "Si les notes de la demande devraient être modifiées, proposer le nouveau texte ici (null sinon)"
-}
-""");
-        sb.AppendLine("Donne entre 1 et 5 étapes de correction concrètes et actionnables. Sois concis et pratique.");
+        promptBuilder.AppendLine("Réponds en JSON strict (pas de markdown) avec ce format:");
+        promptBuilder.AppendLine(JsonBuildRejectionAssistPromptFormat);
+        promptBuilder.AppendLine("Donne entre 1 et 5 étapes de correction concrètes et actionnables. Sois concis et pratique.");
 
-        return sb.ToString();
+        return promptBuilder.ToString();
     }
 
     private static RejectionAssistResult ParseRejectionAssistResponse(string json)
@@ -642,7 +709,8 @@ public class AiSuggestionService : IAiSuggestionService
         var softwareName = req.CurrentValues.GetValueOrDefault("softwareName", "").Trim();
         var source = "none";
 
-        if (string.IsNullOrEmpty(softwareName)) return new AutoFillResult(suggestions, source);
+        if (string.IsNullOrEmpty(softwareName))
+            return new AutoFillResult(suggestions, source);
 
         // 1. Check history for this course
         var historyItems = await _db.TeachingNeeds
@@ -684,6 +752,7 @@ public class AiSuggestionService : IAiSuggestionService
                 .Where(i => !string.IsNullOrWhiteSpace(i.Notes))
                 .Select(i => i.Notes!)
                 .FirstOrDefault();
+
             if (string.IsNullOrEmpty(req.CurrentValues.GetValueOrDefault("notes")) && historyNotes != null)
                 suggestions["notes"] = new AutoFillSuggestion(
                     historyNotes,
@@ -777,7 +846,7 @@ public class AiSuggestionService : IAiSuggestionService
         {
             try
             {
-                using var doc = JsonDocument.Parse(historyItems[0].DetailsJson);
+                using var doc = JsonDocument.Parse(historyItems[0].DetailsJson!);
                 var root = doc.RootElement;
                 TrySuggestFromJson(root, "cpuCores", req.CurrentValues, suggestions, "CPU des VMs précédentes");
                 TrySuggestFromJson(root, "ramGb", req.CurrentValues, suggestions, "RAM des VMs précédentes");
@@ -810,7 +879,7 @@ public class AiSuggestionService : IAiSuggestionService
         {
             try
             {
-                using var doc = JsonDocument.Parse(historyItems[0].DetailsJson);
+                using var doc = JsonDocument.Parse(historyItems[0].DetailsJson!);
                 var root = doc.RootElement;
                 TrySuggestFromJson(root, "cpuCores", req.CurrentValues, suggestions, "CPU précédent");
                 TrySuggestFromJson(root, "ramGb", req.CurrentValues, suggestions, "RAM précédente");
@@ -830,7 +899,7 @@ public class AiSuggestionService : IAiSuggestionService
         var suggestions = new Dictionary<string, AutoFillSuggestion>();
 
         var historyItems = await _db.TeachingNeeds
-            .Where(n => n.CourseId == req.CourseId && n.Status == Core.Enums.NeedStatus.Approved)
+            .Where(n => n.CourseId == req.CourseId && n.Status == NeedStatus.Approved)
             .OrderByDescending(n => n.ReviewedAt)
             .SelectMany(n => n.Items)
             .Where(i => i.ItemType == NeedItemType.Configuration && i.DetailsJson != null)
@@ -841,7 +910,7 @@ public class AiSuggestionService : IAiSuggestionService
         {
             try
             {
-                using var doc = JsonDocument.Parse(historyItems[0].DetailsJson);
+                using var doc = JsonDocument.Parse(historyItems[0].DetailsJson!);
                 var root = doc.RootElement;
                 TrySuggestFromJson(root, "osIds", req.CurrentValues, suggestions, "OS des configurations précédentes");
                 TrySuggestFromJson(root, "laboratoryIds", req.CurrentValues, suggestions, "Labos des configurations précédentes");
@@ -860,7 +929,7 @@ public class AiSuggestionService : IAiSuggestionService
         if (string.IsNullOrEmpty(name)) return new AutoFillResult(suggestions, "none");
 
         var historyItem = await _db.TeachingNeeds
-            .Where(n => n.CourseId == req.CourseId && n.Status == Core.Enums.NeedStatus.Approved)
+            .Where(n => n.CourseId == req.CourseId && n.Status == NeedStatus.Approved)
             .OrderByDescending(n => n.ReviewedAt)
             .SelectMany(n => n.Items)
             .Where(i => i.ItemType == NeedItemType.EquipmentLoan && i.DetailsJson != null && i.DetailsJson.Contains(name))
