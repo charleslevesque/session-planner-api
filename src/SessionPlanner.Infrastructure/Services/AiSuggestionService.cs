@@ -12,32 +12,32 @@ using SessionPlanner.Infrastructure.Data;
 
 namespace SessionPlanner.Infrastructure.Services;
 
-public class AiSuggestionService(
-    AppDbContext db,
-    IConfiguration config,
-    ILogger<AiSuggestionService> logger
-    ) : IAiSuggestionService
+public class AiSuggestionService : IAiSuggestionService
 {
     private const string DefaultOpenAiModel = "gpt-4o-mini";
 
-    private readonly AppDbContext _db = db;
-    private readonly string? _apiKey = config["OpenAI:ApiKey"];
-    private readonly string? _model = config["OpenAI:Model"];
-    private ChatClient? ChatClient
-    {
-        get
-        {
-            if (string.IsNullOrWhiteSpace(_apiKey))
-                return null;
-
-            return new ChatClient(_model ?? DefaultOpenAiModel, apiKey: _apiKey);
-        }
-    }
-    private readonly ILogger<AiSuggestionService> _logger = logger;
+    private readonly AppDbContext _db;
+    private readonly string? _apiKey;
+    private readonly string? _model;
+    private readonly ChatClient? _chatClient;
+    private readonly ILogger<AiSuggestionService> _logger;
     private static readonly JsonSerializerOptions _writeIntendedJsonOptions = new()
     {
         WriteIndented = true,
     };
+
+    public AiSuggestionService(AppDbContext db, IConfiguration config, ILogger<AiSuggestionService> logger)
+    {
+        _db = db;
+        _apiKey = config["OpenAI:ApiKey"];
+        _model = config["OpenAI:Model"];
+        _logger = logger;
+
+        if (!string.IsNullOrWhiteSpace(_apiKey))
+        {
+            _chatClient = new ChatClient(apiKey: _apiKey, model: _model ?? DefaultOpenAiModel);
+        }
+    }
 
     public bool IsConfigured => !string.IsNullOrWhiteSpace(_apiKey);
 
@@ -423,7 +423,7 @@ public class AiSuggestionService(
 
     private async Task<string> GetCompletionAsync(string prompt)
     {
-        if (ChatClient is null)
+        if (_chatClient is null)
             throw new InvalidOperationException("ChatClient is not initialized. Verify that IsConfigured is true before calling this method.");
 
         ChatMessage[] messages =
@@ -439,7 +439,7 @@ public class AiSuggestionService(
 
         try
         {
-            var completion = await ChatClient.CompleteChatAsync(messages, options);
+            var completion = await _chatClient.CompleteChatAsync(messages, options);
             return completion.Value.Content[0].Text;
         }
         catch (System.ClientModel.ClientResultException ex) when (ex.Status == 429)
