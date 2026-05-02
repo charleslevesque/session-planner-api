@@ -111,21 +111,22 @@ public class AiSuggestionService(
             .Take(5)
             .ToListAsync();
 
-        var labStatuses = need.Items.Where(i => i.SoftwareId.HasValue).Aggregate(new List<string>(), (list, item) =>
+        var labStatuses = new List<string>();
+        foreach (var item in need.Items.Where(i => i.SoftwareId.HasValue))
         {
-            var entries = _db.LaboratorySoftwares
+            var entries = await _db.LaboratorySoftwares
                 .Include(ls => ls.Laboratory)
                 .Where(ls => ls.SoftwareId == item.SoftwareId!.Value)
-                .ToList();
+                .ToListAsync();
+
             var installed = entries.Count(e => e.Status == "W");
             var total = entries.Count;
             var softwareName = item.Software?.Name ?? "?";
             var missingLabNames = entries.Where(e => e.Status == "M").Select(e => e.Laboratory.Name);
             var missingLabsSuffix = missingLabNames.Any() ? $"(manquant dans: {string.Join(", ", missingLabNames)})" : "";
 
-            list.Add($"{softwareName}: installé dans {installed}/{total} labos {missingLabsSuffix}");
-            return list;
-        });
+            labStatuses.Add($"{softwareName}: installé dans {installed}/{total} labos {missingLabsSuffix}");
+        }
 
         var otherSessionNeeds = await _db.TeachingNeeds
             .Include(n => n.Items).ThenInclude(i => i.Software)
