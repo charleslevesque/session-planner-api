@@ -8,11 +8,11 @@ using SessionPlanner.Infrastructure.Data;
 
 namespace SessionPlanner.Infrastructure.Services;
 
-public class UserService(AppDbContext db, UserManager<AppUser> userManager, RoleManager<IdentityRole> roleManager) : IUserService
+public class UserService(AppDbContext db, UserManager<AppUser> userManager, RoleManager<AppRole> roleManager) : IUserService
 {
     private readonly AppDbContext _db = db;
     private readonly UserManager<AppUser> _userManager = userManager;
-    private readonly RoleManager<IdentityRole> _roleManager = roleManager;
+    private readonly RoleManager<AppRole> _roleManager = roleManager;
 
     private IQueryable<AppUser> ActiveUsersWithRoles()
     => _userManager.Users
