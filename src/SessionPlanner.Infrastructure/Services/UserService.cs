@@ -209,8 +209,8 @@ public class UserService(AppDbContext db, UserManager<AppUser> userManager) : IU
         if (isAdmin)
             return false;
 
+        await using var transaction = await _db.Database.BeginTransactionAsync();
         var personnelId = user.PersonnelId;
-
         var reviewedNeeds = await _db.TeachingNeeds
             .Where(tn => tn.ReviewedByUserId == id)
             .ToListAsync();
@@ -218,7 +218,6 @@ public class UserService(AppDbContext db, UserManager<AppUser> userManager) : IU
             need.ReviewedByUserId = null;
 
         await _db.SaveChangesAsync();
-
         await _userManager.DeleteAsync(user);
 
         if (personnelId.HasValue)
@@ -245,6 +244,7 @@ public class UserService(AppDbContext db, UserManager<AppUser> userManager) : IU
             await _db.SaveChangesAsync();
         }
 
+        await transaction.CommitAsync();
         return true;
     }
 

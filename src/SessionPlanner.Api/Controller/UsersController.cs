@@ -1,20 +1,20 @@
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using SessionPlanner.Api.Dtos.Users;
-using SessionPlanner.Api.Dtos.Common;
-using SessionPlanner.Api.Mappings;
-using SessionPlanner.Core.Auth;
-using SessionPlanner.Api.Auth;
+using System.Security.Claims;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
-using SessionPlanner.Core.Interfaces;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using SessionPlanner.Api.Auth;
 using SessionPlanner.Api.Common;
-using SessionPlanner.Api.OpenApi.Examples.Users;
+using SessionPlanner.Api.Dtos.Common;
+using SessionPlanner.Api.Dtos.Users;
+using SessionPlanner.Api.Mappings;
 using SessionPlanner.Api.OpenApi.Examples.Common;
+using SessionPlanner.Api.OpenApi.Examples.Users;
+using SessionPlanner.Core.Auth;
+using SessionPlanner.Core.Interfaces;
 using SessionPlanner.Infrastructure.Data;
 using Swashbuckle.AspNetCore.Annotations;
 using Swashbuckle.AspNetCore.Filters;
-using System.Security.Claims;
 namespace SessionPlanner.Api.Controllers;
 
 [ApiController]
@@ -252,7 +252,20 @@ public class UsersController : ControllerBase
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(int id)
     {
-        var deleted = await _userService.DeleteAsync(id);
+        var deleted = false;
+
+        try
+        {
+            deleted = await _userService.DeleteAsync(id);
+        }
+        catch
+        {
+            // TODO: Better error handling and logging (not implemented here).
+            // Right now we assume any exception is due to an attempt to delete
+            // an admin account, but in a real application we would want to
+            // distinguish between different error cases and log the details for
+            // troubleshooting.
+        }
 
         if (!deleted)
         {
