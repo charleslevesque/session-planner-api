@@ -1,0 +1,87 @@
+@page "/admin/courses-resources"
+@attribute [Authorize(Roles = "admin")]
+@inject IApiClient Api
+
+<PageTitle>Cours et ressources</PageTitle>
+<h1>Cours et ressources</h1>
+
+@if (_loading) { <FluentProgressRing /> }
+else
+{
+    @if (!string.IsNullOrEmpty(_error)) { <FluentMessageBar Intent="MessageIntent.Error">@_error</FluentMessageBar> }
+
+    <FluentButton Appearance="Appearance.Accent" OnClick="@(() => { _showCreate = true; _hideCreate = false; })" Style="margin-bottom:1rem">
+        Ajouter un cours
+    </FluentButton>
+
+    <FluentDataGrid Items="@_courses.AsQueryable()" TGridItem="CourseResponse">
+        <PropertyColumn Property="@(c => c.Code)" Title="Code" />
+        <PropertyColumn Property="@(c => c.Name)" Title="Nom" />
+        <PropertyColumn Property="@(c => c.Description)" Title="Description" />
+        <TemplateColumn Title="Actions">
+            <FluentStack Orientation="Orientation.Horizontal">
+                <a href="/admin/courses-resources/@context.Id" style="margin-right:8px">Ressources</a>
+                <FluentButton OnClick="@(() => DeleteCourseAsync(context.Id))">Supprimer</FluentButton>
+            </FluentStack>
+        </TemplateColumn>
+    </FluentDataGrid>
+}
+
+@if (_showCreate)
+{
+    <FluentDialog @bind-Hidden="_hideCreate" Modal="true" TrapFocus="true">
+        <FluentDialogHeader>Ajouter un cours</FluentDialogHeader>
+        <FluentDialogBody>
+            <FluentStack Orientation="Orientation.Vertical">
+                <FluentTextField @bind-Value="_newCourse.Code" Label="Code" Style="width:100%" />
+                <FluentTextField @bind-Value="_newCourse.Name" Label="Nom" Style="width:100%" />
+                <FluentTextField @bind-Value="_newCourse.Description" Label="Description" Style="width:100%" />
+            </FluentStack>
+        </FluentDialogBody>
+        <FluentDialogFooter>
+            <FluentButton OnClick="@(() => { _showCreate = false; _hideCreate = true; })">Annuler</FluentButton>
+            <FluentButton Appearance="Appearance.Accent" OnClick="@CreateCourseAsync">Créer</FluentButton>
+        </FluentDialogFooter>
+    </FluentDialog>
+}
+
+@code {
+    private List<CourseResponse> _courses = new();
+    private bool _loading = true;
+    private string? _error;
+    private bool _showCreate;
+    private bool _hideCreate = true;
+    private CourseFormModel _newCourse = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _courses = await Api.GetAsync<List<CourseResponse>>("/courses") ?? new(); }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally { _loading = false; }
+    }
+
+    private async Task CreateCourseAsync()
+    {
+        try
+        {
+            var result = await Api.PostAsync<CreateCourseRequest, CourseResponse>("/courses",
+                new CreateCourseRequest(_newCourse.Code, _newCourse.Name, _newCourse.Description));
+            if (result != null) _courses.Add(result);
+            _showCreate = false; _hideCreate = true; _newCourse = new();
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+    }
+
+    private async Task DeleteCourseAsync(int id)
+    {
+        try { await Api.DeleteAsync($"/courses/{id}"); _courses.RemoveAll(c => c.Id == id); }
+        catch (ApiException ex) { _error = ex.Message; }
+    }
+
+    private class CourseFormModel
+    {
+        public string Code { get; set; } = "";
+        public string? Name { get; set; }
+        public string? Description { get; set; }
+    }
+}

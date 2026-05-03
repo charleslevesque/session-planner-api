@@ -1,0 +1,127 @@
+@page "/dashboard"
+@page "/"
+@attribute [Authorize]
+@inject IApiClient Api
+@inject IAuthService Auth
+
+<PageTitle>Tableau de bord</PageTitle>
+<h1>Tableau de bord</h1>
+
+@if (_loading)
+{
+    <FluentProgressRing />
+}
+else
+{
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <FluentMessageBar Intent="MessageIntent.Error">@_error</FluentMessageBar>
+    }
+    <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:2rem">
+        <FluentCard Style="min-width:180px;padding:1.5rem;text-align:center">
+            <div style="font-size:2rem;font-weight:bold">@_sessions.Count</div>
+            <div>Sessions totales</div>
+        </FluentCard>
+        <FluentCard Style="min-width:180px;padding:1.5rem;text-align:center">
+            <div style="font-size:2rem;font-weight:bold">@_sessions.Count(s => s.Status == "Open")</div>
+            <div>Sessions ouvertes</div>
+        </FluentCard>
+        <FluentCard Style="min-width:180px;padding:1.5rem;text-align:center">
+            <div style="font-size:2rem;font-weight:bold">@_myNeeds.Count</div>
+            <div>Mes demandes</div>
+        </FluentCard>
+        <FluentCard Style="min-width:180px;padding:1.5rem;text-align:center">
+            <div style="font-size:2rem;font-weight:bold">@_myNeeds.Count(n => n.Status == "Submitted" || n.Status == "UnderReview")</div>
+            <div>En attente</div>
+        </FluentCard>
+    </div>
+
+    <h2>Sessions actives</h2>
+    @if (_sessions.Count == 0)
+    {
+        <p>Aucune session.</p>
+    }
+    else
+    {
+        <FluentDataGrid Items="@_sessions.AsQueryable()" TGridItem="SessionResponse">
+            <PropertyColumn Property="@(s => s.Title)" Title="Titre" />
+            <TemplateColumn Title="Statut">
+                <SessionStatusBadge Status="@context.Status" />
+            </TemplateColumn>
+            <PropertyColumn Property="@(s => s.StartDate)" Title="Début" />
+            <PropertyColumn Property="@(s => s.EndDate)" Title="Fin" />
+            <TemplateColumn Title="Actions">
+                <a href="/sessions/@context.Id/courses">Voir</a>
+            </TemplateColumn>
+        </FluentDataGrid>
+    }
+
+    <AuthorizeView Roles="admin">
+        <Authorized Context="adminCtx">
+            <h2 style="margin-top:2rem">Créer une session</h2>
+            <FluentCard Style="max-width:480px;padding:1.5rem">
+                @if (!string.IsNullOrEmpty(_createError))
+                {
+                    <FluentMessageBar Intent="MessageIntent.Error" Style="margin-bottom:1rem">@_createError</FluentMessageBar>
+                }
+                <EditForm Model="@_newSession" OnValidSubmit="@CreateSessionAsync">
+                    <FluentStack Orientation="Orientation.Vertical">
+                        <FluentTextField @bind-Value="_newSession.Title" Label="Titre" Style="width:100%" />
+                        <FluentTextField @bind-Value="_newSession.StartDate" Label="Date de début (YYYY-MM-DD)" Style="width:100%" />
+                        <FluentTextField @bind-Value="_newSession.EndDate" Label="Date de fin (YYYY-MM-DD)" Style="width:100%" />
+                        <FluentButton Type="ButtonType.Submit" Appearance="Appearance.Accent" Loading="@_creating">
+                            Créer
+                        </FluentButton>
+                    </FluentStack>
+                </EditForm>
+            </FluentCard>
+        </Authorized>
+    </AuthorizeView>
+}
+
+@code {
+    private List<SessionResponse> _sessions = new();
+    private List<MyNeedResponse> _myNeeds = new();
+    private bool _loading = true;
+    private string? _error;
+    private string? _createError;
+    private bool _creating;
+    private CreateSessionModel _newSession = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var sessions = await Api.GetAsync<List<SessionResponse>>("/sessions");
+            _sessions = sessions ?? new();
+            var user = await Auth.GetStoredUserAsync();
+            var isTeachingRole = user?.Role is "professor" or "course_instructor";
+            if (isTeachingRole)
+                try { _myNeeds = await Api.GetAsync<List<MyNeedResponse>>("/needs/mine") ?? new(); } catch { }
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally { _loading = false; }
+    }
+
+    private async Task CreateSessionAsync()
+    {
+        _creating = true;
+        _createError = null;
+        try
+        {
+            var result = await Api.PostAsync<CreateSessionRequest, SessionResponse>(
+                "/sessions",
+                new CreateSessionRequest(_newSession.Title, _newSession.StartDate, _newSession.EndDate));
+            if (result != null) { _sessions.Add(result); _newSession = new(); }
+        }
+        catch (ApiException ex) { _createError = ex.Message; }
+        finally { _creating = false; }
+    }
+
+    private class CreateSessionModel
+    {
+        public string Title { get; set; } = "";
+        public string StartDate { get; set; } = "";
+        public string EndDate { get; set; } = "";
+    }
+}

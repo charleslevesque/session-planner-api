@@ -1,0 +1,33 @@
+@inherits LayoutComponentBase
+@inject IAuthService AuthService
+@inject NavigationManager Nav
+
+<FluentLayout>
+    <FluentHeader>
+        <FluentStack HorizontalAlignment="HorizontalAlignment.SpaceBetween" VerticalAlignment="VerticalAlignment.Center" Style="width:100%">
+            <FluentLabel Typography="Typography.H5" Style="color:white">ETS - Session Planner</FluentLabel>
+            <AuthorizeView>
+                <Authorized>
+                    <FluentStack VerticalAlignment="VerticalAlignment.Center">
+                        <FluentLabel Style="color:white">@context.User.Identity?.Name</FluentLabel>
+                        <FluentButton Appearance="Appearance.Lightweight" OnClick="@LogoutAsync" Style="color:white">Déconnexion</FluentButton>
+                    </FluentStack>
+                </Authorized>
+            </AuthorizeView>
+        </FluentStack>
+    </FluentHeader>
+    <FluentStack Orientation="Orientation.Horizontal" Style="flex:1;overflow:hidden">
+        <NavMenu />
+        <div style="flex:1;overflow:auto;padding:1rem">
+            @Body
+        </div>
+    </FluentStack>
+</FluentLayout>
+
+@code {
+    private async Task LogoutAsync()
+    {
+        await AuthService.LogoutAsync();
+        Nav.NavigateTo("/login");
+    }
+}

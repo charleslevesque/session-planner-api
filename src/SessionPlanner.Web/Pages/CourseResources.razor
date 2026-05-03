@@ -1,0 +1,62 @@
+@page "/sessions/{SessionId:int}/courses/{CourseId:int}"
+@attribute [Authorize]
+@inject IApiClient Api
+
+<PageTitle>Ressources du cours</PageTitle>
+<h1>Cours #@CourseId – Session #@SessionId</h1>
+
+@if (_loading) { <FluentProgressRing /> }
+else
+{
+    @if (!string.IsNullOrEmpty(_error)) { <FluentMessageBar Intent="MessageIntent.Error">@_error</FluentMessageBar> }
+
+    <div style="margin-bottom:1rem">
+        <AuthorizeView Roles="professor,course_instructor">
+            <Authorized>
+                <a href="/sessions/@SessionId/courses/@CourseId/create-need">
+                    <FluentButton Appearance="Appearance.Accent">Créer un besoin</FluentButton>
+                </a>
+            </Authorized>
+        </AuthorizeView>
+    </div>
+
+    <h2>Demandes pour ce cours</h2>
+    @if (_needs.Count == 0) { <p>Aucune demande.</p> }
+    else
+    {
+        <FluentDataGrid Items="@_needs.AsQueryable()" TGridItem="TeachingNeedResponse">
+            <TemplateColumn Title="Statut"><NeedStatusBadge Status="@context.Status" /></TemplateColumn>
+            <PropertyColumn Property="@(n => n.PersonnelFullName)" Title="Demandeur" />
+            <PropertyColumn Property="@(n => n.CreatedAt)" Title="Créé le" />
+            <TemplateColumn Title="Actions">
+                <AuthorizeView Roles="professor,course_instructor" Context="authContext">
+                    <Authorized>
+                        @if (context.Status == "Draft")
+                        {
+                            <a href="/sessions/@SessionId/courses/@CourseId/needs/@context.Id/edit">Modifier</a>
+                        }
+                    </Authorized>
+                </AuthorizeView>
+            </TemplateColumn>
+        </FluentDataGrid>
+    }
+}
+
+@code {
+    [Parameter] public int SessionId { get; set; }
+    [Parameter] public int CourseId { get; set; }
+    private List<TeachingNeedResponse> _needs = new();
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var all = await Api.GetAsync<List<TeachingNeedResponse>>($"/sessions/{SessionId}/needs") ?? new();
+            _needs = all.Where(n => n.CourseId == CourseId).ToList();
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally { _loading = false; }
+    }
+}

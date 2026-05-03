@@ -1,0 +1,18 @@
+@if (!string.IsNullOrEmpty(Status))
+{
+    <FluentBadge>@GetLabel()</FluentBadge>
+}
+
+@code {
+    [Parameter] public string? Status { get; set; }
+
+    private string GetLabel() => Status switch
+    {
+        "Draft" => "Brouillon",
+        "Submitted" => "Soumis",
+        "UnderReview" => "En révision",
+        "Approved" => "Approuvé",
+        "Rejected" => "Rejeté",
+        _ => Status ?? ""
+    };
+}

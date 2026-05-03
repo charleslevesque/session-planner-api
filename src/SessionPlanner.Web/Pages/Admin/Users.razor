@@ -1,0 +1,168 @@
+@page "/admin/users"
+@attribute [Authorize(Roles = "admin")]
+@inject IApiClient Api
+
+<PageTitle>Gestion des utilisateurs</PageTitle>
+<h1>Utilisateurs</h1>
+
+@if (_loading) { <FluentProgressRing /> }
+else
+{
+    @if (!string.IsNullOrEmpty(_error)) { <FluentMessageBar Intent="MessageIntent.Error">@_error</FluentMessageBar> }
+
+    <FluentButton Appearance="Appearance.Accent" OnClick="@(() => { _showCreate = true; _hideCreateDialog = false; })" Style="margin-bottom:1rem">
+        Créer un utilisateur
+    </FluentButton>
+
+    <FluentDataGrid Items="@_users.AsQueryable()" TGridItem="UserResponse">
+        <PropertyColumn Property="@(u => u.Name)" Title="Nom" />
+        <PropertyColumn Property="@(u => u.Email)" Title="Courriel" />
+        <PropertyColumn Property="@(u => u.Role)" Title="Rôle" />
+        <TemplateColumn Title="Actions">
+            <FluentStack Orientation="Orientation.Horizontal">
+                <FluentButton OnClick="@(() => OpenRoleDialog(context))" Style="margin-right:4px">Changer rôle</FluentButton>
+                <FluentButton OnClick="@(() => OpenPwDialog(context))" Style="margin-right:4px">Réinitialiser MDP</FluentButton>
+                <FluentButton OnClick="@(() => DeleteUserAsync(context.Id))">Supprimer</FluentButton>
+            </FluentStack>
+        </TemplateColumn>
+    </FluentDataGrid>
+}
+
+@if (_showCreate)
+{
+    <FluentDialog @bind-Hidden="_hideCreateDialog" Modal="true" TrapFocus="true">
+        <FluentDialogHeader>Créer un utilisateur</FluentDialogHeader>
+        <FluentDialogBody>
+            <FluentStack Orientation="Orientation.Vertical">
+                <FluentTextField @bind-Value="_newUser.FirstName" Label="Prénom" Style="width:100%" />
+                <FluentTextField @bind-Value="_newUser.LastName" Label="Nom" Style="width:100%" />
+                <FluentTextField @bind-Value="_newUser.Email" Label="Courriel" Style="width:100%" />
+                <FluentTextField @bind-Value="_newUser.Password" Label="Mot de passe" TextFieldType="TextFieldType.Password" Style="width:100%" />
+                <FluentSelect TOption="string" @bind-Value="_newUser.Role" Label="Rôle" Style="width:100%">
+                    <FluentOption TOption="string" Value="admin">Admin</FluentOption>
+                    <FluentOption TOption="string" Value="professor">Professeur</FluentOption>
+                    <FluentOption TOption="string" Value="course_instructor">Chargé de cours</FluentOption>
+                    <FluentOption TOption="string" Value="lab_instructor">Technicien de labo</FluentOption>
+                </FluentSelect>
+            </FluentStack>
+        </FluentDialogBody>
+        <FluentDialogFooter>
+            <FluentButton OnClick="@(() => { _showCreate = false; _hideCreateDialog = true; })">Annuler</FluentButton>
+            <FluentButton Appearance="Appearance.Accent" OnClick="@CreateUserAsync">Créer</FluentButton>
+        </FluentDialogFooter>
+    </FluentDialog>
+}
+
+@if (_roleUser != null)
+{
+    <FluentDialog @bind-Hidden="_hideRoleDialog" Modal="true" TrapFocus="true">
+        <FluentDialogHeader>Changer le rôle de @_roleUser.Name</FluentDialogHeader>
+        <FluentDialogBody>
+            <FluentSelect TOption="string" @bind-Value="_newRole" Label="Rôle" Style="width:100%">
+                <FluentOption TOption="string" Value="admin">Admin</FluentOption>
+                <FluentOption TOption="string" Value="professor">Professeur</FluentOption>
+                <FluentOption TOption="string" Value="course_instructor">Chargé de cours</FluentOption>
+                <FluentOption TOption="string" Value="lab_instructor">Technicien de labo</FluentOption>
+            </FluentSelect>
+        </FluentDialogBody>
+        <FluentDialogFooter>
+            <FluentButton OnClick="@(() => { _roleUser = null; _hideRoleDialog = true; })">Annuler</FluentButton>
+            <FluentButton Appearance="Appearance.Accent" OnClick="@ChangeRoleAsync">Changer</FluentButton>
+        </FluentDialogFooter>
+    </FluentDialog>
+}
+
+@if (_pwUser != null)
+{
+    <FluentDialog @bind-Hidden="_hidePwDialog" Modal="true" TrapFocus="true">
+        <FluentDialogHeader>Réinitialiser MDP de @_pwUser.Name</FluentDialogHeader>
+        <FluentDialogBody>
+            <FluentTextField @bind-Value="_newPw" Label="Nouveau mot de passe" TextFieldType="TextFieldType.Password" Style="width:100%" />
+        </FluentDialogBody>
+        <FluentDialogFooter>
+            <FluentButton OnClick="@(() => { _pwUser = null; _hidePwDialog = true; })">Annuler</FluentButton>
+            <FluentButton Appearance="Appearance.Accent" OnClick="@ResetPwAsync">Enregistrer</FluentButton>
+        </FluentDialogFooter>
+    </FluentDialog>
+}
+
+@code {
+    private List<UserResponse> _users = new();
+    private bool _loading = true;
+    private string? _error;
+    private bool _showCreate;
+    private bool _hideCreateDialog = true;
+    private bool _hideRoleDialog = true;
+    private bool _hidePwDialog = true;
+    private NewUserModel _newUser = new();
+    private UserResponse? _roleUser;
+    private string _newRole = "professor";
+    private UserResponse? _pwUser;
+    private string _newPw = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _users = await Api.GetAsync<List<UserResponse>>("/users") ?? new(); }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally { _loading = false; }
+    }
+
+    private void OpenRoleDialog(UserResponse user) { _roleUser = user; _newRole = user.Role; _hideRoleDialog = false; }
+    private void OpenPwDialog(UserResponse user) { _pwUser = user; _newPw = ""; _hidePwDialog = false; }
+
+    private async Task CreateUserAsync()
+    {
+        try
+        {
+            var result = await Api.PostAsync<CreateUserRequest, UserResponse>("/users",
+                new CreateUserRequest(_newUser.Email, _newUser.Password, _newUser.FirstName, _newUser.LastName, _newUser.Role));
+            if (result != null) _users.Add(result);
+            _showCreate = false; _hideCreateDialog = true; _newUser = new();
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+    }
+
+    private async Task DeleteUserAsync(int id)
+    {
+        try
+        {
+            await Api.DeleteAsync($"/users/{id}");
+            _users.RemoveAll(u => u.Id == id);
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+    }
+
+    private async Task ChangeRoleAsync()
+    {
+        if (_roleUser == null) return;
+        try
+        {
+            await Api.PutAsync<UpdateUserRoleRequest, object>($"/users/{_roleUser.Id}/role",
+                new UpdateUserRoleRequest(_newRole));
+            _users = await Api.GetAsync<List<UserResponse>>("/users") ?? new();
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally { _roleUser = null; _hideRoleDialog = true; }
+    }
+
+    private async Task ResetPwAsync()
+    {
+        if (_pwUser == null) return;
+        try
+        {
+            await Api.PutAsync<UpdateUserPasswordRequest, object>($"/users/{_pwUser.Id}/password",
+                new UpdateUserPasswordRequest(_newPw));
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally { _pwUser = null; _hidePwDialog = true; }
+    }
+
+    private class NewUserModel
+    {
+        public string FirstName { get; set; } = "";
+        public string LastName { get; set; } = "";
+        public string Email { get; set; } = "";
+        public string Password { get; set; } = "";
+        public string Role { get; set; } = "professor";
+    }
+}

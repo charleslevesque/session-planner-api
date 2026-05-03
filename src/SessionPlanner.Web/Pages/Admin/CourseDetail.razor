@@ -1,0 +1,147 @@
+@page "/admin/courses-resources/{CourseId:int}"
+@attribute [Authorize(Roles = "admin")]
+@inject IApiClient Api
+
+<PageTitle>Détail du cours</PageTitle>
+<h1>Cours #@CourseId – Ressources</h1>
+
+@if (_loading) { <FluentProgressRing /> }
+else
+{
+    @if (!string.IsNullOrEmpty(_error)) { <FluentMessageBar Intent="MessageIntent.Error">@_error</FluentMessageBar> }
+
+    @if (_course != null)
+    {
+        <FluentCard Style="padding:1rem;margin-bottom:2rem">
+            <b>@_course.Code</b> – @_course.Name
+            <p>@_course.Description</p>
+        </FluentCard>
+    }
+
+    <FluentTabs>
+        <FluentTab Id="tab-sw" Label="Logiciels">
+            <FluentDataGrid Items="@_softwares.AsQueryable()" TGridItem="SoftwareResponse">
+                <PropertyColumn Property="@(s => s.Name)" Title="Nom" />
+                <PropertyColumn Property="@(s => s.Publisher)" Title="Éditeur" />
+                <TemplateColumn Title="Actions">
+                    <FluentButton OnClick="@(() => DeleteSoftwareAsync(context.Id))">Supprimer</FluentButton>
+                </TemplateColumn>
+            </FluentDataGrid>
+        </FluentTab>
+        <FluentTab Id="tab-saas" Label="SaaS">
+            <FluentDataGrid Items="@_saas.AsQueryable()" TGridItem="SaasProductResponse">
+                <PropertyColumn Property="@(s => s.Name)" Title="Nom" />
+                <PropertyColumn Property="@(s => s.Url)" Title="URL" />
+                <TemplateColumn Title="Actions">
+                    <FluentButton OnClick="@(() => DeleteSaasAsync(context.Id))">Supprimer</FluentButton>
+                </TemplateColumn>
+            </FluentDataGrid>
+        </FluentTab>
+        <FluentTab Id="tab-cfg" Label="Configurations">
+            <FluentDataGrid Items="@_configs.AsQueryable()" TGridItem="ConfigurationResponse">
+                <PropertyColumn Property="@(c => c.Name)" Title="Nom" />
+                <TemplateColumn Title="Actions">
+                    <FluentButton OnClick="@(() => DeleteConfigAsync(context.Id))">Supprimer</FluentButton>
+                </TemplateColumn>
+            </FluentDataGrid>
+        </FluentTab>
+        <FluentTab Id="tab-vm" Label="Machines virtuelles">
+            <FluentDataGrid Items="@_vms.AsQueryable()" TGridItem="VirtualMachineResponse">
+                <PropertyColumn Property="@(v => v.Name)" Title="Nom" />
+                <PropertyColumn Property="@(v => v.OperatingSystem)" Title="OS" />
+                <TemplateColumn Title="Actions">
+                    <FluentButton OnClick="@(() => DeleteVmAsync(context.Id))">Supprimer</FluentButton>
+                </TemplateColumn>
+            </FluentDataGrid>
+        </FluentTab>
+        <FluentTab Id="tab-srv" Label="Serveurs physiques">
+            <FluentDataGrid Items="@_servers.AsQueryable()" TGridItem="PhysicalServerResponse">
+                <PropertyColumn Property="@(s => s.Name)" Title="Nom" />
+                <TemplateColumn Title="Actions">
+                    <FluentButton OnClick="@(() => DeleteServerAsync(context.Id))">Supprimer</FluentButton>
+                </TemplateColumn>
+            </FluentDataGrid>
+        </FluentTab>
+        <FluentTab Id="tab-eq" Label="Equipements">
+            <FluentDataGrid Items="@_equipment.AsQueryable()" TGridItem="EquipmentModelResponse">
+                <PropertyColumn Property="@(e => e.Name)" Title="Nom" />
+                <PropertyColumn Property="@(e => e.Manufacturer)" Title="Fabricant" />
+                <TemplateColumn Title="Actions">
+                    <FluentButton OnClick="@(() => DeleteEquipmentAsync(context.Id))">Supprimer</FluentButton>
+                </TemplateColumn>
+            </FluentDataGrid>
+        </FluentTab>
+    </FluentTabs>
+}
+
+@code {
+    [Parameter] public int CourseId { get; set; }
+    private CourseResponse? _course;
+    private List<SoftwareResponse> _softwares = new();
+    private List<SaasProductResponse> _saas = new();
+    private List<ConfigurationResponse> _configs = new();
+    private List<VirtualMachineResponse> _vms = new();
+    private List<PhysicalServerResponse> _servers = new();
+    private List<EquipmentModelResponse> _equipment = new();
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _course = await Api.GetAsync<CourseResponse>($"/courses/{CourseId}");
+            var swTask = Api.GetAsync<List<SoftwareResponse>>("/softwares");
+            var saasTask = Api.GetAsync<List<SaasProductResponse>>("/saasproducts");
+            var cfgTask = Api.GetAsync<List<ConfigurationResponse>>("/configurations");
+            var vmTask = Api.GetAsync<List<VirtualMachineResponse>>("/virtualmachines");
+            var srvTask = Api.GetAsync<List<PhysicalServerResponse>>("/physicalservers");
+            var eqTask = Api.GetAsync<List<EquipmentModelResponse>>("/equipmentmodels");
+            await Task.WhenAll(swTask, saasTask, cfgTask, vmTask, srvTask, eqTask);
+            _softwares = await swTask ?? new();
+            _saas = await saasTask ?? new();
+            _configs = await cfgTask ?? new();
+            _vms = await vmTask ?? new();
+            _servers = await srvTask ?? new();
+            _equipment = await eqTask ?? new();
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally { _loading = false; }
+    }
+
+    private async Task DeleteSoftwareAsync(int id)
+    {
+        try { await Api.DeleteAsync($"/softwares/{id}"); _softwares.RemoveAll(s => s.Id == id); }
+        catch (ApiException ex) { _error = ex.Message; }
+    }
+
+    private async Task DeleteSaasAsync(int id)
+    {
+        try { await Api.DeleteAsync($"/saasproducts/{id}"); _saas.RemoveAll(s => s.Id == id); }
+        catch (ApiException ex) { _error = ex.Message; }
+    }
+
+    private async Task DeleteConfigAsync(int id)
+    {
+        try { await Api.DeleteAsync($"/configurations/{id}"); _configs.RemoveAll(c => c.Id == id); }
+        catch (ApiException ex) { _error = ex.Message; }
+    }
+
+    private async Task DeleteVmAsync(int id)
+    {
+        try { await Api.DeleteAsync($"/virtualmachines/{id}"); _vms.RemoveAll(v => v.Id == id); }
+        catch (ApiException ex) { _error = ex.Message; }
+    }
+
+    private async Task DeleteServerAsync(int id)
+    {
+        try { await Api.DeleteAsync($"/physicalservers/{id}"); _servers.RemoveAll(s => s.Id == id); }
+        catch (ApiException ex) { _error = ex.Message; }
+    }
+
+    private async Task DeleteEquipmentAsync(int id)
+    {
+        try { await Api.DeleteAsync($"/equipmentmodels/{id}"); _equipment.RemoveAll(e => e.Id == id); }
+        catch (ApiException ex) { _error = ex.Message; }
+    }
+}
