@@ -29,7 +29,8 @@ public enum UpdateCurrentUserEmailStatus
     UserNotFound,
     InvalidCurrentPassword,
     EmailAlreadyExists,
-    ForbiddenForNonAdmin
+    ForbiddenForNonAdmin,
+    FailedToUpdateEmail,
 }
 
 public enum DeactivateUserStatus

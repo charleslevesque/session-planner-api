@@ -182,11 +182,18 @@ public class UserService(AppDbContext db, UserManager<AppUser> userManager) : IU
         if (user.PersonnelId.HasValue)
         {
             var personnel = await _db.Personnel.FirstOrDefaultAsync(p => p.Id == user.PersonnelId.Value);
-            if (personnel is not null)
-                personnel.Email = normalizedEmail;
+            personnel?.Email = normalizedEmail;
         }
 
-        await _userManager.SetUserNameAsync(user, normalizedEmail);
+        try
+        {
+            await _userManager.SetUserNameAsync(user, normalizedEmail);
+        }
+        catch
+        {
+            // TODO: Log the exception (not implemented here)
+            return UpdateCurrentUserEmailStatus.FailedToUpdateEmail;
+        }
 
         return UpdateCurrentUserEmailStatus.Success;
     }
