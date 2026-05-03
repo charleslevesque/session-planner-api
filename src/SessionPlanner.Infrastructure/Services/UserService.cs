@@ -8,29 +8,19 @@ using SessionPlanner.Infrastructure.Data;
 
 namespace SessionPlanner.Infrastructure.Services;
 
-public class UserService : IUserService
+public class UserService(AppDbContext db, UserManager<AppUser> userManager) : IUserService
 {
-    private readonly AppDbContext _db;
-    private readonly UserManager<AppUser> _userManager;
-
-    public UserService(AppDbContext db, UserManager<AppUser> userManager)
-    {
-        _db = db;
-        _userManager = userManager;
-    }
+    private readonly AppDbContext _db = db;
+    private readonly UserManager<AppUser> _userManager = userManager;
 
     private IQueryable<AppUser> ActiveUsersWithRoles()
-    {
-        return _userManager.Users
-            .Include(u => u.UserRoles)
-                .ThenInclude(ur => ur.Role)
-            .Where(u => u.IsActive);
-    }
+    => _userManager.Users
+        .Include(u => u.UserRoles)
+            .ThenInclude(ur => ur.Role)
+        .Where(u => u.IsActive);
 
     public async Task<List<AppUser>> GetAllActiveWithRolesAsync()
-    {
-        return await ActiveUsersWithRoles().ToListAsync();
-    }
+    => await ActiveUsersWithRoles().ToListAsync();
 
     public async Task<List<AppUser>> GetAllWithRolesAsync(bool includeInactive = false)
     {
@@ -44,18 +34,14 @@ public class UserService : IUserService
     }
 
     public async Task<AppUser?> GetByIdActiveWithRolesAsync(int id)
-    {
-        return await ActiveUsersWithRoles()
-            .FirstOrDefaultAsync(u => u.Id == id);
-    }
+    => await ActiveUsersWithRoles()
+        .FirstOrDefaultAsync(u => u.Id == id);
 
     public async Task<AppUser?> GetByIdWithRolesAsync(int id)
-    {
-        return await _userManager.Users
-            .Include(u => u.UserRoles)
-                .ThenInclude(ur => ur.Role)
-            .FirstOrDefaultAsync(u => u.Id == id);
-    }
+    => await _userManager.Users
+        .Include(u => u.UserRoles)
+            .ThenInclude(ur => ur.Role)
+        .FirstOrDefaultAsync(u => u.Id == id);
 
     public async Task<CreateUserResult> CreateAsync(string username, string password, string? roleName)
     {
@@ -118,32 +104,27 @@ public class UserService : IUserService
     }
 
     private static string ResolveRoleName(string? roleName)
+    => roleName?.Trim()?.ToLowerInvariant() switch
     {
-        return roleName?.Trim()?.ToLowerInvariant() switch
-        {
-            Roles.LabInstructor or "labinstructor" => Roles.LabInstructor,
-            Roles.CourseInstructor or "courseinstructor" => Roles.CourseInstructor,
-            Roles.Professor => Roles.Professor,
-            _ => Roles.Professor,
-        };
-    }
+        Roles.LabInstructor or "labinstructor" => Roles.LabInstructor,
+        Roles.CourseInstructor or "courseinstructor" => Roles.CourseInstructor,
+        Roles.Professor => Roles.Professor,
+        _ => Roles.Professor,
+    };
 
     private static PersonnelFunction MapRoleToPersonnelFunction(string roleName)
+    => roleName switch
     {
-        return roleName switch
-        {
-            Roles.Professor => PersonnelFunction.Professor,
-            Roles.LabInstructor => PersonnelFunction.LabInstructor,
-            Roles.CourseInstructor => PersonnelFunction.CourseInstructor,
-            _ => PersonnelFunction.Professor,
-        };
-    }
+        Roles.Professor => PersonnelFunction.Professor,
+        Roles.LabInstructor => PersonnelFunction.LabInstructor,
+        Roles.CourseInstructor => PersonnelFunction.CourseInstructor,
+        _ => PersonnelFunction.Professor,
+    };
 
     private static string ToTitle(string value)
-    {
-        if (string.IsNullOrWhiteSpace(value)) return "User";
-        return char.ToUpperInvariant(value[0]) + value[1..].ToLowerInvariant();
-    }
+    => string.IsNullOrWhiteSpace(value)
+        ? "User"
+        : char.ToUpperInvariant(value[0]) + value[1..].ToLowerInvariant();
 
     public async Task<UpdateUserRoleStatus> UpdateRoleAsync(int id, string roleName)
     {
@@ -301,11 +282,9 @@ public class UserService : IUserService
     }
 
     public async Task<AppUser?> GetByIdWithFullProfileAsync(int id)
-    {
-        return await _userManager.Users
-            .Include(u => u.UserRoles)
-                .ThenInclude(ur => ur.Role)
-            .Include(u => u.Personnel)
-            .FirstOrDefaultAsync(u => u.Id == id);
-    }
+    => await _userManager.Users
+        .Include(u => u.UserRoles)
+            .ThenInclude(ur => ur.Role)
+        .Include(u => u.Personnel)
+        .FirstOrDefaultAsync(u => u.Id == id);
 }
