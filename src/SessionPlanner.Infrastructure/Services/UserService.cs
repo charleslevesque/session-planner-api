@@ -157,6 +157,7 @@ public class UserService(AppDbContext db, UserManager<AppUser> userManager, Role
         if (user is null || !user.IsActive)
             return UpdateUserPasswordStatus.UserNotFound;
 
+        // TODO: Handle potential errors from RemovePasswordAsync and AddPasswordAsync (not implemented here for simplicity)
         await _userManager.RemovePasswordAsync(user);
         await _userManager.AddPasswordAsync(user, newPassword);
 
