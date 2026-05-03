@@ -17,6 +17,13 @@ builder.Services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredServ
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddTransient<AuthenticatedHttpHandler>();
 
+// Plain client used by AuthService — no auth handler to avoid circular DI.
+builder.Services.AddHttpClient("AuthClient", client =>
+{
+    client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress);
+});
+
+// Authenticated client used by ApiClient — adds Bearer token via handler.
 builder.Services.AddHttpClient("API", client =>
 {
     client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress);

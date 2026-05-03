@@ -26,7 +26,7 @@ public class AuthService : IAuthService
     public AuthService(ISessionStorageService storage, IHttpClientFactory factory)
     {
         _storage = storage;
-        _http = factory.CreateClient("API");
+        _http = factory.CreateClient("AuthClient");
     }
 
     public async Task<string?> GetTokenAsync() =>
