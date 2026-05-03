@@ -35,7 +35,10 @@ public static class InitializeData
 
             if (!await roleManager.RoleExistsAsync(roleName))
             {
-                await roleManager.CreateAsync(new AppRole(roleName));
+                var createResult = await roleManager.CreateAsync(new AppRole(roleName));
+                if (!createResult.Succeeded)
+                    throw new InvalidOperationException(
+                        $"Failed to create role '{roleName}': {DescribeErrors(createResult)}");
             }
 
             var role = await roleManager.FindByNameAsync(roleName)
@@ -50,17 +53,26 @@ public static class InitializeData
             // Add missing permissions
             foreach (var perm in permissions.Where(p => !existingPerms.Contains(p)))
             {
-                await roleManager.AddClaimAsync(role, new Claim("perm", perm));
+                var addResult = await roleManager.AddClaimAsync(role, new Claim("perm", perm));
+                if (!addResult.Succeeded)
+                    throw new InvalidOperationException(
+                        $"Failed to add permission '{perm}' to role '{roleName}': {DescribeErrors(addResult)}");
             }
 
             // Remove stale permissions
             var targetPerms = permissions.ToHashSet(StringComparer.OrdinalIgnoreCase);
             foreach (var claim in existingClaims.Where(c => c.Type == "perm" && !targetPerms.Contains(c.Value)))
             {
-                await roleManager.RemoveClaimAsync(role, claim);
+                var removeResult = await roleManager.RemoveClaimAsync(role, claim);
+                if (!removeResult.Succeeded)
+                    throw new InvalidOperationException(
+                        $"Failed to remove stale permission '{claim.Value}' from role '{roleName}': {DescribeErrors(removeResult)}");
             }
         }
     }
+
+    private static string DescribeErrors(IdentityResult result) =>
+        string.Join(", ", result.Errors.Select(e => e.Description));
 
     private static async Task SeedAdminUserAsync(UserManager<AppUser> userManager)
     {
