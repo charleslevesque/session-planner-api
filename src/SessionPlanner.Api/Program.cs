@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using SessionPlanner.Core.Auth;
+using SessionPlanner.Core.Entities;
 using SessionPlanner.Core.Enums;
 using SessionPlanner.Core.Interfaces;
 using SessionPlanner.Infrastructure.Auth;
@@ -79,8 +80,17 @@ if (!string.IsNullOrWhiteSpace(sqliteConnectionBuilder.DataSource)
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(defaultConnectionString));
 
-builder.Services.AddScoped<IPasswordService, PasswordService>();
-builder.Services.AddScoped<IJWTTokenService, JWTTokenService>();
+builder.Services.AddIdentityCore<AppUser>(options =>
+    {
+        options.Password.RequiredLength = 8;
+        options.Password.RequireDigit = true;
+        options.Password.RequireUppercase = true;
+        options.Password.RequireLowercase = true;
+        options.Password.RequireNonAlphanumeric = false;
+    })
+    .AddRoles<AppRole>()
+    .AddEntityFrameworkStores<AppDbContext>();
+
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ISessionService, SessionService>();
 builder.Services.AddScoped<ISoftwareService, SoftwareService>();

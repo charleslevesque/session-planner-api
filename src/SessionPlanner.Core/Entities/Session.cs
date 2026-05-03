@@ -29,7 +29,7 @@ public class Session
     public DateTime? ArchivedAt { get; set; }
 
     public int? CreatedByUserId { get; set; }
-    public User? CreatedByUser { get; set; }
+    public AppUser? CreatedByUser { get; set; }
 
     public ICollection<TeachingNeed> TeachingNeeds { get; set; } = new List<TeachingNeed>();
     public ICollection<SessionCourse> SessionCourses { get; set; } = new List<SessionCourse>();

@@ -81,7 +81,7 @@ public class TeachingNeedTestAuthHandler : AuthenticationHandler<AuthenticationS
 }
 
 /// <summary>
-/// Factory that seeds a Personnel{Id=1} and User{Id=1, PersonnelId=1} so that
+/// Factory that seeds a Personnel{Id=1} and AppUser{Id=1, PersonnelId=1} so that
 /// the TeachingNeedTestAuthHandler (NameIdentifier="1") passes ownership checks.
 /// </summary>
 public class TeachingNeedWebApplicationFactory : WebApplicationFactory<Program>
@@ -135,11 +135,12 @@ public class TeachingNeedWebApplicationFactory : WebApplicationFactory<Program>
                 Function = PersonnelFunction.Professor,
                 Email = "jean.dupont@test.com"
             });
-            db.Users.Add(new User
+            db.Users.Add(new AppUser
             {
                 Id = 1,
-                Username = "testadmin",
-                PasswordHash = "not-used-in-tests",
+                UserName = "testadmin",
+                NormalizedUserName = "TESTADMIN",
+                SecurityStamp = Guid.NewGuid().ToString(),
                 IsActive = true,
                 PersonnelId = SeededPersonnelId
             });
@@ -157,3 +158,4 @@ public class TeachingNeedWebApplicationFactory : WebApplicationFactory<Program>
         base.Dispose(disposing);
     }
 }
+

@@ -8,7 +8,7 @@ public enum CreateUserStatus
     UsernameAlreadyExists
 }
 
-public record CreateUserResult(CreateUserStatus Status, User? User);
+public record CreateUserResult(CreateUserStatus Status, AppUser? User);
 
 public enum UpdateUserRoleStatus
 {
@@ -29,7 +29,8 @@ public enum UpdateCurrentUserEmailStatus
     UserNotFound,
     InvalidCurrentPassword,
     EmailAlreadyExists,
-    ForbiddenForNonAdmin
+    ForbiddenForNonAdmin,
+    FailedToUpdateEmail,
 }
 
 public enum DeactivateUserStatus
@@ -48,10 +49,10 @@ public enum ReactivateUserStatus
 
 public interface IUserService
 {
-    Task<List<User>> GetAllActiveWithRolesAsync();
-    Task<List<User>> GetAllWithRolesAsync(bool includeInactive = false);
-    Task<User?> GetByIdActiveWithRolesAsync(int id);
-    Task<User?> GetByIdWithRolesAsync(int id);
+    Task<List<AppUser>> GetAllActiveWithRolesAsync();
+    Task<List<AppUser>> GetAllWithRolesAsync(bool includeInactive = false);
+    Task<AppUser?> GetByIdActiveWithRolesAsync(int id);
+    Task<AppUser?> GetByIdWithRolesAsync(int id);
     Task<CreateUserResult> CreateAsync(string username, string password, string? roleName);
     Task<UpdateUserRoleStatus> UpdateRoleAsync(int id, string roleName);
     Task<UpdateUserPasswordStatus> UpdatePasswordAsync(int id, string newPassword);
@@ -59,5 +60,5 @@ public interface IUserService
     Task<bool> DeleteAsync(int id);
     Task<DeactivateUserStatus> DeactivateAsync(int id);
     Task<ReactivateUserStatus> ReactivateAsync(int id);
-    Task<User?> GetByIdWithFullProfileAsync(int id);
+    Task<AppUser?> GetByIdWithFullProfileAsync(int id);
 }

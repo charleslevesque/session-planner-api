@@ -1,12 +1,13 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using SessionPlanner.Core.Auth;
 using SessionPlanner.Core.Entities;
-using SessionPlanner.Core.Entities.Joins;
 using SessionPlanner.Core.Enums;
-using SessionPlanner.Infrastructure.Auth;
-using Microsoft.Extensions.DependencyInjection;
+using SessionPlanner.Infrastructure.Data;
 
-namespace SessionPlanner.Infrastructure.Data;
+namespace SessionPlanner.Infrastructure.Auth;
 
 public static class InitializeData
 {
@@ -14,15 +15,16 @@ public static class InitializeData
     {
         using var scope = services.CreateScope();
 
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
+        var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<AppRole>>();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var passwordService = scope.ServiceProvider.GetRequiredService<IPasswordService>();
-        
-        await SeedRolesAsync(db);
-        await SeedAdminUserAsync(db, passwordService);
-        await BackfillUserPersonnelLinksAsync(db);
+
+        await SeedRolesAsync(roleManager);
+        await SeedAdminUserAsync(userManager);
+        await BackfillUserPersonnelLinksAsync(userManager, db);
     }
 
-    private static async Task SeedRolesAsync(AppDbContext db)
+    private static async Task SeedRolesAsync(RoleManager<AppRole> roleManager)
     {
         var definitions = RolePermissionDefinitions.Get();
 
@@ -31,105 +33,81 @@ public static class InitializeData
             var roleName = roleDefinition.Key;
             var permissions = roleDefinition.Value.Distinct().ToList();
 
-            var role = await db.Roles
-                .Include(r => r.RolePermissions)
-                .FirstOrDefaultAsync(r => r.Name == roleName);
-
-            if (role is null)
+            if (!await roleManager.RoleExistsAsync(roleName))
             {
-                role = new Role
-                {
-                    Name = roleName
-                };
-
-                db.Roles.Add(role);
-                await db.SaveChangesAsync();
+                var createResult = await roleManager.CreateAsync(new AppRole(roleName));
+                if (!createResult.Succeeded)
+                    throw new InvalidOperationException(
+                        $"Failed to create role '{roleName}': {DescribeErrors(createResult)}");
             }
 
-            var existingPermissions = role.RolePermissions
-                .Select(rp => rp.Permission)
+            var role = await roleManager.FindByNameAsync(roleName)
+                ?? throw new InvalidOperationException($"Role '{roleName}' could not be found after creation.");
+
+            var existingClaims = await roleManager.GetClaimsAsync(role);
+            var existingPerms = existingClaims
+                .Where(c => c.Type == "perm")
+                .Select(c => c.Value)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-            var missingPermissions = permissions
-                .Where(p => !existingPermissions.Contains(p))
-                .ToList();
-
-            foreach (var permission in missingPermissions)
+            // Add missing permissions
+            foreach (var perm in permissions.Where(p => !existingPerms.Contains(p)))
             {
-                role.RolePermissions.Add(new RolePermission
-                {
-                    RoleId = role.Id,
-                    Permission = permission
-                });
+                var addResult = await roleManager.AddClaimAsync(role, new Claim("perm", perm));
+                if (!addResult.Succeeded)
+                    throw new InvalidOperationException(
+                        $"Failed to add permission '{perm}' to role '{roleName}': {DescribeErrors(addResult)}");
             }
 
-            await db.SaveChangesAsync();
+            // Remove stale permissions
+            var targetPerms = permissions.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (var claim in existingClaims.Where(c => c.Type == "perm" && !targetPerms.Contains(c.Value)))
+            {
+                var removeResult = await roleManager.RemoveClaimAsync(role, claim);
+                if (!removeResult.Succeeded)
+                    throw new InvalidOperationException(
+                        $"Failed to remove stale permission '{claim.Value}' from role '{roleName}': {DescribeErrors(removeResult)}");
+            }
         }
     }
 
-    private static async Task SeedAdminUserAsync(AppDbContext db, IPasswordService passwordService)
+    private static string DescribeErrors(IdentityResult result) =>
+        string.Join(", ", result.Errors.Select(e => e.Description));
+
+    private static async Task SeedAdminUserAsync(UserManager<AppUser> userManager)
     {
         const string adminUsername = "admin@local.dev";
         const string adminPassword = "Password123!";
 
-        var adminRole = await db.Roles
-            .SingleOrDefaultAsync(r => r.Name == Roles.Admin);
+        var admins = await userManager.GetUsersInRoleAsync(Roles.Admin);
 
-        if (adminRole is null)
-            throw new InvalidOperationException("Admin role was not found during seeding.");
+        if (admins.Count != 0)
+            return;
 
-        var existingAdminUserId = await db.UserRoles
-            .Where(ur => ur.RoleId == adminRole.Id)
-            .Select(ur => (int?)ur.UserId)
-            .FirstOrDefaultAsync();
-
-        User? adminUser = null;
-
-        if (existingAdminUserId.HasValue)
-        {
-            adminUser = await db.Users
-                .Include(u => u.UserRoles)
-                .SingleOrDefaultAsync(u => u.Id == existingAdminUserId.Value);
-        }
-
-        adminUser ??= await db.Users
-            .Include(u => u.UserRoles)
-            .SingleOrDefaultAsync(u => u.Username == adminUsername);
+        var adminUser = await userManager.FindByNameAsync(adminUsername);
 
         if (adminUser is null)
         {
-            adminUser = new User
+            adminUser = new AppUser
             {
-                Username = adminUsername,
-                IsActive = true
+                UserName = adminUsername,
+                IsActive = true,
             };
 
-            adminUser.PasswordHash = passwordService.HashPassword(adminUser, adminPassword);
-
-            db.Users.Add(adminUser);
-            await db.SaveChangesAsync();
-        }
-
-        var alreadyLinked = await db.UserRoles.AnyAsync(ur =>
-            ur.UserId == adminUser.Id && ur.RoleId == adminRole.Id);
-
-        if (!alreadyLinked)
-        {
-            db.UserRoles.Add(new UserRole
+            var result = await userManager.CreateAsync(adminUser, adminPassword);
+            if (!result.Succeeded)
             {
-                UserId = adminUser.Id,
-                RoleId = adminRole.Id
-            });
-
-            await db.SaveChangesAsync();
+                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                throw new InvalidOperationException($"Failed to create admin user: {errors}");
+            }
         }
+
+        await userManager.AddToRoleAsync(adminUser, Roles.Admin);
     }
 
-    private static async Task BackfillUserPersonnelLinksAsync(AppDbContext db)
+    private static async Task BackfillUserPersonnelLinksAsync(UserManager<AppUser> userManager, AppDbContext db)
     {
-        var usersWithoutPersonnel = await db.Users
-            .Include(u => u.UserRoles)
-                .ThenInclude(ur => ur.Role)
+        var usersWithoutPersonnel = await userManager.Users
             .Where(u => u.IsActive && u.PersonnelId == null)
             .ToListAsync();
 
@@ -138,7 +116,7 @@ public static class InitializeData
 
         foreach (var user in usersWithoutPersonnel)
         {
-            var normalizedEmail = NormalizeEmail(user.Username, user.Id);
+            var normalizedEmail = NormalizeEmail(user.UserName, user.Id);
 
             var personnel = await db.Personnel
                 .FirstOrDefaultAsync(p => p.Email == normalizedEmail);
@@ -149,12 +127,13 @@ public static class InitializeData
                 var nameParts = localPart
                     .Split(new[] { '.', '_', '-', ' ' }, StringSplitOptions.RemoveEmptyEntries);
 
+                var roleNames = await userManager.GetRolesAsync(user);
                 personnel = new Personnel
                 {
                     FirstName = nameParts.Length > 0 ? ToTitle(nameParts[0]) : "User",
                     LastName = nameParts.Length > 1 ? ToTitle(nameParts[1]) : "Account",
                     Email = normalizedEmail,
-                    Function = MapRoleToPersonnelFunction(user.UserRoles.Select(ur => ur.Role.Name).FirstOrDefault()),
+                    Function = MapRoleToPersonnelFunction(roleNames.FirstOrDefault()),
                 };
 
                 db.Personnel.Add(personnel);
@@ -162,23 +141,20 @@ public static class InitializeData
             }
 
             user.PersonnelId = personnel.Id;
+            await userManager.UpdateAsync(user);
         }
-
-        await db.SaveChangesAsync();
     }
 
     private static PersonnelFunction MapRoleToPersonnelFunction(string? roleName)
+    => roleName switch
     {
-        return roleName switch
-        {
-            Roles.Professor => PersonnelFunction.Professor,
-            Roles.LabInstructor => PersonnelFunction.LabInstructor,
-            Roles.CourseInstructor => PersonnelFunction.CourseInstructor,
-            _ => PersonnelFunction.Professor,
-        };
-    }
+        Roles.Professor => PersonnelFunction.Professor,
+        Roles.LabInstructor => PersonnelFunction.LabInstructor,
+        Roles.CourseInstructor => PersonnelFunction.CourseInstructor,
+        _ => PersonnelFunction.Professor,
+    };
 
-    private static string NormalizeEmail(string username, int userId)
+    private static string NormalizeEmail(string? username, int userId)
     {
         var value = (username ?? string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(value))

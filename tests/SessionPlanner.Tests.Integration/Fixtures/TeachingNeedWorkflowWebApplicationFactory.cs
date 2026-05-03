@@ -138,19 +138,21 @@ public class TeachingNeedWorkflowWebApplicationFactory : WebApplicationFactory<P
                 Email = "workflow.admin@test.com"
             });
 
-            db.Users.Add(new User
+            db.Users.Add(new AppUser
             {
                 Id = 1,
-                Username = "workflow-teacher",
-                PasswordHash = "not-used-in-tests",
+                UserName = "workflow-teacher",
+                NormalizedUserName = "WORKFLOW-TEACHER",
+                SecurityStamp = Guid.NewGuid().ToString(),
                 IsActive = true,
                 PersonnelId = TeacherPersonnelId
             });
-            db.Users.Add(new User
+            db.Users.Add(new AppUser
             {
                 Id = 2,
-                Username = "workflow-admin",
-                PasswordHash = "not-used-in-tests",
+                UserName = "workflow-admin",
+                NormalizedUserName = "WORKFLOW-ADMIN",
+                SecurityStamp = Guid.NewGuid().ToString(),
                 IsActive = true,
                 PersonnelId = AdminPersonnelId
             });

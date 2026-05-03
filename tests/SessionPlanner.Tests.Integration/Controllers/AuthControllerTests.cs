@@ -11,72 +11,29 @@ public class AuthControllerTests : IClassFixture<AuthWebApplicationFactory>
 {
     private readonly HttpClient _client;
     private const string BaseUrl = "/api/v1/Auth";
+    private const string AdminEmail = "admin@local.dev";
+    private const string AdminPassword = "Password123!";
 
     public AuthControllerTests(AuthWebApplicationFactory factory)
     {
         _client = factory.CreateClient();
     }
 
-    #region Register Tests
-
-    [Fact]
-    public async Task Register_WithValidData_ReturnsCreated()
+    private async Task<AuthResponse> LoginAsAdminAsync()
     {
-        var request = new RegisterRequest("newuser@test.com", "Password123", "Jean", "Tremblay");
-
-        var response = await _client.PostAsJsonAsync($"{BaseUrl}/register", request);
-
-        response.StatusCode.Should().Be(HttpStatusCode.Created);
-        var body = await response.Content.ReadFromJsonAsync<AuthResponse>();
-        body.Should().NotBeNull();
-        body!.Token.Should().NotBeNullOrEmpty();
-        body.RefreshToken.Should().NotBeNullOrEmpty();
+        var response = await _client.PostAsJsonAsync($"{BaseUrl}/login",
+            new LoginRequest(AdminEmail, AdminPassword));
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        return (await response.Content.ReadFromJsonAsync<AuthResponse>())!;
     }
-
-    [Fact]
-    public async Task Register_DuplicateEmail_ReturnsBadRequest()
-    {
-        var request = new RegisterRequest("duplicate@test.com", "Password123", "A", "B");
-        await _client.PostAsJsonAsync($"{BaseUrl}/register", request);
-
-        var response = await _client.PostAsJsonAsync($"{BaseUrl}/register", request);
-
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-    }
-
-    [Fact]
-    public async Task Register_InvalidEmail_ReturnsBadRequest()
-    {
-        var request = new RegisterRequest("not-an-email", "Password123", "A", "B");
-
-        var response = await _client.PostAsJsonAsync($"{BaseUrl}/register", request);
-
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-    }
-
-    [Fact]
-    public async Task Register_ShortPassword_ReturnsBadRequest()
-    {
-        var request = new RegisterRequest("short@test.com", "abc", "A", "B");
-
-        var response = await _client.PostAsJsonAsync($"{BaseUrl}/register", request);
-
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-    }
-
-    #endregion
 
     #region Login Tests
 
     [Fact]
     public async Task Login_WithValidCredentials_ReturnsOk()
     {
-        var email = "login@test.com";
-        await _client.PostAsJsonAsync($"{BaseUrl}/register",
-            new RegisterRequest(email, "Password123", "A", "B"));
-
         var response = await _client.PostAsJsonAsync($"{BaseUrl}/login",
-            new LoginRequest(email, "Password123"));
+            new LoginRequest(AdminEmail, AdminPassword));
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var body = await response.Content.ReadFromJsonAsync<AuthResponse>();
@@ -87,12 +44,8 @@ public class AuthControllerTests : IClassFixture<AuthWebApplicationFactory>
     [Fact]
     public async Task Login_WithWrongPassword_ReturnsUnauthorized()
     {
-        var email = "wrongpw@test.com";
-        await _client.PostAsJsonAsync($"{BaseUrl}/register",
-            new RegisterRequest(email, "Password123", "A", "B"));
-
         var response = await _client.PostAsJsonAsync($"{BaseUrl}/login",
-            new LoginRequest(email, "WrongPassword"));
+            new LoginRequest(AdminEmail, "WrongPassword1!"));
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -101,7 +54,7 @@ public class AuthControllerTests : IClassFixture<AuthWebApplicationFactory>
     public async Task Login_NonExistentUser_ReturnsUnauthorized()
     {
         var response = await _client.PostAsJsonAsync($"{BaseUrl}/login",
-            new LoginRequest("noone@test.com", "Password123"));
+            new LoginRequest("noone@test.com", "Password123!"));
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -113,22 +66,15 @@ public class AuthControllerTests : IClassFixture<AuthWebApplicationFactory>
     [Fact]
     public async Task Me_WithValidToken_ReturnsProfile()
     {
-        var email = "me@test.com";
-        await _client.PostAsJsonAsync($"{BaseUrl}/register",
-            new RegisterRequest(email, "Password123", "Marie", "Dupont"));
+        var tokens = await LoginAsAdminAsync();
 
-        var loginResponse = await _client.PostAsJsonAsync($"{BaseUrl}/login",
-            new LoginRequest(email, "Password123"));
-        var tokens = await loginResponse.Content.ReadFromJsonAsync<AuthResponse>();
-
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens!.Token);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens.Token);
         var response = await _client.GetAsync($"{BaseUrl}/me");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var me = await response.Content.ReadFromJsonAsync<MeResponse>();
-        me!.Email.Should().Be(email);
-        me.Name.Should().Be("Marie Dupont");
-        me.Role.Should().Be("professor");
+        me!.Email.Should().Be(AdminEmail);
+        me.Role.Should().Be("admin");
     }
 
     [Fact]
@@ -149,13 +95,10 @@ public class AuthControllerTests : IClassFixture<AuthWebApplicationFactory>
     [Fact]
     public async Task Refresh_WithValidToken_ReturnsNewTokens()
     {
-        var email = "refresh@test.com";
-        var registerResponse = await _client.PostAsJsonAsync($"{BaseUrl}/register",
-            new RegisterRequest(email, "Password123", "A", "B"));
-        var tokens = await registerResponse.Content.ReadFromJsonAsync<AuthResponse>();
+        var tokens = await LoginAsAdminAsync();
 
         var response = await _client.PostAsJsonAsync($"{BaseUrl}/refresh",
-            new { refreshToken = tokens!.RefreshToken });
+            new { refreshToken = tokens.RefreshToken });
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var newTokens = await response.Content.ReadFromJsonAsync<AuthResponse>();
@@ -170,12 +113,9 @@ public class AuthControllerTests : IClassFixture<AuthWebApplicationFactory>
     [Fact]
     public async Task Logout_WithValidToken_ReturnsNoContent()
     {
-        var email = "logout@test.com";
-        var registerResponse = await _client.PostAsJsonAsync($"{BaseUrl}/register",
-            new RegisterRequest(email, "Password123", "A", "B"));
-        var tokens = await registerResponse.Content.ReadFromJsonAsync<AuthResponse>();
+        var tokens = await LoginAsAdminAsync();
 
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens!.Token);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens.Token);
         var response = await _client.PostAsJsonAsync($"{BaseUrl}/logout",
             new { refreshToken = tokens.RefreshToken });
 
@@ -184,3 +124,4 @@ public class AuthControllerTests : IClassFixture<AuthWebApplicationFactory>
 
     #endregion
 }
+

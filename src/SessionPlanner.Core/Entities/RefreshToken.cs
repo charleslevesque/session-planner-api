@@ -12,7 +12,7 @@ public class RefreshToken
     public string Token { get; set; } = string.Empty;
 
     public int UserId { get; set; }
-    public User User { get; set; } = null!;
+    public AppUser User { get; set; } = null!;
 
     public DateTime CreatedAtUtc { get; set; }
     public DateTime ExpiresAtUtc { get; set; }
