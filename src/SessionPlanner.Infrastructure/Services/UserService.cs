@@ -8,10 +8,11 @@ using SessionPlanner.Infrastructure.Data;
 
 namespace SessionPlanner.Infrastructure.Services;
 
-public class UserService(AppDbContext db, UserManager<AppUser> userManager) : IUserService
+public class UserService(AppDbContext db, UserManager<AppUser> userManager, RoleManager<IdentityRole> roleManager) : IUserService
 {
     private readonly AppDbContext _db = db;
     private readonly UserManager<AppUser> _userManager = userManager;
+    private readonly RoleManager<IdentityRole> _roleManager = roleManager;
 
     private IQueryable<AppUser> ActiveUsersWithRoles()
     => _userManager.Users
@@ -133,13 +134,18 @@ public class UserService(AppDbContext db, UserManager<AppUser> userManager) : IU
         if (user is null)
             return UpdateUserRoleStatus.UserNotFound;
 
-        var roleExists = await _db.Roles.AnyAsync(r => r.Name == roleName);
-        if (!roleExists)
+        if (!await _roleManager.RoleExistsAsync(roleName))
             return UpdateUserRoleStatus.RoleNotFound;
 
+        // TODO: Improve this method to avoid unnecessary role removals/additions when the user already has the target role (not implemented here for simplicity)
         var currentRoles = await _userManager.GetRolesAsync(user);
-        await _userManager.RemoveFromRolesAsync(user, currentRoles);
-        await _userManager.AddToRoleAsync(user, roleName);
+        var removeRes = await _userManager.RemoveFromRolesAsync(user, currentRoles);
+        if (!removeRes.Succeeded)
+            return UpdateUserRoleStatus.RoleNotFound;
+
+        var addRes = await _userManager.AddToRoleAsync(user, roleName);
+        if (!addRes.Succeeded)
+            return UpdateUserRoleStatus.RoleNotFound;
 
         return UpdateUserRoleStatus.Success;
     }
