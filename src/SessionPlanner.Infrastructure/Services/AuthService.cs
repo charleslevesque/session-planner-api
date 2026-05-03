@@ -13,24 +13,16 @@ using SessionPlanner.Infrastructure.Data;
 
 namespace SessionPlanner.Infrastructure.Services;
 
-public class AuthService : IAuthService
+public class AuthService(
+    AppDbContext db,
+    UserManager<AppUser> userManager,
+    RoleManager<AppRole> roleManager,
+    IConfiguration configuration) : IAuthService
 {
-    private readonly AppDbContext _db;
-    private readonly UserManager<AppUser> _userManager;
-    private readonly RoleManager<AppRole> _roleManager;
-    private readonly IConfiguration _configuration;
-
-    public AuthService(
-        AppDbContext db,
-        UserManager<AppUser> userManager,
-        RoleManager<AppRole> roleManager,
-        IConfiguration configuration)
-    {
-        _db = db;
-        _userManager = userManager;
-        _roleManager = roleManager;
-        _configuration = configuration;
-    }
+    private readonly AppDbContext _db = db;
+    private readonly UserManager<AppUser> _userManager = userManager;
+    private readonly RoleManager<AppRole> _roleManager = roleManager;
+    private readonly IConfiguration _configuration = configuration;
 
     public async Task<LoginResult> LoginAsync(string username, string password)
     {
@@ -49,12 +41,10 @@ public class AuthService : IAuthService
     }
 
     public async Task<AppUser?> GetCurrentUserAsync(int userId)
-    {
-        return await _userManager.Users
-            .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
-            .Include(u => u.Personnel)
-            .FirstOrDefaultAsync(u => u.Id == userId && u.IsActive);
-    }
+    => await _userManager.Users
+        .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
+        .Include(u => u.Personnel)
+        .FirstOrDefaultAsync(u => u.Id == userId && u.IsActive);
 
     public async Task<LoginTokenResponse?> RefreshTokenAsync(string refreshToken)
     {
@@ -117,7 +107,6 @@ public class AuthService : IAuthService
             throw new InvalidOperationException("Jwt:ExpiryMinutes must be a valid integer.");
 
         var expiresAt = DateTime.UtcNow.AddMinutes(expiryMinutes);
-
         var roleNames = await _userManager.GetRolesAsync(user);
 
         var permissions = new List<string>();
@@ -133,13 +122,12 @@ public class AuthService : IAuthService
             }
         }
 
-        var jwtClaims = new List<Claim>
-        {
+        List<Claim> jwtClaims = [
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new(JwtRegisteredClaimNames.UniqueName, user.UserName ?? string.Empty),
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new(ClaimTypes.Name, user.UserName ?? string.Empty)
-        };
+        ];
 
         foreach (var role in roleNames.Distinct())
             jwtClaims.Add(new Claim(ClaimTypes.Role, role));
