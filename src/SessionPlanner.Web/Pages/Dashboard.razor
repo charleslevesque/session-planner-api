@@ -2,6 +2,7 @@
 @page "/"
 @attribute [Authorize]
 @inject IApiClient Api
+@inject IAuthService Auth
 
 <PageTitle>Tableau de bord</PageTitle>
 <h1>Tableau de bord</h1>
@@ -93,7 +94,10 @@ else
         {
             var sessions = await Api.GetAsync<List<SessionResponse>>("/sessions");
             _sessions = sessions ?? new();
-            try { _myNeeds = await Api.GetAsync<List<MyNeedResponse>>("/needs/mine") ?? new(); } catch { }
+            var user = await Auth.GetStoredUserAsync();
+            var isTeachingRole = user?.Role is "professor" or "course_instructor";
+            if (isTeachingRole)
+                try { _myNeeds = await Api.GetAsync<List<MyNeedResponse>>("/needs/mine") ?? new(); } catch { }
         }
         catch (ApiException ex) { _error = ex.Message; }
         finally { _loading = false; }
