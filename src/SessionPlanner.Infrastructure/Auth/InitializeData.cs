@@ -69,26 +69,28 @@ public static class InitializeData
 
         var admins = await userManager.GetUsersInRoleAsync(Roles.Admin);
 
-        if (admins.Count == 0)
+        if (admins.Count != 0)
+            return;
+
+        var adminUser = await userManager.FindByNameAsync(adminUsername);
+
+        if (adminUser is null)
         {
-            var adminUser = await userManager.FindByNameAsync(adminUsername);
-
-            if (adminUser is null)
+            adminUser = new AppUser
             {
-                adminUser = new AppUser
-                {
-                    UserName = adminUsername,
-                    IsActive = true,
-                };
+                UserName = adminUsername,
+                IsActive = true,
+            };
 
-                var result = await userManager.CreateAsync(adminUser, adminPassword);
-                if (!result.Succeeded)
-                    throw new InvalidOperationException(
-                        $"Failed to create admin user: {string.Join(", ", result.Errors.Select(e => e.Description))}");
+            var result = await userManager.CreateAsync(adminUser, adminPassword);
+            if (!result.Succeeded)
+            {
+                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                throw new InvalidOperationException($"Failed to create admin user: {errors}");
             }
-
-            await userManager.AddToRoleAsync(adminUser, Roles.Admin);
         }
+
+        await userManager.AddToRoleAsync(adminUser, Roles.Admin);
     }
 
     private static async Task BackfillUserPersonnelLinksAsync(UserManager<AppUser> userManager, AppDbContext db)
@@ -132,15 +134,13 @@ public static class InitializeData
     }
 
     private static PersonnelFunction MapRoleToPersonnelFunction(string? roleName)
+    => roleName switch
     {
-        return roleName switch
-        {
-            Roles.Professor => PersonnelFunction.Professor,
-            Roles.LabInstructor => PersonnelFunction.LabInstructor,
-            Roles.CourseInstructor => PersonnelFunction.CourseInstructor,
-            _ => PersonnelFunction.Professor,
-        };
-    }
+        Roles.Professor => PersonnelFunction.Professor,
+        Roles.LabInstructor => PersonnelFunction.LabInstructor,
+        Roles.CourseInstructor => PersonnelFunction.CourseInstructor,
+        _ => PersonnelFunction.Professor,
+    };
 
     private static string NormalizeEmail(string? username, int userId)
     {
