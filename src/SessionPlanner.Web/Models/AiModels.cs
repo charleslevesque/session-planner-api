@@ -12,7 +12,7 @@ public record AiSuggestedItemResponse(
     string? Os,
     string? InstallCommand,
     string? Notes,
-    string Reason);
+    string? Reason);
 
 public record AiAnalyzeRequest(int SessionId, int NeedId);
 

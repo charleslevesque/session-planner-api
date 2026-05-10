@@ -27,6 +27,16 @@ else
                     <FluentCard Style="padding:1rem;background:#f4f8ff">
                         <h3>Suggestions IA</h3>
                         <FluentStack Orientation="Orientation.Vertical">
+                            <FluentSelect TOption="string" @bind-Value="_suggestItemType" Label="Type suggéré" Style="width:100%">
+                                <FluentOption TOption="string" Value="">Tous les types</FluentOption>
+                                <FluentOption TOption="string" Value="saas">SaaS</FluentOption>
+                                <FluentOption TOption="string" Value="software">Logiciel</FluentOption>
+                                <FluentOption TOption="string" Value="configuration">Configuration</FluentOption>
+                                <FluentOption TOption="string" Value="virtual_machine">Machine virtuelle</FluentOption>
+                                <FluentOption TOption="string" Value="physical_server">Serveur physique</FluentOption>
+                                <FluentOption TOption="string" Value="equipment_loan">Prêt d'équipement</FluentOption>
+                                <FluentOption TOption="string" Value="other">Autre</FluentOption>
+                            </FluentSelect>
                             <FluentButton OnClick="@SuggestItemsAsync" Loading="@_suggesting">
                                 Suggérer des articles
                             </FluentButton>
@@ -116,6 +126,7 @@ else
     private string? _aiError;
     private string? _suggestSummary;
     private List<AiSuggestedItemResponse> _suggestions = new();
+    private string _suggestItemType = "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -160,7 +171,7 @@ else
         {
             var response = await Api.PostAsync<AiSuggestRequest, AiSuggestResponse>(
                 "/ai/suggest-items",
-                new AiSuggestRequest(SessionId, CourseId, _newItem.ItemType));
+                new AiSuggestRequest(SessionId, CourseId, string.IsNullOrWhiteSpace(_suggestItemType) ? null : _suggestItemType));
 
             _suggestions = response?.Suggestions ?? new();
             _suggestSummary = response?.Summary;
