@@ -22,6 +22,45 @@ else
                 <FluentTextField @bind-Value="_model.AdditionalComments" Label="Commentaires additionnels" Style="width:100%" />
                 <FluentTextField @bind-Value="_model.Notes" Label="Notes" Style="width:100%" />
 
+                @if (_aiAvailable)
+                {
+                    <FluentCard Style="padding:1rem;background:#f4f8ff">
+                        <h3>Suggestions IA</h3>
+                        <FluentStack Orientation="Orientation.Vertical">
+                            <FluentButton OnClick="@SuggestItemsAsync" Loading="@_suggesting">
+                                Suggérer des articles
+                            </FluentButton>
+
+                            @if (!string.IsNullOrWhiteSpace(_aiError))
+                            {
+                                <FluentMessageBar Intent="MessageIntent.Error">@_aiError</FluentMessageBar>
+                            }
+
+                            @if (!string.IsNullOrWhiteSpace(_suggestSummary))
+                            {
+                                <FluentMessageBar Intent="MessageIntent.Info">@_suggestSummary</FluentMessageBar>
+                            }
+
+                            @foreach (var suggestion in _suggestions)
+                            {
+                                <FluentCard Style="padding:0.75rem">
+                                    <FluentStack Orientation="Orientation.Vertical">
+                                        <strong>@suggestion.Label</strong>
+                                        <span>Type: @suggestion.ItemType</span>
+                                        @if (!string.IsNullOrWhiteSpace(suggestion.Reason))
+                                        {
+                                            <span>Raison: @suggestion.Reason</span>
+                                        }
+                                        <FluentButton OnClick="@(() => AddSuggestedItem(suggestion))">
+                                            Ajouter cette suggestion
+                                        </FluentButton>
+                                    </FluentStack>
+                                </FluentCard>
+                            }
+                        </FluentStack>
+                    </FluentCard>
+                }
+
                 <h3>Articles</h3>
                 @foreach (var item in _items)
                 {
@@ -72,6 +111,29 @@ else
     private bool _loading = false;
     private bool _saving;
     private string? _error;
+    private bool _aiAvailable;
+    private bool _suggesting;
+    private string? _aiError;
+    private string? _suggestSummary;
+    private List<AiSuggestedItemResponse> _suggestions = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _loading = true;
+        try
+        {
+            var status = await Api.GetAsync<AiStatusResponse>("/ai/status");
+            _aiAvailable = status?.Available ?? false;
+        }
+        catch
+        {
+            _aiAvailable = false;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
 
     private void AddItem()
     {
@@ -86,6 +148,53 @@ else
     }
 
     private void RemoveItem(NewItemModel item) => _items.Remove(item);
+
+    private async Task SuggestItemsAsync()
+    {
+        _suggesting = true;
+        _aiError = null;
+        _suggestSummary = null;
+        _suggestions = new();
+
+        try
+        {
+            var response = await Api.PostAsync<AiSuggestRequest, AiSuggestResponse>(
+                "/ai/suggest-items",
+                new AiSuggestRequest(SessionId, CourseId, _newItem.ItemType));
+
+            _suggestions = response?.Suggestions ?? new();
+            _suggestSummary = response?.Summary;
+        }
+        catch (ApiException ex)
+        {
+            _aiError = ex.Message;
+        }
+        finally
+        {
+            _suggesting = false;
+        }
+    }
+
+    private void AddSuggestedItem(AiSuggestedItemResponse suggestion)
+    {
+        var description = !string.IsNullOrWhiteSpace(suggestion.SoftwareName)
+            ? suggestion.SoftwareName
+            : suggestion.Label;
+
+        var noteParts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(suggestion.Version)) noteParts.Add($"Version: {suggestion.Version}");
+        if (!string.IsNullOrWhiteSpace(suggestion.Os)) noteParts.Add($"OS: {suggestion.Os}");
+        if (!string.IsNullOrWhiteSpace(suggestion.InstallCommand)) noteParts.Add($"Installation: {suggestion.InstallCommand}");
+        if (!string.IsNullOrWhiteSpace(suggestion.Notes)) noteParts.Add(suggestion.Notes);
+        if (!string.IsNullOrWhiteSpace(suggestion.Reason)) noteParts.Add($"Raison: {suggestion.Reason}");
+
+        _items.Add(new NewItemModel
+        {
+            ItemType = suggestion.ItemType,
+            Description = description,
+            Notes = string.Join(" | ", noteParts),
+        });
+    }
 
     private void Cancel() => Nav.NavigateTo($"/sessions/{SessionId}/courses/{CourseId}");
 
