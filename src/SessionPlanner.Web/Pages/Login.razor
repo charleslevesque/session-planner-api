@@ -14,9 +14,12 @@
         <EditForm Model="@_model" OnValidSubmit="@HandleLogin">
             <DataAnnotationsValidator />
             <FluentStack Orientation="Orientation.Vertical">
-                <FluentTextField @bind-Value="_model.Email" Label="Courriel" InputMode="InputMode.Email" Style="width:100%" />
-                <FluentTextField @bind-Value="_model.Password" Label="Mot de passe" TextFieldType="TextFieldType.Password" Style="width:100%" />
-                <FluentButton Type="ButtonType.Submit" Appearance="Appearance.Accent" Style="width:100%" Loading="@_loading">
+                <FluentTextField @bind-Value="_model.Email" Label="Courriel" InputMode="InputMode.Email"
+                                 Style="width:100%" />
+                <FluentTextField @bind-Value="_model.Password" Label="Mot de passe"
+                                 TextFieldType="TextFieldType.Password" Style="width:100%" />
+                <FluentButton Type="ButtonType.Submit" Appearance="Appearance.Accent" Style="width:100%"
+                              Loading="@_loading">
                     Se connecter
                 </FluentButton>
             </FluentStack>

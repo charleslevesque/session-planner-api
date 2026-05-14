@@ -5,24 +5,34 @@
 <PageTitle>Gestion des sessions</PageTitle>
 <h1>Gestion des sessions</h1>
 
-@if (_loading) { <FluentProgressRing /> }
+@if (_loading)
+{
+    <FluentProgressRing />
+}
 else
 {
-    @if (!string.IsNullOrEmpty(_error)) { <FluentMessageBar Intent="MessageIntent.Error">@_error</FluentMessageBar> }
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <FluentMessageBar Intent="MessageIntent.Error">@_error</FluentMessageBar>
+    }
     <FluentDataGrid Items="@_sessions.AsQueryable()" TGridItem="SessionResponse">
         <PropertyColumn Property="@(s => s.Title)" Title="Titre" />
-        <TemplateColumn Title="Statut"><SessionStatusBadge Status="@context.Status" /></TemplateColumn>
+        <TemplateColumn Title="Statut">
+            <SessionStatusBadge Status="@context.Status" />
+        </TemplateColumn>
         <PropertyColumn Property="@(s => s.StartDate)" Title="Début" />
         <PropertyColumn Property="@(s => s.EndDate)" Title="Fin" />
         <TemplateColumn Title="Actions">
             <FluentStack Orientation="Orientation.Horizontal">
                 @if (context.Status == "Draft")
                 {
-                    <FluentButton OnClick="@(() => TransitionAsync(context, "open"))" Appearance="Appearance.Accent" Style="margin-right:4px">Ouvrir</FluentButton>
+                    <FluentButton OnClick="@(() => TransitionAsync(context, "open"))" Appearance="Appearance.Accent"
+                                  Style="margin-right:4px">Ouvrir</FluentButton>
                 }
                 @if (context.Status == "Open")
                 {
-                    <FluentButton OnClick="@(() => TransitionAsync(context, "close"))" Style="margin-right:4px">Fermer</FluentButton>
+                    <FluentButton OnClick="@(() => TransitionAsync(context, "close"))" Style="margin-right:4px">Fermer
+                    </FluentButton>
                 }
                 @if (context.Status == "Closed")
                 {

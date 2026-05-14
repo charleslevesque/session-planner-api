@@ -5,13 +5,21 @@
 <PageTitle>Besoins</PageTitle>
 <h1>Besoins par session</h1>
 
-@if (_loading) { <FluentProgressRing /> }
+@if (_loading)
+{
+    <FluentProgressRing />
+}
 else
 {
-    @if (!string.IsNullOrEmpty(_error)) { <FluentMessageBar Intent="MessageIntent.Error">@_error</FluentMessageBar> }
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <FluentMessageBar Intent="MessageIntent.Error">@_error</FluentMessageBar>
+    }
     <FluentDataGrid Items="@_sessions.AsQueryable()" TGridItem="SessionResponse">
         <PropertyColumn Property="@(s => s.Title)" Title="Session" />
-        <TemplateColumn Title="Statut"><SessionStatusBadge Status="@context.Status" /></TemplateColumn>
+        <TemplateColumn Title="Statut">
+            <SessionStatusBadge Status="@context.Status" />
+        </TemplateColumn>
         <PropertyColumn Property="@(s => s.StartDate)" Title="Début" />
         <TemplateColumn Title="Actions">
             <AuthorizeView Roles="admin,lab_instructor" Context="authContext">

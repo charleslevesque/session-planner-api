@@ -5,12 +5,19 @@
 <PageTitle>Cours et ressources</PageTitle>
 <h1>Cours et ressources</h1>
 
-@if (_loading) { <FluentProgressRing /> }
+@if (_loading)
+{
+    <FluentProgressRing />
+}
 else
 {
-    @if (!string.IsNullOrEmpty(_error)) { <FluentMessageBar Intent="MessageIntent.Error">@_error</FluentMessageBar> }
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <FluentMessageBar Intent="MessageIntent.Error">@_error</FluentMessageBar>
+    }
 
-    <FluentButton Appearance="Appearance.Accent" OnClick="@(() => { _showCreate = true; _hideCreate = false; })" Style="margin-bottom:1rem">
+    <FluentButton Appearance="Appearance.Accent" OnClick="@(() => { _showCreate = true; _hideCreate = false; })"
+                  Style="margin-bottom:1rem">
         Ajouter un cours
     </FluentButton>
 

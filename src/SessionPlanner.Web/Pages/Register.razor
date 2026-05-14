@@ -13,7 +13,8 @@
         }
         @if (_success)
         {
-            <FluentMessageBar Intent="MessageIntent.Success">Compte créé. <a href="/login">Se connecter</a></FluentMessageBar>
+            <FluentMessageBar Intent="MessageIntent.Success">Compte créé. <a href="/login">Se connecter</a>
+            </FluentMessageBar>
         }
         else
         {
@@ -21,14 +22,17 @@
                 <FluentStack Orientation="Orientation.Vertical">
                     <FluentTextField @bind-Value="_model.FirstName" Label="Prénom" Style="width:100%" />
                     <FluentTextField @bind-Value="_model.LastName" Label="Nom" Style="width:100%" />
-                    <FluentTextField @bind-Value="_model.Email" Label="Courriel" InputMode="InputMode.Email" Style="width:100%" />
-                    <FluentTextField @bind-Value="_model.Password" Label="Mot de passe" TextFieldType="TextFieldType.Password" Style="width:100%" />
+                    <FluentTextField @bind-Value="_model.Email" Label="Courriel" InputMode="InputMode.Email"
+                                     Style="width:100%" />
+                    <FluentTextField @bind-Value="_model.Password" Label="Mot de passe"
+                                     TextFieldType="TextFieldType.Password" Style="width:100%" />
                     <FluentSelect TOption="string" @bind-Value="_model.Role" Label="Rôle" Style="width:100%">
                         <FluentOption TOption="string" Value="professor">Professeur</FluentOption>
                         <FluentOption TOption="string" Value="course_instructor">Chargé de cours</FluentOption>
                         <FluentOption TOption="string" Value="lab_instructor">Technicien de labo</FluentOption>
                     </FluentSelect>
-                    <FluentButton Type="ButtonType.Submit" Appearance="Appearance.Accent" Style="width:100%" Loading="@_loading">
+                    <FluentButton Type="ButtonType.Submit" Appearance="Appearance.Accent" Style="width:100%"
+                                  Loading="@_loading">
                         S'inscrire
                     </FluentButton>
                 </FluentStack>

@@ -5,14 +5,24 @@
 <PageTitle>Matrice</PageTitle>
 <h1>Matrice logiciels – laboratoires</h1>
 
-@if (_loading) { <FluentProgressRing /> }
+@if (_loading)
+{
+    <FluentProgressRing />
+}
 else
 {
-    @if (!string.IsNullOrEmpty(_error)) { <FluentMessageBar Intent="MessageIntent.Error">@_error</FluentMessageBar> }
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <FluentMessageBar Intent="MessageIntent.Error">@_error</FluentMessageBar>
+    }
 
-    <FluentTextField @bind-Value="_search" Label="Rechercher" Placeholder="Nom de logiciel..." Style="margin-bottom:1rem;width:300px" @oninput="OnSearch" />
+    <FluentTextField @bind-Value="_search" Label="Rechercher" Placeholder="Nom de logiciel..."
+                     Style="margin-bottom:1rem;width:300px" @oninput="OnSearch" />
 
-    @if (_filteredSoftwares.Count == 0) { <p>Aucun logiciel.</p> }
+    @if (_filteredSoftwares.Count == 0)
+    {
+        <p>Aucun logiciel.</p>
+    }
     else
     {
         <div style="overflow-x:auto">
@@ -33,8 +43,10 @@ else
                             <td style="padding:8px;border:1px solid #ccc">@sw.Name</td>
                             @foreach (var lab in _labs)
                             {
-                                var installed = _labSoftwares.Any(ls => ls.SoftwareId == sw.Id && ls.LaboratoryId == lab.Id && ls.IsInstalled);
-                                <td style="padding:8px;border:1px solid #ccc;text-align:center;background:@(installed ? "#dff6dd" : "#fde7e9")">
+                                var installed = _labSoftwares.Any(ls => ls.SoftwareId == sw.Id && ls.LaboratoryId == lab.Id &&
+                ls.IsInstalled);
+                                <td
+                                    style="padding:8px;border:1px solid #ccc;text-align:center;background:@(installed ? "#dff6dd" : "#fde7e9")">
                                     @(installed ? "✓" : "✗")
                                 </td>
                             }

@@ -5,23 +5,32 @@
 <PageTitle>Besoins de la session</PageTitle>
 <h1>Besoins – Session #@Id</h1>
 
-@if (_loading) { <FluentProgressRing /> }
+@if (_loading)
+{
+    <FluentProgressRing />
+}
 else
 {
-    @if (!string.IsNullOrEmpty(_error)) { <FluentMessageBar Intent="MessageIntent.Error">@_error</FluentMessageBar> }
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <FluentMessageBar Intent="MessageIntent.Error">@_error</FluentMessageBar>
+    }
 
     <AuthorizeView Roles="admin,lab_instructor" Context="adminLabCtx">
         <Authorized>
             <FluentDataGrid Items="@_needs.AsQueryable()" TGridItem="TeachingNeedResponse">
                 <PropertyColumn Property="@(n => n.PersonnelFullName)" Title="Demandeur" />
                 <PropertyColumn Property="@(n => n.CourseCode)" Title="Cours" />
-                <TemplateColumn Title="Statut"><NeedStatusBadge Status="@context.Status" /></TemplateColumn>
+                <TemplateColumn Title="Statut">
+                    <NeedStatusBadge Status="@context.Status" />
+                </TemplateColumn>
                 <PropertyColumn Property="@(n => n.SubmittedAt)" Title="Soumis le" />
                 <TemplateColumn Title="Actions">
                     <FluentStack Orientation="Orientation.Horizontal">
                         @if (context.Status == "Submitted" || context.Status == "UnderReview")
                         {
-                            <FluentButton Appearance="Appearance.Accent" OnClick="@(() => ApproveAsync(context.Id))" Style="margin-right:4px">Approuver</FluentButton>
+                            <FluentButton Appearance="Appearance.Accent" OnClick="@(() => ApproveAsync(context.Id))"
+                                          Style="margin-right:4px">Approuver</FluentButton>
                             <FluentButton OnClick="@(() => OpenRejectDialog(context))">Rejeter</FluentButton>
                         }
                     </FluentStack>
@@ -40,13 +49,16 @@ else
             {
                 <FluentDataGrid Items="@_needs.AsQueryable()" TGridItem="TeachingNeedResponse">
                     <PropertyColumn Property="@(n => n.CourseCode)" Title="Cours" />
-                    <TemplateColumn Title="Statut"><NeedStatusBadge Status="@context.Status" /></TemplateColumn>
+                    <TemplateColumn Title="Statut">
+                        <NeedStatusBadge Status="@context.Status" />
+                    </TemplateColumn>
                     <PropertyColumn Property="@(n => n.CreatedAt)" Title="Créé" />
                     <TemplateColumn Title="Actions">
                         <FluentStack Orientation="Orientation.Horizontal">
                             @if (context.Status == "Draft")
                             {
-                                <FluentButton Appearance="Appearance.Accent" OnClick="@(() => SubmitNeedAsync(context))" Style="margin-right:4px">Soumettre</FluentButton>
+                                <FluentButton Appearance="Appearance.Accent" OnClick="@(() => SubmitNeedAsync(context))"
+                                              Style="margin-right:4px">Soumettre</FluentButton>
                                 <a href="/sessions/@Id/courses/@context.CourseId/needs/@context.Id/edit">Modifier</a>
                             }
                         </FluentStack>

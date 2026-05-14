@@ -6,11 +6,20 @@
 <PageTitle>Modifier le besoin</PageTitle>
 <h1>Modifier le besoin</h1>
 
-@if (_loading) { <FluentProgressRing /> }
+@if (_loading)
+{
+    <FluentProgressRing />
+}
 else
 {
-    @if (!string.IsNullOrEmpty(_error)) { <FluentMessageBar Intent="MessageIntent.Error">@_error</FluentMessageBar> }
-    @if (!string.IsNullOrEmpty(_success)) { <FluentMessageBar Intent="MessageIntent.Success">@_success</FluentMessageBar> }
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <FluentMessageBar Intent="MessageIntent.Error">@_error</FluentMessageBar>
+    }
+    @if (!string.IsNullOrEmpty(_success))
+    {
+        <FluentMessageBar Intent="MessageIntent.Success">@_success</FluentMessageBar>
+    }
 
     <FluentCard Style="max-width:700px;padding:1.5rem">
         <EditForm Model="@_model" OnValidSubmit="@SaveAsync">
@@ -18,9 +27,11 @@ else
                 <FluentTextField @bind-Value="_model.ExpectedStudentsText" Label="Étudiants attendus" Style="width:100%" />
                 <FluentCheckbox @bind-Value="_model.HasTechNeeds" Label="Besoins technologiques" />
                 <FluentCheckbox @bind-Value="_model.FoundAllCourses" Label="Cours complets trouvés" />
-                <FluentTextField @bind-Value="_model.DesiredModifications" Label="Modifications souhaitées" Style="width:100%" />
+                <FluentTextField @bind-Value="_model.DesiredModifications" Label="Modifications souhaitées"
+                                 Style="width:100%" />
                 <FluentCheckbox @bind-Value="_model.AllowsUpdates" Label="Autorise les mises à jour" />
-                <FluentTextField @bind-Value="_model.AdditionalComments" Label="Commentaires additionnels" Style="width:100%" />
+                <FluentTextField @bind-Value="_model.AdditionalComments" Label="Commentaires additionnels"
+                                 Style="width:100%" />
                 <FluentTextField @bind-Value="_model.Notes" Label="Notes" Style="width:100%" />
 
                 <h3>Articles</h3>

@@ -5,12 +5,19 @@
 <PageTitle>Gestion des utilisateurs</PageTitle>
 <h1>Utilisateurs</h1>
 
-@if (_loading) { <FluentProgressRing /> }
+@if (_loading)
+{
+    <FluentProgressRing />
+}
 else
 {
-    @if (!string.IsNullOrEmpty(_error)) { <FluentMessageBar Intent="MessageIntent.Error">@_error</FluentMessageBar> }
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <FluentMessageBar Intent="MessageIntent.Error">@_error</FluentMessageBar>
+    }
 
-    <FluentButton Appearance="Appearance.Accent" OnClick="@(() => { _showCreate = true; _hideCreateDialog = false; })" Style="margin-bottom:1rem">
+    <FluentButton Appearance="Appearance.Accent" OnClick="@(() => { _showCreate = true; _hideCreateDialog = false; })"
+                  Style="margin-bottom:1rem">
         Créer un utilisateur
     </FluentButton>
 
@@ -20,8 +27,10 @@ else
         <PropertyColumn Property="@(u => u.Role)" Title="Rôle" />
         <TemplateColumn Title="Actions">
             <FluentStack Orientation="Orientation.Horizontal">
-                <FluentButton OnClick="@(() => OpenRoleDialog(context))" Style="margin-right:4px">Changer rôle</FluentButton>
-                <FluentButton OnClick="@(() => OpenPwDialog(context))" Style="margin-right:4px">Réinitialiser MDP</FluentButton>
+                <FluentButton OnClick="@(() => OpenRoleDialog(context))" Style="margin-right:4px">Changer rôle
+                </FluentButton>
+                <FluentButton OnClick="@(() => OpenPwDialog(context))" Style="margin-right:4px">Réinitialiser MDP
+                </FluentButton>
                 <FluentButton OnClick="@(() => DeleteUserAsync(context.Id))">Supprimer</FluentButton>
             </FluentStack>
         </TemplateColumn>
@@ -37,7 +46,8 @@ else
                 <FluentTextField @bind-Value="_newUser.FirstName" Label="Prénom" Style="width:100%" />
                 <FluentTextField @bind-Value="_newUser.LastName" Label="Nom" Style="width:100%" />
                 <FluentTextField @bind-Value="_newUser.Email" Label="Courriel" Style="width:100%" />
-                <FluentTextField @bind-Value="_newUser.Password" Label="Mot de passe" TextFieldType="TextFieldType.Password" Style="width:100%" />
+                <FluentTextField @bind-Value="_newUser.Password" Label="Mot de passe" TextFieldType="TextFieldType.Password"
+                                 Style="width:100%" />
                 <FluentSelect TOption="string" @bind-Value="_newUser.Role" Label="Rôle" Style="width:100%">
                     <FluentOption TOption="string" Value="admin">Admin</FluentOption>
                     <FluentOption TOption="string" Value="professor">Professeur</FluentOption>
@@ -77,7 +87,8 @@ else
     <FluentDialog @bind-Hidden="_hidePwDialog" Modal="true" TrapFocus="true">
         <FluentDialogHeader>Réinitialiser MDP de @_pwUser.Name</FluentDialogHeader>
         <FluentDialogBody>
-            <FluentTextField @bind-Value="_newPw" Label="Nouveau mot de passe" TextFieldType="TextFieldType.Password" Style="width:100%" />
+            <FluentTextField @bind-Value="_newPw" Label="Nouveau mot de passe" TextFieldType="TextFieldType.Password"
+                             Style="width:100%" />
         </FluentDialogBody>
         <FluentDialogFooter>
             <FluentButton OnClick="@(() => { _pwUser = null; _hidePwDialog = true; })">Annuler</FluentButton>

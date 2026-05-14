@@ -5,10 +5,16 @@
 <PageTitle>Ressources du cours</PageTitle>
 <h1>Cours #@CourseId – Session #@SessionId</h1>
 
-@if (_loading) { <FluentProgressRing /> }
+@if (_loading)
+{
+    <FluentProgressRing />
+}
 else
 {
-    @if (!string.IsNullOrEmpty(_error)) { <FluentMessageBar Intent="MessageIntent.Error">@_error</FluentMessageBar> }
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <FluentMessageBar Intent="MessageIntent.Error">@_error</FluentMessageBar>
+    }
 
     <div style="margin-bottom:1rem">
         <AuthorizeView Roles="professor,course_instructor">
@@ -21,11 +27,16 @@ else
     </div>
 
     <h2>Demandes pour ce cours</h2>
-    @if (_needs.Count == 0) { <p>Aucune demande.</p> }
+    @if (_needs.Count == 0)
+    {
+        <p>Aucune demande.</p>
+    }
     else
     {
         <FluentDataGrid Items="@_needs.AsQueryable()" TGridItem="TeachingNeedResponse">
-            <TemplateColumn Title="Statut"><NeedStatusBadge Status="@context.Status" /></TemplateColumn>
+            <TemplateColumn Title="Statut">
+                <NeedStatusBadge Status="@context.Status" />
+            </TemplateColumn>
             <PropertyColumn Property="@(n => n.PersonnelFullName)" Title="Demandeur" />
             <PropertyColumn Property="@(n => n.CreatedAt)" Title="Créé le" />
             <TemplateColumn Title="Actions">

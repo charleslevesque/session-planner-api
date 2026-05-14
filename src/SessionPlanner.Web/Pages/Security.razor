@@ -5,16 +5,26 @@
 <PageTitle>Sécurité du compte</PageTitle>
 <h1>Sécurité du compte</h1>
 
-@if (!string.IsNullOrEmpty(_pwError)) { <FluentMessageBar Intent="MessageIntent.Error">@_pwError</FluentMessageBar> }
-@if (!string.IsNullOrEmpty(_pwSuccess)) { <FluentMessageBar Intent="MessageIntent.Success">@_pwSuccess</FluentMessageBar> }
+@if (!string.IsNullOrEmpty(_pwError))
+{
+    <FluentMessageBar Intent="MessageIntent.Error">@_pwError</FluentMessageBar>
+}
+@if (!string.IsNullOrEmpty(_pwSuccess))
+{
+    <FluentMessageBar Intent="MessageIntent.Success">@_pwSuccess
+    </FluentMessageBar>
+}
 
 <FluentCard Style="max-width:480px;padding:1.5rem;margin-bottom:2rem">
     <h2>Changer le mot de passe</h2>
     <EditForm Model="@_pwModel" OnValidSubmit="@ChangePasswordAsync">
         <FluentStack Orientation="Orientation.Vertical">
-            <FluentTextField @bind-Value="_pwModel.CurrentPassword" Label="Mot de passe actuel" TextFieldType="TextFieldType.Password" Style="width:100%" />
-            <FluentTextField @bind-Value="_pwModel.NewPassword" Label="Nouveau mot de passe" TextFieldType="TextFieldType.Password" Style="width:100%" />
-            <FluentButton Type="ButtonType.Submit" Appearance="Appearance.Accent" Loading="@_savingPw">Changer</FluentButton>
+            <FluentTextField @bind-Value="_pwModel.CurrentPassword" Label="Mot de passe actuel"
+                             TextFieldType="TextFieldType.Password" Style="width:100%" />
+            <FluentTextField @bind-Value="_pwModel.NewPassword" Label="Nouveau mot de passe"
+                             TextFieldType="TextFieldType.Password" Style="width:100%" />
+            <FluentButton Type="ButtonType.Submit" Appearance="Appearance.Accent" Loading="@_savingPw">Changer
+            </FluentButton>
         </FluentStack>
     </EditForm>
 </FluentCard>
@@ -25,19 +35,30 @@
         {
             <FluentCard Style="max-width:480px;padding:1.5rem">
                 <h2>Changer le courriel</h2>
-                @if (!string.IsNullOrEmpty(_emailError)) { <FluentMessageBar Intent="MessageIntent.Error">@_emailError</FluentMessageBar> }
-                @if (!string.IsNullOrEmpty(_emailSuccess)) { <FluentMessageBar Intent="MessageIntent.Success">@_emailSuccess</FluentMessageBar> }
+                @if (!string.IsNullOrEmpty(_emailError))
+                {
+                    <FluentMessageBar Intent="MessageIntent.Error">@_emailError
+                    </FluentMessageBar>
+                }
+                @if (!string.IsNullOrEmpty(_emailSuccess))
+                {
+                    <FluentMessageBar Intent="MessageIntent.Success">@_emailSuccess
+                    </FluentMessageBar>
+                }
                 <EditForm Model="@_emailModel" OnValidSubmit="@ChangeEmailAsync">
                     <FluentStack Orientation="Orientation.Vertical">
-                        <FluentTextField @bind-Value="_emailModel.NewEmail" Label="Nouveau courriel" InputMode="InputMode.Email" Style="width:100%" />
-                        <FluentTextField @bind-Value="_emailModel.CurrentPassword" Label="Mot de passe actuel" TextFieldType="TextFieldType.Password" Style="width:100%" />
-                        <FluentButton Type="ButtonType.Submit" Appearance="Appearance.Accent" Loading="@_savingEmail">Changer</FluentButton>
-                    </FluentStack>
-                </EditForm>
-            </FluentCard>
-        }
-    </Authorized>
-</AuthorizeView>
+                        <FluentTextField @bind-Value="_emailModel.NewEmail" Label="Nouveau courriel"
+                                         InputMode="InputMode.Email" Style="width:100%" />
+                        <FluentTextField @bind-Value="_emailModel.CurrentPassword" Label="Mot de passe actuel"
+                                         TextFieldType="TextFieldType.Password" Style="width:100%" />
+                        <FluentButton Type="ButtonType.Submit" Appearance="Appearance.Accent" Loading="@_savingEmail">
+                            Changer</FluentButton>
+                        </FluentStack>
+                    </EditForm>
+                </FluentCard>
+            }
+        </Authorized>
+    </AuthorizeView>
 
 @code {
     private PwModel _pwModel = new();

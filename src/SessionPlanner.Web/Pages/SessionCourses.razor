@@ -5,11 +5,20 @@
 <PageTitle>Cours de la session</PageTitle>
 <h1>Cours – Session #@SessionId</h1>
 
-@if (_loading) { <FluentProgressRing /> }
+@if (_loading)
+{
+    <FluentProgressRing />
+}
 else
 {
-    @if (!string.IsNullOrEmpty(_error)) { <FluentMessageBar Intent="MessageIntent.Error">@_error</FluentMessageBar> }
-    @if (_courses.Count == 0) { <p>Aucun cours.</p> }
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <FluentMessageBar Intent="MessageIntent.Error">@_error</FluentMessageBar>
+    }
+    @if (_courses.Count == 0)
+    {
+        <p>Aucun cours.</p>
+    }
     else
     {
         <FluentDataGrid Items="@_courses.AsQueryable()" TGridItem="SessionCourseResponse">
