@@ -76,6 +76,14 @@ public class CourseResourcesAuthorizationTests : IClassFixture<RestrictedWebAppl
     }
 
     [Fact]
+    public async Task GetPersonnel_WithReadPermission_DoesNotReturn403()
+    {
+        var response = await _client.GetAsync($"{BaseUrl}/1/personnel");
+
+        response.StatusCode.Should().NotBe(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
     public async Task CreateCourse_WithoutCreatePermission_ReturnsForbidden()
     {
         var response = await _client.PostAsJsonAsync(BaseUrl, new { Code = "TEST", Name = "Test" });
@@ -87,6 +95,14 @@ public class CourseResourcesAuthorizationTests : IClassFixture<RestrictedWebAppl
     public async Task UpdateCourse_WithoutUpdatePermission_ReturnsForbidden()
     {
         var response = await _client.PutAsJsonAsync($"{BaseUrl}/1", new { Code = "TEST", Name = "Test" });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task AssociatePersonnel_WithoutUpdatePermission_ReturnsForbidden()
+    {
+        var response = await _client.PostAsync($"{BaseUrl}/1/personnel/1", null);
 
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }

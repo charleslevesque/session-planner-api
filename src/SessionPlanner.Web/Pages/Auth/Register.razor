@@ -1,0 +1,83 @@
+@page "/register"
+@layout AuthLayout
+@inject AuthSessionService Auth
+@inject NavigationManager Navigation
+
+<PageTitle>Inscription</PageTitle>
+
+<div class="page-center">
+    <div class="auth-card">
+        <section class="auth-form">
+            <p class="eyebrow">Inscription</p>
+            <h1>Creer un compte enseignant</h1>
+            <p class="muted">Le formulaire conserve le meme contrat que le frontend precedent: POST /auth/register.</p>
+            <ErrorBanner Message="@_error" />
+
+            <EditForm Model="_form" OnValidSubmit="SubmitAsync" class="form-grid">
+                <DataAnnotationsValidator />
+                <div class="form-grid two">
+                    <div class="field">
+                        <label>Prenom</label>
+                        <InputText @bind-Value="_form.FirstName" />
+                    </div>
+                    <div class="field">
+                        <label>Nom</label>
+                        <InputText @bind-Value="_form.LastName" />
+                    </div>
+                </div>
+                <div class="field">
+                    <label>Courriel</label>
+                    <InputText @bind-Value="_form.Email" type="email" />
+                </div>
+                <div class="field">
+                    <label>Mot de passe</label>
+                    <InputText @bind-Value="_form.Password" type="password" />
+                </div>
+                <div class="field">
+                    <label>Role</label>
+                    <InputSelect @bind-Value="_form.Role">
+                        <option value="">Selectionnez un role</option>
+                        <option value="Professor">Professeur(e)</option>
+                        <option value="LabInstructor">Charge(e) de laboratoire</option>
+                        <option value="CourseInstructor">Charge(e) de cours</option>
+                    </InputSelect>
+                </div>
+                <FluentButton Type="ButtonType.Submit" Appearance="@Appearance.Accent" Disabled="@_busy">
+                    @(_busy ? "Creation..." : "Creer mon compte")
+                </FluentButton>
+            </EditForm>
+            <p class="muted">Deja inscrit? <a href="/login">Se connecter</a></p>
+        </section>
+        <section class="auth-hero">
+            <p class="eyebrow">Planification</p>
+            <h2>Soumettez les besoins technologiques par session.</h2>
+            <p>Brouillons, revisions techniques, approbations et matrice de ressources sont centralises.</p>
+        </section>
+    </div>
+</div>
+
+@code {
+    private readonly RegisterRequest _form = new();
+    private bool _busy;
+    private string? _error;
+
+    private async Task SubmitAsync()
+    {
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            await Auth.RegisterAsync(_form);
+            Navigation.NavigateTo("/login?message=Compte%20cree.%20Vous%20pouvez%20vous%20connecter.", replace: true);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

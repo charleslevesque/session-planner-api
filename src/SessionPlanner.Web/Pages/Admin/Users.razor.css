@@ -1,0 +1,45 @@
+.account-state {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid #d1d1d1;
+  padding: 3px 9px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: #fafafa;
+}
+
+.account-state.active {
+  border-color: #9fd89f;
+  background: #f1faf1;
+  color: #107c10;
+}
+
+.account-state.inactive {
+  border-color: #f3b0bc;
+  background: #fdf3f5;
+  color: #a4262c;
+}
+
+.activity-row td {
+  background: #fafafa;
+}
+
+.activity-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.activity-panel h3,
+.activity-panel p {
+  margin: 0;
+}
+
+.activity-error {
+  margin: 0;
+  border-radius: 8px;
+  padding: 12px 14px;
+  border: 1px solid #f3b0bc;
+  background: #fdf3f5;
+  color: #a4262c;
+}

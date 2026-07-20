@@ -1,0 +1,99 @@
+@page "/compte/securite"
+@attribute [Authorize]
+@inject ApiClient Api
+@inject AuthSessionService Auth
+
+<PageTitle>Securite</PageTitle>
+
+<div class="page-stack">
+    <PageHeader Title="Securite du compte"
+                Eyebrow="Compte"
+                Description="Modifier le mot de passe et l'adresse courriel associee au compte." />
+
+    <ErrorBanner Message="@_error" />
+    <SuccessBanner Message="@_success" />
+
+    <section class="panel">
+        <h2>Changer le mot de passe</h2>
+        <EditForm Model="_passwordForm" OnValidSubmit="ChangePasswordAsync" class="form-grid">
+            <div class="field">
+                <label>Mot de passe actuel</label>
+                <InputText @bind-Value="_passwordForm.CurrentPassword" type="password" />
+            </div>
+            <div class="field">
+                <label>Nouveau mot de passe</label>
+                <InputText @bind-Value="_passwordForm.NewPassword" type="password" />
+            </div>
+            <FluentButton Type="ButtonType.Submit" Appearance="@Appearance.Accent" Disabled="@_busy">Mettre a jour</FluentButton>
+        </EditForm>
+    </section>
+
+    <section class="panel">
+        <h2>Changer le courriel</h2>
+        <p class="muted">Courriel actuel: @Auth.User?.Email</p>
+        <EditForm Model="_emailForm" OnValidSubmit="ChangeEmailAsync" class="form-grid">
+            <div class="field">
+                <label>Nouveau courriel</label>
+                <InputText @bind-Value="_emailForm.NewEmail" type="email" />
+            </div>
+            <div class="field">
+                <label>Mot de passe actuel</label>
+                <InputText @bind-Value="_emailForm.CurrentPassword" type="password" />
+            </div>
+            <FluentButton Type="ButtonType.Submit" Appearance="@Appearance.Accent" Disabled="@_busy">Changer le courriel</FluentButton>
+        </EditForm>
+    </section>
+</div>
+
+@code {
+    private readonly ChangePasswordRequest _passwordForm = new();
+    private readonly UpdateCurrentUserEmailRequest _emailForm = new();
+    private bool _busy;
+    private string? _error;
+    private string? _success;
+
+    private async Task ChangePasswordAsync()
+    {
+        _busy = true;
+        _error = null;
+        _success = null;
+        try
+        {
+            await Api.PostAsync("auth/change-password", _passwordForm);
+            _passwordForm.CurrentPassword = "";
+            _passwordForm.NewPassword = "";
+            _success = "Mot de passe mis a jour.";
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task ChangeEmailAsync()
+    {
+        _busy = true;
+        _error = null;
+        _success = null;
+        try
+        {
+            await Api.PutAsync("users/me/email", _emailForm);
+            await Auth.RefreshCurrentUserAsync();
+            _emailForm.NewEmail = "";
+            _emailForm.CurrentPassword = "";
+            _success = "Courriel mis a jour.";
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

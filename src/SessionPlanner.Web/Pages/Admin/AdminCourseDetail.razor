@@ -1,0 +1,322 @@
+@page "/admin/courses-resources/{CourseId:int}"
+@attribute [Authorize(Roles = "admin")]
+@inject ApiClient Api
+
+<PageTitle>Ressources du cours</PageTitle>
+
+<div class="page-stack">
+    <PageHeader Title="@(_course is null ? "Ressources du cours" : $"{_course.Code} - {_course.Name}")"
+                Eyebrow="Administration"
+                Description="Associer les ressources de catalogue et le personnel au cours.">
+        <NavButton Appearance="@Appearance.Neutral" Href="/admin/courses-resources">Retour</NavButton>
+    </PageHeader>
+
+    <ErrorBanner Message="@_error" />
+    <SuccessBanner Message="@_success" />
+
+    @if (_loading)
+    {
+        <LoadingPanel />
+    }
+    else
+    {
+        <div class="tabs">
+            @foreach (var tab in Tabs)
+            {
+                <button class="@($"tab {(_activeTab == tab.Key ? "active" : "")}")" @onclick="@(() => _activeTab = tab.Key)">
+                    @tab.Value
+                </button>
+            }
+        </div>
+
+        <section class="panel">
+            @switch (_activeTab)
+            {
+                case "saas":
+                    @RenderToggleTable(_saas.Select(x => new ToggleRow(x.Id, x.Name, x.Notes, IsLinked("saas", x.Id))).ToList(), "saas")
+                    break;
+                case "softwares":
+                    @RenderToggleTable(_softwares.Select(x => new ToggleRow(x.Id, x.Name, x.InstallCommand, IsLinked("softwares", x.Id))).ToList(), "softwares")
+                    <h3>Versions de logiciels</h3>
+                    @RenderToggleTable(_softwareVersions.Select(x => new ToggleRow(x.Id, VersionLabel(x), x.Notes, _resources?.SoftwareVersionIds.Contains(x.Id) == true)).ToList(), "softwareversions")
+                    break;
+                case "configurations":
+                    @RenderToggleTable(_configurations.Select(x => new ToggleRow(x.Id, x.Title, x.Notes, IsLinked("configurations", x.Id))).ToList(), "configurations")
+                    break;
+                case "vms":
+                    @RenderToggleTable(_vms.Select(x => new ToggleRow(x.Id, $"{x.Quantity} VM - {x.OsName}", x.Notes, IsLinked("vms", x.Id))).ToList(), "vms")
+                    break;
+                case "servers":
+                    @RenderToggleTable(_servers.Select(x => new ToggleRow(x.Id, x.Hostname, x.Notes, IsLinked("servers", x.Id))).ToList(), "servers")
+                    break;
+                case "equipment":
+                    @RenderToggleTable(_equipment.Select(x => new ToggleRow(x.Id, x.Name, x.Notes, IsLinked("equipment", x.Id))).ToList(), "equipment")
+                    break;
+                case "personnel":
+                    @RenderPersonnelTable()
+                    break;
+            }
+        </section>
+    }
+</div>
+
+@code {
+    [Parameter] public int CourseId { get; set; }
+
+    private sealed record ToggleRow(int Id, string Name, string? Details, bool Linked);
+
+    private static readonly Dictionary<string, string> Tabs = new()
+    {
+        ["saas"] = "SaaS",
+        ["softwares"] = "Logiciels",
+        ["configurations"] = "Configurations",
+        ["vms"] = "Machines virtuelles",
+        ["servers"] = "Serveurs physiques",
+        ["equipment"] = "Prets d'equipement",
+        ["personnel"] = "Personnel"
+    };
+
+    private string _activeTab = "softwares";
+    private CourseResponse? _course;
+    private CourseResourcesResponse? _resources;
+    private List<SaaSProductResponse> _saas = [];
+    private List<SoftwareResponse> _softwares = [];
+    private List<SoftwareVersionResponse> _softwareVersions = [];
+    private List<OSResponse> _os = [];
+    private List<ConfigurationResponse> _configurations = [];
+    private List<VirtualMachineResponse> _vms = [];
+    private List<PhysicalServerResponse> _servers = [];
+    private List<EquipmentModelResponse> _equipment = [];
+    private List<PersonnelResponse> _personnel = [];
+    private List<PersonnelResponse> _coursePersonnel = [];
+    private bool _loading = true;
+    private string? _error;
+    private string? _success;
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        _success = null;
+        try
+        {
+            _course = await Api.GetAsync<CourseResponse>($"courses/{CourseId}");
+            _resources = await Api.GetAsync<CourseResourcesResponse>($"courses/{CourseId}/resources");
+            _saas = await Api.GetAsync<List<SaaSProductResponse>>("saasproducts");
+            _softwares = await Api.GetAsync<List<SoftwareResponse>>("softwares");
+            _softwareVersions = await Api.GetAsync<List<SoftwareVersionResponse>>("softwareversions");
+            _os = await Api.GetAsync<List<OSResponse>>("operatingsystems");
+            _configurations = await Api.GetAsync<List<ConfigurationResponse>>("configurations");
+            _vms = await Api.GetAsync<List<VirtualMachineResponse>>("virtualmachines");
+            _servers = await Api.GetAsync<List<PhysicalServerResponse>>("physicalservers");
+            _equipment = await Api.GetAsync<List<EquipmentModelResponse>>("equipmentmodels");
+            _personnel = await Api.GetAsync<List<PersonnelResponse>>("personnel");
+            _coursePersonnel = await Api.GetAsync<List<PersonnelResponse>>($"courses/{CourseId}/personnel");
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private bool IsLinked(string tab, int id) => tab switch
+    {
+        "saas" => _resources?.SaaS.Any(x => x.Id == id) == true,
+        "softwares" => _resources?.Softwares.Any(x => x.Id == id) == true,
+        "configurations" => _resources?.Configurations.Any(x => x.Id == id) == true,
+        "vms" => _resources?.VirtualMachines.Any(x => x.Id == id) == true,
+        "servers" => _resources?.PhysicalServers.Any(x => x.Id == id) == true,
+        "equipment" => _resources?.Equipment.Any(x => x.Id == id) == true,
+        _ => false
+    };
+
+    private bool IsPersonnelLinked(int id) => _coursePersonnel.Any(x => x.Id == id);
+
+    private RenderFragment RenderToggleTable(List<ToggleRow> rows, string resourcePath) => builder =>
+    {
+        var sequence = 0;
+        if (rows.Count == 0)
+        {
+            builder.OpenElement(sequence++, "p");
+            builder.AddAttribute(sequence++, "class", "muted");
+            builder.AddContent(sequence++, "Aucune ressource disponible.");
+            builder.CloseElement();
+            return;
+        }
+
+        builder.OpenElement(sequence++, "div");
+        builder.AddAttribute(sequence++, "class", "table-wrap");
+        builder.OpenElement(sequence++, "table");
+        builder.OpenElement(sequence++, "thead");
+        builder.OpenElement(sequence++, "tr");
+        foreach (var heading in new[] { "Nom", "Details", "Etat", "Action" })
+        {
+            builder.OpenElement(sequence++, "th");
+            builder.AddContent(sequence++, heading);
+            builder.CloseElement();
+        }
+        builder.CloseElement();
+        builder.CloseElement();
+        builder.OpenElement(sequence++, "tbody");
+        foreach (var row in rows)
+        {
+            builder.OpenElement(sequence++, "tr");
+            builder.OpenElement(sequence++, "td");
+            builder.AddContent(sequence++, row.Name);
+            builder.CloseElement();
+            builder.OpenElement(sequence++, "td");
+            builder.AddContent(sequence++, row.Details);
+            builder.CloseElement();
+            builder.OpenElement(sequence++, "td");
+            builder.OpenElement(sequence++, "span");
+            builder.AddAttribute(sequence++, "class", row.Linked ? "resource-state linked" : "resource-state");
+            builder.AddContent(sequence++, row.Linked ? "Associe" : "Disponible");
+            builder.CloseElement();
+            builder.CloseElement();
+            builder.OpenElement(sequence++, "td");
+            builder.OpenComponent<FluentButton>(sequence++);
+            builder.AddAttribute(sequence++, "Appearance", row.Linked ? Appearance.Neutral : Appearance.Accent);
+            builder.AddAttribute(sequence++, "OnClick", EventCallback.Factory.Create(this, () => ToggleAsync(resourcePath, row.Id, row.Linked)));
+            builder.AddContent(sequence++, row.Linked ? "Retirer" : "Associer");
+            builder.CloseComponent();
+            builder.CloseElement();
+            builder.CloseElement();
+        }
+        builder.CloseElement();
+        builder.CloseElement();
+        builder.CloseElement();
+    };
+
+    private RenderFragment RenderPersonnelTable() => builder =>
+    {
+        var sequence = 0;
+        var rows = _personnel
+            .OrderBy(x => x.LastName)
+            .ThenBy(x => x.FirstName)
+            .ToList();
+
+        if (rows.Count == 0)
+        {
+            builder.OpenElement(sequence++, "p");
+            builder.AddAttribute(sequence++, "class", "muted");
+            builder.AddContent(sequence++, "Aucun personnel disponible.");
+            builder.CloseElement();
+            return;
+        }
+
+        builder.OpenElement(sequence++, "div");
+        builder.AddAttribute(sequence++, "class", "table-wrap");
+        builder.OpenElement(sequence++, "table");
+        builder.OpenElement(sequence++, "thead");
+        builder.OpenElement(sequence++, "tr");
+        foreach (var heading in new[] { "Nom", "Role", "Courriel", "Etat", "Action" })
+        {
+            builder.OpenElement(sequence++, "th");
+            builder.AddContent(sequence++, heading);
+            builder.CloseElement();
+        }
+        builder.CloseElement();
+        builder.CloseElement();
+        builder.OpenElement(sequence++, "tbody");
+        foreach (var person in rows)
+        {
+            var linked = IsPersonnelLinked(person.Id);
+            builder.OpenElement(sequence++, "tr");
+
+            builder.OpenElement(sequence++, "td");
+            builder.OpenElement(sequence++, "div");
+            builder.AddAttribute(sequence++, "class", "personnel-name");
+            builder.AddContent(sequence++, string.IsNullOrWhiteSpace(person.FullName) ? person.Email : person.FullName);
+            builder.CloseElement();
+            builder.CloseElement();
+
+            builder.OpenElement(sequence++, "td");
+            builder.AddContent(sequence++, PersonnelFunctions.Label(person.Function));
+            builder.CloseElement();
+
+            builder.OpenElement(sequence++, "td");
+            builder.AddContent(sequence++, person.Email);
+            builder.CloseElement();
+
+            builder.OpenElement(sequence++, "td");
+            builder.OpenElement(sequence++, "span");
+            builder.AddAttribute(sequence++, "class", linked ? "resource-state linked" : "resource-state");
+            builder.AddContent(sequence++, linked ? "Affecte" : "Disponible");
+            builder.CloseElement();
+            builder.CloseElement();
+
+            builder.OpenElement(sequence++, "td");
+            builder.OpenComponent<FluentButton>(sequence++);
+            builder.AddAttribute(sequence++, "Appearance", linked ? Appearance.Neutral : Appearance.Accent);
+            builder.AddAttribute(sequence++, "OnClick", EventCallback.Factory.Create(this, () => TogglePersonnelAsync(person.Id, linked)));
+            builder.AddContent(sequence++, linked ? "Retirer" : "Affecter");
+            builder.CloseComponent();
+            builder.CloseElement();
+
+            builder.CloseElement();
+        }
+        builder.CloseElement();
+        builder.CloseElement();
+        builder.CloseElement();
+    };
+
+    private async Task ToggleAsync(string resourcePath, int itemId, bool linked)
+    {
+        try
+        {
+            if (linked)
+            {
+                await Api.DeleteAsync($"courses/{CourseId}/{resourcePath}/{itemId}");
+            }
+            else
+            {
+                await Api.PostAsync($"courses/{CourseId}/{resourcePath}/{itemId}");
+            }
+
+            var message = linked ? "Ressource retiree." : "Ressource associee.";
+            await LoadAsync();
+            _success = message;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task TogglePersonnelAsync(int personnelId, bool linked)
+    {
+        try
+        {
+            if (linked)
+            {
+                await Api.DeleteAsync($"courses/{CourseId}/personnel/{personnelId}");
+            }
+            else
+            {
+                await Api.PostAsync($"courses/{CourseId}/personnel/{personnelId}");
+            }
+
+            var message = linked ? "Personnel retire du cours." : "Personnel affecte au cours.";
+            await LoadAsync();
+            _activeTab = "personnel";
+            _success = message;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private string VersionLabel(SoftwareVersionResponse version)
+    {
+        var software = _softwares.FirstOrDefault(s => s.Id == version.SoftwareId)?.Name ?? $"Logiciel {version.SoftwareId}";
+        var osName = _os.FirstOrDefault(os => os.Id == version.OsId)?.Name ?? $"OS {version.OsId}";
+        return $"{software} {version.VersionNumber} - {osName}";
+    }
+}

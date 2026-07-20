@@ -1,0 +1,8 @@
+<span class="@StatusLabels.BadgeClass(Status)">@Label</span>
+
+@code {
+    [Parameter] public string? Status { get; set; }
+    [Parameter] public bool IsNeed { get; set; }
+
+    private string Label => IsNeed ? StatusLabels.Need(Status) : StatusLabels.Session(Status);
+}

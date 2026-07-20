@@ -1,0 +1,19 @@
+@inject NavigationManager Navigation
+
+<FluentButton Type="ButtonType.Button" Appearance="@Appearance" OnClick="Navigate">
+    @ChildContent
+</FluentButton>
+
+@code {
+    [Parameter, EditorRequired] public string Href { get; set; } = "";
+    [Parameter] public Microsoft.FluentUI.AspNetCore.Components.Appearance Appearance { get; set; } = Microsoft.FluentUI.AspNetCore.Components.Appearance.Neutral;
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private void Navigate()
+    {
+        if (!string.IsNullOrWhiteSpace(Href))
+        {
+            Navigation.NavigateTo(Href);
+        }
+    }
+}

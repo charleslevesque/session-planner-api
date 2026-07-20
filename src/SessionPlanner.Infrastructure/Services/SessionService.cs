@@ -127,10 +127,21 @@ public class SessionService : ISessionService
         return await TransitionAsync(id, SessionStatus.Archived);
     }
 
-    public async Task<List<Course>> GetSessionCoursesAsync(int sessionId)
+    public async Task<List<Course>> GetSessionCoursesAsync(int sessionId, int? personnelId = null)
     {
-        return await _db.SessionCourses
-            .Where(sc => sc.SessionId == sessionId)
+        var query = _db.SessionCourses
+            .Where(sc => sc.SessionId == sessionId);
+
+        if (personnelId is int pid)
+        {
+            var hasCoursePersonnelAssignments = await query
+                .AnyAsync(sc => sc.Course.CoursePersonnels.Any());
+
+            if (hasCoursePersonnelAssignments)
+                query = query.Where(sc => sc.Course.CoursePersonnels.Any(cp => cp.PersonnelId == pid));
+        }
+
+        return await query
             .Select(sc => sc.Course)
             .OrderBy(c => c.Code)
             .ToListAsync();

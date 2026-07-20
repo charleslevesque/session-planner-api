@@ -1,0 +1,166 @@
+@page "/admin/courses-resources"
+@attribute [Authorize(Roles = "admin")]
+@inject ApiClient Api
+
+<PageTitle>Cours et ressources</PageTitle>
+
+<div class="page-stack">
+    <PageHeader Title="Cours et ressources"
+                Eyebrow="Administration"
+                Description="Gestion du catalogue de cours et acces aux ressources par cours." />
+
+    <ErrorBanner Message="@_error" />
+    <SuccessBanner Message="@_success" />
+
+    <section class="panel">
+        <h2>@(_editingId is null ? "Nouveau cours" : "Modifier le cours")</h2>
+        <EditForm Model="_form" OnValidSubmit="SaveAsync" class="form-grid">
+            <div class="form-grid two">
+                <div class="field">
+                    <label>Code</label>
+                    <InputText @bind-Value="_form.Code" />
+                </div>
+                <div class="field">
+                    <label>Nom</label>
+                    <InputText @bind-Value="_form.Name" />
+                </div>
+            </div>
+            <div class="actions">
+                <FluentButton Type="ButtonType.Submit" Appearance="@Appearance.Accent" Disabled="@_busy">Enregistrer</FluentButton>
+                @if (_editingId is not null)
+                {
+                    <FluentButton Appearance="@Appearance.Neutral" OnClick="ResetForm">Annuler</FluentButton>
+                }
+            </div>
+        </EditForm>
+    </section>
+
+    @if (_loading)
+    {
+        <LoadingPanel />
+    }
+    else
+    {
+        <section class="panel">
+            <div class="toolbar">
+                <h2>Cours</h2>
+                <FluentButton Appearance="@Appearance.Neutral" OnClick="LoadAsync">Rafraichir</FluentButton>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Code</th>
+                            <th>Nom</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var course in _courses.OrderBy(c => c.Code))
+                        {
+                            <tr>
+                                <td><strong>@course.Code</strong></td>
+                                <td>@course.Name</td>
+                                <td>
+                                    <div class="actions">
+                                        <NavButton Appearance="@Appearance.Accent" Href="@($"/admin/courses-resources/{course.Id}")">Ressources</NavButton>
+                                        <FluentButton Appearance="@Appearance.Lightweight" OnClick="@(() => Edit(course))">Modifier</FluentButton>
+                                        <FluentButton Appearance="@Appearance.Neutral" OnClick="@(() => DeleteAsync(course.Id))">Supprimer</FluentButton>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+</div>
+
+@code {
+    private readonly CreateCourseRequest _form = new();
+    private List<CourseResponse> _courses = [];
+    private int? _editingId;
+    private bool _loading = true;
+    private bool _busy;
+    private string? _error;
+    private string? _success;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            _courses = await Api.GetAsync<List<CourseResponse>>("courses");
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        _busy = true;
+        _error = null;
+        _success = null;
+        try
+        {
+            if (_editingId is int id)
+            {
+                await Api.PutAsync($"courses/{id}", new UpdateCourseRequest { Code = _form.Code, Name = _form.Name });
+                _success = "Cours mis a jour.";
+            }
+            else
+            {
+                await Api.PostAsync<CreateCourseRequest, CourseResponse>("courses", _form);
+                _success = "Cours cree.";
+            }
+
+            ResetForm();
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void Edit(CourseResponse course)
+    {
+        _editingId = course.Id;
+        _form.Code = course.Code;
+        _form.Name = course.Name;
+    }
+
+    private void ResetForm()
+    {
+        _editingId = null;
+        _form.Code = "";
+        _form.Name = "";
+    }
+
+    private async Task DeleteAsync(int id)
+    {
+        try
+        {
+            await Api.DeleteAsync($"courses/{id}");
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+}

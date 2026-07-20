@@ -1,0 +1,120 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject AuthSessionService Auth
+@inject NavigationManager Navigation
+
+@if (!_initialized)
+{
+    <div class="page-center">
+        <div class="panel narrow">
+            <p class="eyebrow">Chargement</p>
+            <h1>Planificateur de sessions</h1>
+        </div>
+    </div>
+}
+else
+{
+    <div class="app-shell">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-mark">ETS</div>
+                <p class="eyebrow">Planificateur de sessions</p>
+                <h2>Pilotage des sessions</h2>
+                <p class="muted">Besoins, ressources et arbitrages.</p>
+            </div>
+
+            <nav>
+                <div class="nav-group">
+                    @foreach (var item in MainItems.Where(IsVisible))
+                    {
+                        <NavLink class="nav-link" href="@item.Href">
+                            <strong>@item.Label</strong>
+                            <span>@item.Hint</span>
+                        </NavLink>
+                    }
+                </div>
+
+                @if (AdminItems.Any(IsVisible))
+                {
+                    <p class="nav-caption">Administration</p>
+                    <div class="nav-group">
+                        @foreach (var item in AdminItems.Where(IsVisible))
+                        {
+                            <NavLink class="nav-link" href="@item.Href">
+                                <strong>@item.Label</strong>
+                                <span>@item.Hint</span>
+                            </NavLink>
+                        }
+                    </div>
+                }
+            </nav>
+        </aside>
+
+        <div class="content-shell">
+            <header class="topbar">
+                <div>
+                    <p class="eyebrow">ETS - Planificateur</p>
+                    <h1>Gestion des sessions</h1>
+                </div>
+                <div class="user-pill">
+                    <div>
+                        <strong>@(Auth.User?.Name ?? "Utilisateur")</strong>
+                        <div class="muted">@Roles.Label(Auth.User?.Role)</div>
+                    </div>
+                    <FluentButton Appearance="@Appearance.Neutral" OnClick="LogoutAsync">Deconnexion</FluentButton>
+                </div>
+            </header>
+
+            <main class="main-content">
+                @Body
+            </main>
+        </div>
+    </div>
+}
+
+<FluentToastProvider />
+<FluentDialogProvider />
+<FluentTooltipProvider />
+<FluentMessageBarProvider />
+<FluentMenuProvider />
+
+@code {
+    private bool _initialized;
+
+    private sealed record NavItem(string Href, string Label, string Hint, string[] Roles);
+
+    private static readonly NavItem[] MainItems =
+    [
+        new("/dashboard", "Dashboard", "Vue generale", AccessPolicy.AllAuthenticated),
+        new("/sessions/manage", "Sessions", "Cycle de vie", AccessPolicy.Technical),
+        new("/besoins", "Besoins", "Saisie et suivi", AccessPolicy.AllAuthenticated),
+        new("/mes-demandes", "Mes demandes", "Demandes personnelles", AccessPolicy.NeedAuthors),
+        new("/matrice", "Matrice", "Affectations", AccessPolicy.Technical),
+        new("/compte/securite", "Securite", "Compte et mot de passe", AccessPolicy.AllAuthenticated)
+    ];
+
+    private static readonly NavItem[] AdminItems =
+    [
+        new("/admin/users", "Utilisateurs", "Comptes et roles", [Roles.Admin]),
+        new("/admin/courses-resources", "Cours et ressources", "Catalogue et inventaire", [Roles.Admin])
+    ];
+
+    protected override async Task OnInitializedAsync()
+    {
+        Auth.StateChanged += OnAuthChanged;
+        await Auth.InitializeAsync();
+        _initialized = true;
+    }
+
+    private bool IsVisible(NavItem item) => AccessPolicy.HasRole(Auth.User?.Role, item.Roles);
+
+    private async Task LogoutAsync()
+    {
+        await Auth.LogoutAsync();
+        Navigation.NavigateTo("/login", replace: true);
+    }
+
+    private void OnAuthChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Auth.StateChanged -= OnAuthChanged;
+}

@@ -1,0 +1,24 @@
+<section class="page-header">
+    @if (!string.IsNullOrWhiteSpace(Eyebrow))
+    {
+        <p class="eyebrow">@Eyebrow</p>
+    }
+    <h1>@Title</h1>
+    @if (!string.IsNullOrWhiteSpace(Description))
+    {
+        <p class="muted">@Description</p>
+    }
+    @if (ChildContent is not null)
+    {
+        <div class="actions">
+            @ChildContent
+        </div>
+    }
+</section>
+
+@code {
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public string? Eyebrow { get; set; }
+    [Parameter] public string? Description { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

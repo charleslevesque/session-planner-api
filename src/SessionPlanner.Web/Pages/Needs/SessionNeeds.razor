@@ -1,0 +1,194 @@
+@page "/sessions/{SessionId:int}/needs"
+@attribute [Authorize]
+@inject ApiClient Api
+@inject AuthSessionService Auth
+
+<PageTitle>Besoins de session</PageTitle>
+
+<div class="page-stack">
+    <PageHeader Title="@(_session?.Title ?? "Besoins de session")"
+                Eyebrow="Besoins"
+                Description="Suivi des demandes technologiques rattachees a la session.">
+        <NavButton Appearance="@Appearance.Neutral" Href="@($"/sessions/{SessionId}/courses")">Cours</NavButton>
+        @if (IsTechnical)
+        {
+            <FluentButton Appearance="@Appearance.Accent" OnClick="ExportAsync">Exporter</FluentButton>
+        }
+    </PageHeader>
+
+    <ErrorBanner Message="@_error" />
+    <SuccessBanner Message="@_success" />
+
+    @if (_loading)
+    {
+        <LoadingPanel />
+    }
+    else
+    {
+        <section class="panel">
+            <div class="toolbar">
+                <h2>Besoins</h2>
+                <div class="actions">
+                    <select class="input" style="width:auto" @bind="_statusFilter">
+                        <option value="all">Tous les statuts</option>
+                        <option value="Draft">Brouillon</option>
+                        <option value="Submitted">Soumis</option>
+                        <option value="UnderReview">En revision</option>
+                        <option value="Approved">Approuve</option>
+                        <option value="Rejected">Rejete</option>
+                    </select>
+                    <FluentButton Appearance="@Appearance.Neutral" OnClick="LoadAsync">Rafraichir</FluentButton>
+                </div>
+            </div>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Cours</th>
+                            <th>Demandeur</th>
+                            <th>Statut</th>
+                            <th>Items</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var need in FilteredNeeds)
+                        {
+                            <tr>
+                                <td><strong>@need.CourseCode</strong><br />@need.CourseName</td>
+                                <td>@need.PersonnelFullName</td>
+                                <td><StatusBadge Status="@need.Status" IsNeed="true" /></td>
+                                <td>
+                                    <ul>
+                                        @foreach (var item in need.Items)
+                                        {
+                                            <li><strong>@NeedItemTypes.Label(item.ItemType)</strong> - @NeedItemHelpers.Summary(item, _operatingSystems, _laboratories)</li>
+                                        }
+                                    </ul>
+                                </td>
+                                <td>
+                                    <div class="actions">
+                                        @if (AccessPolicy.HasRole(Auth.User?.Role, AccessPolicy.Teachers) && (need.Status == "Draft" || need.Status == "Rejected"))
+                                        {
+                                            <NavButton Appearance="@Appearance.Accent" Href="@($"/sessions/{SessionId}/courses/{need.CourseId}/needs/{need.Id}/edit")">Modifier</NavButton>
+                                        }
+                                        @if (IsTechnical)
+                                        {
+                                            @if (need.Status == "Submitted")
+                                            {
+                                                <FluentButton Appearance="@Appearance.Neutral" OnClick="@(() => TransitionAsync(need.Id, "review"))">Reviser</FluentButton>
+                                            }
+                                            @if (need.Status == "Submitted" || need.Status == "UnderReview")
+                                            {
+                                                <FluentButton Appearance="@Appearance.Accent" OnClick="@(() => TransitionAsync(need.Id, "approve"))">Approuver</FluentButton>
+                                                <input class="input" placeholder="Motif de rejet" @bind="_rejectReasons[need.Id]" />
+                                                <FluentButton Appearance="@Appearance.Neutral" OnClick="@(() => RejectAsync(need.Id))">Rejeter</FluentButton>
+                                            }
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+</div>
+
+@code {
+    [Parameter] public int SessionId { get; set; }
+
+    private SessionResponse? _session;
+    private List<TeachingNeedResponse> _needs = [];
+    private List<OSResponse> _operatingSystems = [];
+    private List<LaboratoryResponse> _laboratories = [];
+    private readonly Dictionary<int, string> _rejectReasons = [];
+    private string _statusFilter = "all";
+    private bool _loading = true;
+    private string? _error;
+    private string? _success;
+
+    private bool IsTechnical => AccessPolicy.HasRole(Auth.User?.Role, AccessPolicy.Technical);
+
+    private IEnumerable<TeachingNeedResponse> FilteredNeeds =>
+        _statusFilter == "all" ? _needs : _needs.Where(need => need.Status == _statusFilter);
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        _success = null;
+
+        try
+        {
+            _session = await Api.GetAsync<SessionResponse>($"sessions/{SessionId}");
+            _needs = await Api.GetAsync<List<TeachingNeedResponse>>($"sessions/{SessionId}/needs");
+            _operatingSystems = await Api.GetAsync<List<OSResponse>>("operatingsystems");
+            _laboratories = await Api.GetAsync<List<LaboratoryResponse>>("laboratories");
+
+            foreach (var need in _needs)
+            {
+                _rejectReasons.TryAdd(need.Id, "");
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task TransitionAsync(int needId, string action)
+    {
+        try
+        {
+            await Api.PostAsync($"sessions/{SessionId}/needs/{needId}/{action}");
+            _success = "Statut mis a jour.";
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task RejectAsync(int needId)
+    {
+        var reason = _rejectReasons.TryGetValue(needId, out var value) ? value : "";
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            _error = "Le rejet exige un motif.";
+            return;
+        }
+
+        try
+        {
+            await Api.PostAsync<RejectTeachingNeedRequest>($"sessions/{SessionId}/needs/{needId}/reject", new RejectTeachingNeedRequest { Reason = reason });
+            _success = "Besoin rejete.";
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task ExportAsync()
+    {
+        try
+        {
+            await Api.DownloadAsync($"sessions/{SessionId}/export", $"session-{SessionId}-needs.csv", "text/csv");
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+}

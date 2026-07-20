@@ -1,9 +1,14 @@
 using System.Net;
 using System.Net.Http.Json;
 using FluentAssertions;
+using Microsoft.Extensions.DependencyInjection;
 using SessionPlanner.Api.Dtos.Courses;
 using SessionPlanner.Api.Dtos.Sessions;
 using SessionPlanner.Api.Dtos.TeachingNeeds;
+using SessionPlanner.Core.Entities;
+using SessionPlanner.Core.Entities.Joins;
+using SessionPlanner.Core.Enums;
+using SessionPlanner.Infrastructure.Data;
 using SessionPlanner.Tests.Integration.Fixtures;
 
 namespace SessionPlanner.Tests.Integration.Controllers;
@@ -11,9 +16,11 @@ namespace SessionPlanner.Tests.Integration.Controllers;
 public class TeachingNeedsControllerTests : IClassFixture<TeachingNeedWebApplicationFactory>
 {
     private readonly HttpClient _client;
+    private readonly TeachingNeedWebApplicationFactory _factory;
 
     public TeachingNeedsControllerTests(TeachingNeedWebApplicationFactory factory)
     {
+        _factory = factory;
         _client = factory.CreateClient();
     }
 
@@ -52,6 +59,31 @@ public class TeachingNeedsControllerTests : IClassFixture<TeachingNeedWebApplica
             new CreateTeachingNeedRequest(courseId, TeachingNeedWebApplicationFactory.SeededPersonnelId, null, null, null, null, null, null, null));
         response.StatusCode.Should().Be(HttpStatusCode.Created);
         return (await response.Content.ReadFromJsonAsync<TeachingNeedResponse>())!;
+    }
+
+    private async Task AssignCoursePersonnelAsync(int courseId, int personnelId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.CoursePersonnels.Add(new CoursePersonnel { CourseId = courseId, PersonnelId = personnelId });
+        await db.SaveChangesAsync();
+    }
+
+    private async Task<int> SeedOtherPersonnelAsync()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        var personnel = new Personnel
+        {
+            FirstName = "Other",
+            LastName = $"Teacher{suffix}",
+            Function = PersonnelFunction.Professor,
+            Email = $"other.{suffix}@test.dev"
+        };
+        db.Personnel.Add(personnel);
+        await db.SaveChangesAsync();
+        return personnel.Id;
     }
 
     private static string NeedsUrl(int sessionId) => $"/api/v1/sessions/{sessionId}/needs";
@@ -175,6 +207,35 @@ public class TeachingNeedsControllerTests : IClassFixture<TeachingNeedWebApplica
         need.Notes.Should().Be("Besoin de Java 21");
         need.Status.Should().Be("Draft");
         need.Items.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Create_WhenPersonnelAssignedToCourse_ReturnsCreated()
+    {
+        var sessionId = await CreateOpenSessionAsync("Assigned Personnel");
+        var courseId = await CreateCourseAsync("TST105A");
+        await AssignCoursePersonnelAsync(courseId, TeachingNeedWebApplicationFactory.SeededPersonnelId);
+
+        var response = await _client.PostAsJsonAsync(
+            NeedsUrl(sessionId),
+            new CreateTeachingNeedRequest(courseId, TeachingNeedWebApplicationFactory.SeededPersonnelId, null, null, null, null, null, null, null));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+    }
+
+    [Fact]
+    public async Task Create_WhenCourseAssignedToDifferentPersonnel_ReturnsConflict()
+    {
+        var sessionId = await CreateOpenSessionAsync("Unassigned Personnel");
+        var courseId = await CreateCourseAsync("TST105B");
+        var otherPersonnelId = await SeedOtherPersonnelAsync();
+        await AssignCoursePersonnelAsync(courseId, otherPersonnelId);
+
+        var response = await _client.PostAsJsonAsync(
+            NeedsUrl(sessionId),
+            new CreateTeachingNeedRequest(courseId, TeachingNeedWebApplicationFactory.SeededPersonnelId, null, null, null, null, null, null, null));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
 
     [Fact]

@@ -9,6 +9,7 @@ using SessionPlanner.Core.Auth;
 using SessionPlanner.Api.Auth;
 using SessionPlanner.Core.Interfaces;
 using SessionPlanner.Api.Common;
+using SessionPlanner.Api.Dtos.Personnel;
 using SessionPlanner.Api.OpenApi.Examples.Courses;
 using SessionPlanner.Api.OpenApi.Examples.Common;
 using Swashbuckle.AspNetCore.Annotations;
@@ -429,6 +430,28 @@ public class CoursesController : ControllerBase
         return Ok(items.Select(x => x.ToCourseEquipmentResponse()));
     }
 
+    /// <summary>
+    /// Retrieves personnel assigned to a course.
+    /// </summary>
+    [HttpGet("{courseId}/personnel")]
+    [HasPermission(Permissions.Courses.Read)]
+    [SwaggerOperation(
+        Summary = "Get personnel for a course",
+        Description = "Returns all personnel assigned to a course."
+    )]
+    [ProducesResponseType(typeof(IEnumerable<PersonnelResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IEnumerable<PersonnelResponse>>> GetPersonnel(int courseId)
+    {
+        if (!await _courseService.ExistsAsync(courseId))
+            return CourseNotFound(courseId);
+
+        var items = await _courseService.GetCoursePersonnelAsync(courseId);
+        return Ok(items.Select(x => x.ToResponse()));
+    }
+
     // ── Association / Dissociation endpoints ──
 
     /// <summary>Associates a SaaS product with a course.</summary>
@@ -631,6 +654,40 @@ public class CoursesController : ControllerBase
             return CourseNotFound(courseId);
 
         var removed = await _courseService.DissociateEquipmentModelAsync(courseId, equipmentModelId);
+        if (!removed) return AssociationNotFound();
+        return NoContent();
+    }
+
+    /// <summary>Associates a personnel record with a course.</summary>
+    [HttpPost("{courseId}/personnel/{personnelId}")]
+    [HasPermission(Permissions.Courses.Update)]
+    [SwaggerOperation(Summary = "Associate personnel with a course")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> AssociatePersonnel(int courseId, int personnelId)
+    {
+        if (!await _courseService.ExistsAsync(courseId))
+            return CourseNotFound(courseId);
+
+        var result = await _courseService.AssociatePersonnelAsync(courseId, personnelId);
+        if (result is null) return ResourceNotFound("Personnel", personnelId);
+        if (result == false) return AlreadyAssociated();
+        return NoContent();
+    }
+
+    /// <summary>Dissociates a personnel record from a course.</summary>
+    [HttpDelete("{courseId}/personnel/{personnelId}")]
+    [HasPermission(Permissions.Courses.Update)]
+    [SwaggerOperation(Summary = "Dissociate personnel from a course")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DissociatePersonnel(int courseId, int personnelId)
+    {
+        if (!await _courseService.ExistsAsync(courseId))
+            return CourseNotFound(courseId);
+
+        var removed = await _courseService.DissociatePersonnelAsync(courseId, personnelId);
         if (!removed) return AssociationNotFound();
         return NoContent();
     }

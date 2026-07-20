@@ -187,6 +187,8 @@ public class TeachingNeedService : ITeachingNeedService
                     $"Course {courseId} is not associated with session {sessionId}. Cannot create a teaching need for a non-associated course.");
         }
 
+        await EnsurePersonnelCanRequestCourseAsync(personnelId, courseId);
+
         var need = new TeachingNeed
         {
             SessionId = sessionId,
@@ -219,6 +221,8 @@ public class TeachingNeedService : ITeachingNeedService
 
         if (need.Status != NeedStatus.Draft && need.Status != NeedStatus.Submitted && need.Status != NeedStatus.Rejected)
             throw new InvalidOperationException("Need can only be modified when in Draft, Submitted, or Rejected status.");
+
+        await EnsurePersonnelCanRequestCourseAsync(need.PersonnelId, courseId);
 
         need.CourseId = courseId;
         need.Notes = notes;
@@ -948,6 +952,8 @@ public class TeachingNeedService : ITeachingNeedService
         if (source.Status != NeedStatus.Approved)
             throw new InvalidOperationException("Only approved needs can be used as templates.");
 
+        await EnsurePersonnelCanRequestCourseAsync(personnelId, source.CourseId);
+
         var cloned = new TeachingNeed
         {
             SessionId = sessionId,
@@ -995,6 +1001,8 @@ public class TeachingNeedService : ITeachingNeedService
 
         if (session.Status != SessionStatus.Open)
             throw new InvalidOperationException("Cannot create a need: the session is not open.");
+
+        await EnsurePersonnelCanRequestCourseAsync(personnelId, courseId);
 
         var source = await _db.TeachingNeeds
             .Include(n => n.Items).ThenInclude(i => i.Software)
@@ -1134,5 +1142,18 @@ public class TeachingNeedService : ITeachingNeedService
     {
         if (need.Status != expectedStatus)
             throw new InvalidOperationException(message);
+    }
+
+    private async Task EnsurePersonnelCanRequestCourseAsync(int personnelId, int courseId)
+    {
+        var hasCoursePersonnelAssignments = await _db.CoursePersonnels.AnyAsync(cp => cp.CourseId == courseId);
+        if (!hasCoursePersonnelAssignments)
+            return;
+
+        var isAssigned = await _db.CoursePersonnels
+            .AnyAsync(cp => cp.CourseId == courseId && cp.PersonnelId == personnelId);
+        if (!isAssigned)
+            throw new InvalidOperationException(
+                $"Personnel {personnelId} is not assigned to course {courseId}.");
     }
 }

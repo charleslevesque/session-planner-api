@@ -1,0 +1,8 @@
+@if (!string.IsNullOrWhiteSpace(Message))
+{
+    <div class="message error">@Message</div>
+}
+
+@code {
+    [Parameter] public string? Message { get; set; }
+}

@@ -3,6 +3,7 @@
     <Project Path="src/SessionPlanner.Api/SessionPlanner.Api.csproj" />
     <Project Path="src/SessionPlanner.Core/SessionPlanner.Core.csproj" />
     <Project Path="src/SessionPlanner.Infrastructure/SessionPlanner.Infrastructure.csproj" />
+    <Project Path="src/SessionPlanner.Web/SessionPlanner.Web.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/SessionPlanner.Tests.Integration/SessionPlanner.Tests.Integration.csproj" />

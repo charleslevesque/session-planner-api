@@ -1,0 +1,20 @@
+@page "/"
+@inject AuthSessionService Auth
+@inject NavigationManager Navigation
+
+<PageTitle>Planificateur de sessions</PageTitle>
+
+<div class="page-center">
+    <div class="panel narrow">
+        <p class="eyebrow">Redirection</p>
+        <h1>Planificateur de sessions</h1>
+    </div>
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await Auth.InitializeAsync();
+        Navigation.NavigateTo(Auth.IsAuthenticated ? "/dashboard" : "/login", replace: true);
+    }
+}

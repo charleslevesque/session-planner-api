@@ -1,0 +1,213 @@
+@page "/dashboard"
+@attribute [Authorize]
+@inject ApiClient Api
+@inject AuthSessionService Auth
+
+<PageTitle>Dashboard</PageTitle>
+
+<div class="page-stack">
+    <PageHeader Title="Dashboard"
+                Eyebrow="Vue generale"
+                Description="Suivi des sessions, besoins et prochaines actions." />
+
+    <ErrorBanner Message="@_error" />
+
+    @if (_loading)
+    {
+        <LoadingPanel />
+    }
+    else
+    {
+        <section class="grid cards">
+            <div class="panel">
+                <p class="eyebrow">Sessions</p>
+                <h2>@_sessions.Count</h2>
+                <p class="muted">@_sessions.Count(s => s.Status == "Open") ouvertes</p>
+            </div>
+            <div class="panel">
+                <p class="eyebrow">Besoins</p>
+                <h2>@_needCount</h2>
+                <p class="muted">Besoins visibles dans les sessions chargees</p>
+            </div>
+            <div class="panel">
+                <p class="eyebrow">Role</p>
+                <h2>@Roles.Label(Auth.User?.Role)</h2>
+                <p class="muted">@Auth.User?.Email</p>
+            </div>
+        </section>
+
+        @if (IsTechnical)
+        {
+            <section class="panel">
+                <h2>Nouvelle session</h2>
+                <EditForm Model="_newSession" OnValidSubmit="CreateSessionAsync" class="form-grid">
+                    <div class="form-grid two">
+                        <div class="field">
+                            <label>Titre</label>
+                            <InputText @bind-Value="_newSession.Title" />
+                        </div>
+                        <div class="field">
+                            <label>Copier les cours depuis</label>
+                            <InputSelect @bind-Value="_newSession.CopyFromSessionId">
+                                <option value="">Aucune session</option>
+                                @foreach (var session in _sessions)
+                                {
+                                    <option value="@session.Id">@session.Title</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+                    <div class="form-grid two">
+                        <div class="field">
+                            <label>Date de debut</label>
+                            <InputDate @bind-Value="_newSession.StartDate" />
+                        </div>
+                        <div class="field">
+                            <label>Date de fin</label>
+                            <InputDate @bind-Value="_newSession.EndDate" />
+                        </div>
+                    </div>
+                    <FluentButton Type="ButtonType.Submit" Appearance="@Appearance.Accent" Disabled="@_busy">Creer</FluentButton>
+                </EditForm>
+            </section>
+        }
+
+        <section class="panel">
+            <div class="toolbar">
+                <h2>Sessions recentes</h2>
+                <FluentButton Appearance="@Appearance.Neutral" OnClick="LoadAsync">Rafraichir</FluentButton>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Session</th>
+                            <th>Statut</th>
+                            <th>Periode</th>
+                            <th>Cours</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var session in _sessions.OrderByDescending(s => s.StartDate))
+                        {
+                            <tr>
+                                <td><strong>@session.Title</strong></td>
+                                <td><StatusBadge Status="@session.Status" /></td>
+                                <td>@FormatDate(session.StartDate) - @FormatDate(session.EndDate)</td>
+                                <td>@(session.CourseIds?.Count ?? 0)</td>
+                                <td>
+                                    <div class="actions">
+                                        <NavButton Appearance="@Appearance.Lightweight" Href="@($"/sessions/{session.Id}/courses")">Cours</NavButton>
+                                        <NavButton Appearance="@Appearance.Lightweight" Href="@($"/sessions/{session.Id}/needs")">Besoins</NavButton>
+                                        @if (IsTechnical)
+                                        {
+                                            @if (session.Status == "Draft")
+                                            {
+                                                <FluentButton Appearance="@Appearance.Accent" OnClick="@(() => TransitionAsync(session.Id, "open"))">Ouvrir</FluentButton>
+                                            }
+                                            @if (session.Status == "Open")
+                                            {
+                                                <FluentButton Appearance="@Appearance.Neutral" OnClick="@(() => TransitionAsync(session.Id, "close"))">Fermer</FluentButton>
+                                            }
+                                            @if (session.Status == "Closed")
+                                            {
+                                                <FluentButton Appearance="@Appearance.Neutral" OnClick="@(() => TransitionAsync(session.Id, "archive"))">Archiver</FluentButton>
+                                            }
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+</div>
+
+@code {
+    private readonly CreateSessionRequest _newSession = new() { Title = $"Session {DateTime.Today:yyyy-MM}" };
+    private List<SessionResponse> _sessions = [];
+    private int _needCount;
+    private bool _loading = true;
+    private bool _busy;
+    private string? _error;
+
+    private bool IsTechnical => AccessPolicy.HasRole(Auth.User?.Role, AccessPolicy.Technical);
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+
+        try
+        {
+            var path = AccessPolicy.HasRole(Auth.User?.Role, AccessPolicy.Teachers) ? "sessions?active=true" : "sessions";
+            _sessions = await Api.GetAsync<List<SessionResponse>>(path);
+            _needCount = 0;
+
+            foreach (var session in _sessions.Take(12))
+            {
+                try
+                {
+                    var needs = await Api.GetAsync<List<TeachingNeedResponse>>($"sessions/{session.Id}/needs");
+                    _needCount += needs.Count;
+                }
+                catch
+                {
+                    // Some roles may not see every session's needs; dashboard counts only visible data.
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task CreateSessionAsync()
+    {
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            await Api.PostAsync<CreateSessionRequest, SessionResponse>("sessions", _newSession);
+            _newSession.Title = $"Session {DateTime.Today:yyyy-MM}";
+            _newSession.StartDate = DateTime.Today;
+            _newSession.EndDate = DateTime.Today.AddMonths(4);
+            _newSession.CopyFromSessionId = null;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task TransitionAsync(int sessionId, string action)
+    {
+        try
+        {
+            await Api.PostAsync($"sessions/{sessionId}/{action}");
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private static string FormatDate(DateTime date) => date.ToString("yyyy-MM-dd");
+}

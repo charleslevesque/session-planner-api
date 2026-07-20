@@ -13,6 +13,6 @@ public interface ISessionService
     Task<Session?> CloseAsync(int id);
     Task<Session?> ArchiveAsync(int id);
 
-    Task<List<Course>> GetSessionCoursesAsync(int sessionId);
+    Task<List<Course>> GetSessionCoursesAsync(int sessionId, int? personnelId = null);
     Task<List<Course>> ReplaceSessionCoursesAsync(int sessionId, IReadOnlyList<int> courseIds);
 }

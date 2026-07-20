@@ -65,28 +65,24 @@ The API will start locally.
 
 ## Frontend
 
-The workspace now includes a React frontend in [frontend](c:/PFEcode/session-planner-api/frontend).
+The workspace includes a Blazor WebAssembly frontend in `src/SessionPlanner.Web`, using FluentUI-Blazor.
 
 ### Frontend Prerequisites
 
-- Node.js
-- npm
+- .NET 10 SDK (Preview)
 
 ### Run the Frontend
 
 ```bash
-cd frontend
-npm install
-npm run dev
+dotnet run --project src/SessionPlanner.Web
 ```
 
-The Vite dev server proxies `/api/*` requests to `http://localhost:5290` through [frontend/vite.config.ts](c:/PFEcode/session-planner-api/frontend/vite.config.ts), so the frontend can call the API without additional browser-side CORS setup in development.
+In development, the Blazor client reads `src/SessionPlanner.Web/wwwroot/appsettings.Development.json` and calls `http://localhost:5290/api/v1`.
 
 ### Build the Frontend
 
 ```bash
-cd frontend
-npm run build
+dotnet publish src/SessionPlanner.Web -c Release
 ```
 
 ---
@@ -166,7 +162,7 @@ docker compose --env-file docker/.env -f docker/docker-compose.yml down
 
 ### Logo ÉTS
 
-Pour afficher le logo de l'École de technologie supérieure dans la barre latérale, placez le fichier `ets-logo.png` dans le dossier `frontend/public/`. Si le fichier est absent, un badge « ÉTS » sera affiché à la place.
+Le frontend affiche un badge « ETS » dans la barre laterale. Les assets publics du client Blazor sont dans `src/SessionPlanner.Web/wwwroot/`.
 
 ### Dépannage Windows (Git: invalid path)
 

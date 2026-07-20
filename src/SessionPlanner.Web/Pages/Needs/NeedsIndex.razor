@@ -1,0 +1,66 @@
+@page "/besoins"
+@attribute [Authorize]
+@inject ApiClient Api
+@inject AuthSessionService Auth
+
+<PageTitle>Besoins</PageTitle>
+
+<div class="page-stack">
+    <PageHeader Title="Besoins"
+                Eyebrow="Sessions actives"
+                Description="Choisissez une session pour consulter ou saisir les besoins technologiques." />
+
+    <ErrorBanner Message="@_error" />
+
+    @if (_loading)
+    {
+        <LoadingPanel />
+    }
+    else
+    {
+        <section class="grid cards">
+            @foreach (var session in _sessions.OrderByDescending(s => s.StartDate))
+            {
+                <article class="panel">
+                    <p class="eyebrow">@session.StartDate.ToString("yyyy-MM-dd") - @session.EndDate.ToString("yyyy-MM-dd")</p>
+                    <h2>@session.Title</h2>
+                    <p><StatusBadge Status="@session.Status" /></p>
+                    <div class="actions">
+                        <NavButton Appearance="@Appearance.Accent" Href="@($"/sessions/{session.Id}/courses")">Cours</NavButton>
+                        <NavButton Appearance="@Appearance.Lightweight" Href="@($"/sessions/{session.Id}/needs")">Besoins</NavButton>
+                    </div>
+                </article>
+            }
+        </section>
+
+        @if (_sessions.Count == 0)
+        {
+            <div class="panel">
+                <p>Aucune session disponible pour votre role.</p>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private List<SessionResponse> _sessions = [];
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var path = AccessPolicy.HasRole(Auth.User?.Role, AccessPolicy.Teachers) ? "sessions?active=true" : "sessions";
+            _sessions = await Api.GetAsync<List<SessionResponse>>(path);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

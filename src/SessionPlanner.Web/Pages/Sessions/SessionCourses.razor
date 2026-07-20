@@ -1,0 +1,255 @@
+@page "/sessions/{SessionId:int}/courses"
+@attribute [Authorize]
+@inject ApiClient Api
+@inject AuthSessionService Auth
+
+<PageTitle>Cours de session</PageTitle>
+
+<div class="page-stack">
+    <PageHeader Title="@(_session?.Title ?? "Cours de session")"
+                Eyebrow="Cours"
+                Description="Cours associes a la session et acces aux ressources et besoins." />
+
+    <ErrorBanner Message="@_error" />
+    <SuccessBanner Message="@_success" />
+
+    @if (_loading)
+    {
+        <LoadingPanel />
+    }
+    else if (_session is not null)
+    {
+        @if (IsTechnical)
+        {
+            <section class="panel">
+                <div class="toolbar">
+                    <h2>Assigner les cours</h2>
+                    <FluentButton Appearance="@Appearance.Accent" OnClick="SaveCoursesAsync" Disabled="@_busy">Enregistrer</FluentButton>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Assigne</th>
+                                <th>Code</th>
+                                <th>Nom</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var course in _allCourses.OrderBy(c => c.Code))
+                            {
+                                <tr>
+                                    <td>
+                                        <input type="checkbox"
+                                               checked="@_selectedCourseIds.Contains(course.Id)"
+                                               @onchange="@(() => ToggleCourse(course.Id))" />
+                                    </td>
+                                    <td><strong>@course.Code</strong></td>
+                                    <td>@course.Name</td>
+                                    <td>
+                                        <div class="actions">
+                                            <NavButton Appearance="@Appearance.Lightweight" Href="@($"/sessions/{SessionId}/courses/{course.Id}")">Ressources</NavButton>
+                                            <NavButton Appearance="@Appearance.Lightweight" Href="@($"/sessions/{SessionId}/courses/{course.Id}/create-need")">Nouveau besoin</NavButton>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        }
+        else
+        {
+            <section class="panel">
+                <div class="toolbar">
+                    <h2>Cours disponibles</h2>
+                    <div class="actions">
+                        <FluentButton Appearance="@Appearance.Neutral" OnClick="RenewAllAsync" Disabled="@_busy">Renouveler tout</FluentButton>
+                    </div>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Cours</th>
+                                <th>Besoins</th>
+                                <th>Renouvellement</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var course in _assignedCourses.OrderBy(c => c.Code))
+                            {
+                                var need = _needs.FirstOrDefault(n => n.CourseId == course.Id);
+                                var renewable = _renewable.FirstOrDefault(r => r.CourseId == course.Id);
+                                <tr>
+                                    <td><strong>@course.Code</strong><br />@course.Name</td>
+                                    <td>
+                                        @if (need is null)
+                                        {
+                                            <span class="muted">Aucun besoin</span>
+                                        }
+                                        else
+                                        {
+                                            <StatusBadge Status="@need.Status" IsNeed="true" />
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (renewable is not null)
+                                        {
+                                            <span>@renewable.SourceSessionTitle (@renewable.ItemCount items)</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <div class="actions">
+                                            <NavButton Appearance="@Appearance.Lightweight" Href="@($"/sessions/{SessionId}/courses/{course.Id}")">Ressources</NavButton>
+                                            <NavButton Appearance="@Appearance.Accent" Href="@($"/sessions/{SessionId}/courses/{course.Id}/create-need")">Saisir</NavButton>
+                                            @if (need is not null)
+                                            {
+                                                <NavButton Appearance="@Appearance.Lightweight" Href="@($"/sessions/{SessionId}/courses/{course.Id}/needs/{need.Id}/edit")">Modifier</NavButton>
+                                            }
+                                            @if (renewable is not null)
+                                            {
+                                                <FluentButton Appearance="@Appearance.Neutral" OnClick="@(() => RenewAsync(course.Id))">Renouveler</FluentButton>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public int SessionId { get; set; }
+
+    private SessionResponse? _session;
+    private List<CourseResponse> _allCourses = [];
+    private List<CourseResponse> _assignedCourses = [];
+    private List<TeachingNeedResponse> _needs = [];
+    private List<RenewableCourseResponse> _renewable = [];
+    private HashSet<int> _selectedCourseIds = [];
+    private bool _loading = true;
+    private bool _busy;
+    private string? _error;
+    private string? _success;
+
+    private bool IsTechnical => AccessPolicy.HasRole(Auth.User?.Role, AccessPolicy.Technical);
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        _success = null;
+
+        try
+        {
+            _session = await Api.GetAsync<SessionResponse>($"sessions/{SessionId}");
+            _assignedCourses = await Api.GetAsync<List<CourseResponse>>($"sessions/{SessionId}/courses");
+            _selectedCourseIds = _assignedCourses.Select(c => c.Id).ToHashSet();
+
+            if (IsTechnical)
+            {
+                _allCourses = await Api.GetAsync<List<CourseResponse>>("courses");
+            }
+            else
+            {
+                _needs = await Api.GetAsync<List<TeachingNeedResponse>>($"sessions/{SessionId}/needs");
+                try
+                {
+                    _renewable = await Api.GetAsync<List<RenewableCourseResponse>>($"sessions/{SessionId}/needs/renewable-courses");
+                }
+                catch
+                {
+                    _renewable = [];
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void ToggleCourse(int courseId)
+    {
+        if (!_selectedCourseIds.Add(courseId))
+        {
+            _selectedCourseIds.Remove(courseId);
+        }
+    }
+
+    private async Task SaveCoursesAsync()
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            var result = await Api.PutAsync<UpdateSessionCoursesRequest, List<CourseResponse>>(
+                $"sessions/{SessionId}/courses",
+                new UpdateSessionCoursesRequest { CourseIds = _selectedCourseIds.OrderBy(id => id).ToList() });
+            _assignedCourses = result;
+            _success = "Cours de session mis a jour.";
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task RenewAsync(int courseId)
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            await Api.PostAsync<object?, RenewNeedsResponse>($"sessions/{SessionId}/needs/renew/{courseId}", null);
+            _success = "Besoin renouvele.";
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task RenewAllAsync()
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            await Api.PostAsync<object?, RenewAllResponse>($"sessions/{SessionId}/needs/renew-all", null);
+            _success = "Besoins renouveles.";
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

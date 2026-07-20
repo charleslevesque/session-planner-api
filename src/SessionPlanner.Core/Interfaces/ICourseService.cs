@@ -17,6 +17,7 @@ public interface ICourseService
     Task<List<VirtualMachine>> GetCourseVirtualMachinesAsync(int courseId);
     Task<List<PhysicalServer>> GetCoursePhysicalServersAsync(int courseId);
     Task<List<EquipmentModel>> GetCourseEquipmentModelsAsync(int courseId);
+    Task<List<Personnel>> GetCoursePersonnelAsync(int courseId);
 
     Task<bool?> AssociateSaaSProductAsync(int courseId, int saasProductId);
     Task<bool> DissociateSaaSProductAsync(int courseId, int saasProductId);
@@ -35,6 +36,9 @@ public interface ICourseService
 
     Task<bool?> AssociateEquipmentModelAsync(int courseId, int equipmentModelId);
     Task<bool> DissociateEquipmentModelAsync(int courseId, int equipmentModelId);
+
+    Task<bool?> AssociatePersonnelAsync(int courseId, int personnelId);
+    Task<bool> DissociatePersonnelAsync(int courseId, int personnelId);
 
     Task<bool?> AssociateSoftwareVersionAsync(int courseId, int softwareVersionId);
     Task<bool> DissociateSoftwareVersionAsync(int courseId, int softwareVersionId);

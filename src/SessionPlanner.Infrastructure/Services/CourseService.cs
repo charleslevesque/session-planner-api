@@ -148,6 +148,17 @@ public class CourseService : ICourseService
             .ToListAsync();
     }
 
+    public async Task<List<Personnel>> GetCoursePersonnelAsync(int courseId)
+    {
+        return await _db.CoursePersonnels
+            .AsNoTracking()
+            .Where(x => x.CourseId == courseId)
+            .Select(x => x.Personnel)
+            .OrderBy(x => x.LastName)
+            .ThenBy(x => x.FirstName)
+            .ToListAsync();
+    }
+
     // ── Association / Dissociation ──
 
     public async Task<bool?> AssociateSaaSProductAsync(int courseId, int saasProductId)
@@ -278,6 +289,28 @@ public class CourseService : ICourseService
             .FirstOrDefaultAsync(j => j.CourseId == courseId && j.EquipmentModelId == equipmentModelId);
         if (join is null) return false;
         _db.CourseEquipmentModels.Remove(join);
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool?> AssociatePersonnelAsync(int courseId, int personnelId)
+    {
+        if (!await _db.Personnel.AnyAsync(r => r.Id == personnelId))
+            return null;
+        var set = _db.CoursePersonnels;
+        if (await set.AnyAsync(j => j.CourseId == courseId && j.PersonnelId == personnelId))
+            return false;
+        set.Add(new CoursePersonnel { CourseId = courseId, PersonnelId = personnelId });
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> DissociatePersonnelAsync(int courseId, int personnelId)
+    {
+        var join = await _db.CoursePersonnels
+            .FirstOrDefaultAsync(j => j.CourseId == courseId && j.PersonnelId == personnelId);
+        if (join is null) return false;
+        _db.CoursePersonnels.Remove(join);
         await _db.SaveChangesAsync();
         return true;
     }

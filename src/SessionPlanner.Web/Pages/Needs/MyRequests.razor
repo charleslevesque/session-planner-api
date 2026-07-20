@@ -1,0 +1,124 @@
+@page "/mes-demandes"
+@attribute [Authorize(Roles = "professor,course_instructor,lab_instructor")]
+@inject ApiClient Api
+
+<PageTitle>Mes demandes</PageTitle>
+
+<div class="page-stack">
+    <PageHeader Title="Mes demandes"
+                Eyebrow="Suivi personnel"
+                Description="Demandes soumises ou en brouillon pour vos cours." />
+
+    <ErrorBanner Message="@_error" />
+
+    @if (_loading)
+    {
+        <LoadingPanel />
+    }
+    else
+    {
+        <section class="panel">
+            <div class="toolbar">
+                <h2>Demandes</h2>
+                <select class="input" style="width:auto" @bind="_statusFilter">
+                    <option value="all">Tous les statuts</option>
+                    <option value="Draft">Brouillon</option>
+                    <option value="Submitted">Soumis</option>
+                    <option value="UnderReview">En revision</option>
+                    <option value="Approved">Approuve</option>
+                    <option value="Rejected">Rejete</option>
+                </select>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Session</th>
+                            <th>Cours</th>
+                            <th>Statut</th>
+                            <th>Dates</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var request in Filtered)
+                        {
+                            <tr>
+                                <td>@request.SessionTitle</td>
+                                <td><strong>@request.CourseCode</strong><br />@request.CourseName</td>
+                                <td><StatusBadge Status="@request.Status" IsNeed="true" /></td>
+                                <td>
+                                    Cree: @request.CreatedAt.ToString("yyyy-MM-dd")<br />
+                                    @if (request.SubmittedAt is not null)
+                                    {
+                                        <span>Soumis: @request.SubmittedAt.Value.ToString("yyyy-MM-dd")</span>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="actions">
+                                        @if (request.Status == "Draft" || request.Status == "Rejected")
+                                        {
+                                            <NavButton Appearance="@Appearance.Accent" Href="@($"/sessions/{request.SessionId}/courses/{request.CourseId}/needs/{request.Id}/edit")">Modifier</NavButton>
+                                        }
+                                        @if (request.Status == "Draft")
+                                        {
+                                            <FluentButton Appearance="@Appearance.Neutral" OnClick="@(() => DeleteAsync(request))">Supprimer</FluentButton>
+                                        }
+                                    </div>
+                                    @if (!string.IsNullOrWhiteSpace(request.RejectionReason))
+                                    {
+                                        <p class="rejection-message">@request.RejectionReason</p>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+</div>
+
+@code {
+    private List<MyNeedResponse> _requests = [];
+    private string _statusFilter = "all";
+    private bool _loading = true;
+    private string? _error;
+
+    private IEnumerable<MyNeedResponse> Filtered =>
+        _statusFilter == "all" ? _requests : _requests.Where(request => request.Status == _statusFilter);
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+
+        try
+        {
+            _requests = await Api.GetAsync<List<MyNeedResponse>>("needs/mine");
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task DeleteAsync(MyNeedResponse request)
+    {
+        try
+        {
+            await Api.DeleteAsync($"sessions/{request.SessionId}/needs/{request.Id}");
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+}

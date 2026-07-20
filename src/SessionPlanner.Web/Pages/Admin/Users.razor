@@ -1,0 +1,322 @@
+@page "/admin/users"
+@attribute [Authorize(Roles = "admin")]
+@inject ApiClient Api
+
+<PageTitle>Utilisateurs</PageTitle>
+
+<div class="page-stack">
+    <PageHeader Title="Utilisateurs"
+                Eyebrow="Administration"
+                Description="Creation, roles, mots de passe et activation des comptes." />
+
+    <ErrorBanner Message="@_error" />
+    <SuccessBanner Message="@_success" />
+
+    <section class="panel">
+        <h2>Nouvel utilisateur</h2>
+        <EditForm Model="_newUser" OnValidSubmit="CreateUserAsync" class="form-grid">
+            <div class="form-grid two">
+                <div class="field">
+                    <label>Courriel</label>
+                    <InputText @bind-Value="_newUser.Username" type="email" />
+                </div>
+                <div class="field">
+                    <label>Mot de passe</label>
+                    <InputText @bind-Value="_newUser.Password" type="password" />
+                </div>
+            </div>
+            <div class="field">
+                <label>Role</label>
+                <InputSelect @bind-Value="_newUser.RoleName">
+                    @foreach (var role in Roles.All)
+                    {
+                        <option value="@role">@Roles.Label(role)</option>
+                    }
+                </InputSelect>
+            </div>
+            <FluentButton Type="ButtonType.Submit" Appearance="@Appearance.Accent" Disabled="@_busy">Creer</FluentButton>
+        </EditForm>
+    </section>
+
+    @if (_loading)
+    {
+        <LoadingPanel />
+    }
+    else
+    {
+        <section class="panel">
+            <div class="toolbar">
+                <h2>Comptes</h2>
+                <FluentButton Appearance="@Appearance.Neutral" OnClick="LoadAsync">Rafraichir</FluentButton>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Utilisateur</th>
+                            <th>Role</th>
+                            <th>Etat</th>
+                            <th>Mot de passe</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var user in _users.OrderBy(u => u.Username))
+                        {
+                            <tr>
+                                <td><strong>@user.Username</strong></td>
+                                <td>
+                                    <select class="input" value="@user.Roles" @onchange="@((ChangeEventArgs e) => ChangeRoleAsync(user.Id, e.Value?.ToString() ?? Roles.Professor))">
+                                        @foreach (var role in Roles.All)
+                                        {
+                                            <option value="@role">@Roles.Label(role)</option>
+                                        }
+                                    </select>
+                                </td>
+                                <td>
+                                    @if (user.IsActive)
+                                    {
+                                        <span class="account-state active">Actif</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="account-state inactive">Inactif</span>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="actions">
+                                        <input class="input" style="width:220px" type="password" placeholder="Nouveau mot de passe" @bind="_passwords[user.Id]" />
+                                        <FluentButton Appearance="@Appearance.Neutral" OnClick="@(() => ChangePasswordAsync(user.Id))">Changer</FluentButton>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="actions">
+                                        <FluentButton Appearance="@Appearance.Lightweight" OnClick="@(() => LoadActivityAsync(user.Id))">Activite</FluentButton>
+                                        @if (user.IsActive)
+                                        {
+                                            <FluentButton Appearance="@Appearance.Neutral" OnClick="@(() => DeactivateAsync(user.Id))">Desactiver</FluentButton>
+                                        }
+                                        else
+                                        {
+                                            <FluentButton Appearance="@Appearance.Accent" OnClick="@(() => ReactivateAsync(user.Id))">Reactiver</FluentButton>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                            @if (_activityUserId == user.Id)
+                            {
+                                <tr class="activity-row">
+                                    <td colspan="5">
+                                        <div class="activity-panel">
+                                            @if (_activityLoadingUserId == user.Id)
+                                            {
+                                                <p class="muted">Chargement de l'activite...</p>
+                                            }
+                                            else if (!string.IsNullOrWhiteSpace(_activityError))
+                                            {
+                                                <p class="activity-error">@_activityError</p>
+                                            }
+                                            else if (_activity is not null)
+                                            {
+                                                <h3>Activite - @_activity.Username</h3>
+                                                @if (_activity.TeachingNeeds.Count == 0)
+                                                {
+                                                    <p class="muted">Aucun besoin rattache.</p>
+                                                }
+                                                else
+                                                {
+                                                    <div class="table-wrap compact">
+                                                        <table>
+                                                            <thead>
+                                                                <tr>
+                                                                    <th>Cours</th>
+                                                                    <th>Session</th>
+                                                                    <th>Statut</th>
+                                                                    <th>Items</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                @foreach (var need in _activity.TeachingNeeds)
+                                                                {
+                                                                    <tr>
+                                                                        <td>@need.CourseName</td>
+                                                                        <td>@need.SessionName</td>
+                                                                        <td><StatusBadge Status="@need.Status" IsNeed="true" /></td>
+                                                                        <td>@need.Items.Count</td>
+                                                                    </tr>
+                                                                }
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                }
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+</div>
+
+@code {
+    private readonly CreateUserRequest _newUser = new() { RoleName = Roles.Professor };
+    private List<UserResponse> _users = [];
+    private readonly Dictionary<int, string> _passwords = [];
+    private UserActivityResponse? _activity;
+    private int? _activityUserId;
+    private int? _activityLoadingUserId;
+    private string? _activityError;
+    private bool _loading = true;
+    private bool _busy;
+    private string? _error;
+    private string? _success;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            _users = await Api.GetAsync<List<UserResponse>>("users?includeInactive=true");
+            foreach (var user in _users)
+            {
+                _passwords.TryAdd(user.Id, "");
+            }
+
+            if (_activityUserId is int userId && _users.All(user => user.Id != userId))
+            {
+                _activityUserId = null;
+                _activity = null;
+                _activityError = null;
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task CreateUserAsync()
+    {
+        _busy = true;
+        _error = null;
+        _success = null;
+        try
+        {
+            await Api.PostAsync<CreateUserRequest, UserResponse>("users", _newUser);
+            _newUser.Username = "";
+            _newUser.Password = "";
+            _success = "Utilisateur cree.";
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task ChangeRoleAsync(int userId, string role)
+    {
+        try
+        {
+            await Api.PutAsync($"users/{userId}/role", new UpdateUserRoleRequest { RoleName = role });
+            _success = "Role mis a jour.";
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task ChangePasswordAsync(int userId)
+    {
+        var password = _passwords.TryGetValue(userId, out var value) ? value : "";
+        if (string.IsNullOrWhiteSpace(password))
+        {
+            _error = "Saisissez un mot de passe.";
+            return;
+        }
+
+        try
+        {
+            await Api.PutAsync($"users/{userId}/password", new UpdateUserPasswordRequest { NewPassword = password });
+            _passwords[userId] = "";
+            _success = "Mot de passe mis a jour.";
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task DeactivateAsync(int userId)
+    {
+        try
+        {
+            await Api.PostAsync($"users/{userId}/deactivate");
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task ReactivateAsync(int userId)
+    {
+        try
+        {
+            await Api.PostAsync($"users/{userId}/reactivate");
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task LoadActivityAsync(int userId)
+    {
+        if (_activityUserId == userId && _activity is not null)
+        {
+            _activityUserId = null;
+            _activity = null;
+            _activityError = null;
+            return;
+        }
+
+        _activityUserId = userId;
+        _activityLoadingUserId = userId;
+        _activity = null;
+        _activityError = null;
+        _error = null;
+
+        try
+        {
+            _activity = await Api.GetAsync<UserActivityResponse>($"users/{userId}/activity");
+        }
+        catch (Exception ex)
+        {
+            _activityError = ex.Message;
+        }
+        finally
+        {
+            _activityLoadingUserId = null;
+        }
+    }
+}

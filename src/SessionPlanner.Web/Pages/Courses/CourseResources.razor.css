@@ -1,0 +1,18 @@
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tab {
+  border: 1px solid var(--ets-border);
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: white;
+}
+
+.tab.active {
+  border-color: var(--ets-primary);
+  background: rgba(220, 4, 44, 0.08);
+  color: var(--ets-primary);
+}

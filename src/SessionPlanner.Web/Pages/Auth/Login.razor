@@ -1,0 +1,107 @@
+@page "/login"
+@layout AuthLayout
+@inject AuthSessionService Auth
+@inject NavigationManager Navigation
+
+<PageTitle>Connexion</PageTitle>
+
+<div class="page-center">
+    <div class="auth-card">
+        <section class="auth-hero">
+            <p class="eyebrow">ETS - Planificateur de sessions</p>
+            <h1>Portail de planification</h1>
+            <p>Connectez-vous pour gerer les sessions, les besoins et les ressources technologiques.</p>
+        </section>
+        <section class="auth-form">
+            <p class="eyebrow">Connexion</p>
+            <h2>Acceder au portail</h2>
+            <ErrorBanner Message="@_error" />
+            <SuccessBanner Message="@_message" />
+
+            <EditForm Model="_form" OnValidSubmit="SubmitAsync" class="form-grid">
+                <DataAnnotationsValidator />
+                <div class="field">
+                    <label for="email">Courriel</label>
+                    <InputText id="email" @bind-Value="_form.Email" type="email" autocomplete="email" />
+                </div>
+                <div class="field">
+                    <label for="password">Mot de passe</label>
+                    <InputText id="password" @bind-Value="_form.Password" type="password" autocomplete="current-password" />
+                </div>
+                <FluentButton Type="ButtonType.Submit" Appearance="@Appearance.Accent" Disabled="@_busy">
+                    @(_busy ? "Connexion..." : "Se connecter")
+                </FluentButton>
+            </EditForm>
+
+            <p class="muted">
+                Pas encore de compte?
+                <a href="/register">Creer un compte</a>
+            </p>
+        </section>
+    </div>
+</div>
+
+@code {
+    private readonly LoginRequest _form = new();
+    private bool _busy;
+    private string? _error;
+    private string? _message;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Auth.InitializeAsync();
+        if (Auth.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/dashboard", replace: true);
+            return;
+        }
+
+        _message = GetQueryValue("message");
+    }
+
+    private async Task SubmitAsync()
+    {
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            await Auth.LoginAsync(_form);
+            var target = GetReturnUrl() ?? "/dashboard";
+            Navigation.NavigateTo(target, replace: true);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private string? GetReturnUrl()
+    {
+        return GetQueryValue("returnUrl");
+    }
+
+    private string? GetQueryValue(string key)
+    {
+        var query = Navigation.ToAbsoluteUri(Navigation.Uri).Query.TrimStart('?');
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return null;
+        }
+
+        foreach (var part in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var pair = part.Split('=', 2);
+            if (Uri.UnescapeDataString(pair[0]) == key)
+            {
+                return pair.Length == 2 ? Uri.UnescapeDataString(pair[1].Replace("+", " ")) : "";
+            }
+        }
+
+        return null;
+    }
+}

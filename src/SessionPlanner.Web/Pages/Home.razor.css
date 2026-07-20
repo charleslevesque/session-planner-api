@@ -1,0 +1,10 @@
+.page-center {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.panel.narrow {
+  width: min(460px, calc(100vw - 32px));
+}

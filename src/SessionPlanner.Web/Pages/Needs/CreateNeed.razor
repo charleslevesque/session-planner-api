@@ -1,0 +1,487 @@
+@page "/sessions/{SessionId:int}/courses/{CourseId:int}/create-need"
+@page "/sessions/{SessionId:int}/courses/{CourseId:int}/needs/{NeedId:int}/edit"
+@attribute [Authorize(Roles = "professor,course_instructor,lab_instructor")]
+@inject ApiClient Api
+@inject NavigationManager Navigation
+
+<PageTitle>@(NeedId is null ? "Nouveau besoin" : "Modifier le besoin")</PageTitle>
+
+<div class="page-stack">
+    <PageHeader Title="@(_course is null ? "Besoin" : $"{_course.Code} - {_course.Name}")"
+                Eyebrow="Saisie"
+                Description="Decrivez les besoins technologiques du cours pour la session." />
+
+    <ErrorBanner Message="@_error" />
+    <SuccessBanner Message="@_success" />
+
+    @if (_loading)
+    {
+        <LoadingPanel />
+    }
+    else
+    {
+        <section class="panel">
+            <h2>Informations generales</h2>
+            <EditForm Model="_form" class="form-grid">
+                <div class="form-grid two">
+                    <div class="field">
+                        <label>Etudiants attendus</label>
+                        <InputNumber @bind-Value="_form.ExpectedStudents" />
+                    </div>
+                    <div class="field">
+                        <label>Besoin technique?</label>
+                        <select class="input" value="@BoolText(_form.HasTechNeeds)" @onchange="@((ChangeEventArgs e) => _form.HasTechNeeds = ParseBool(e.Value?.ToString()))">
+                            <option value="">Non precise</option>
+                            <option value="true">Oui</option>
+                            <option value="false">Non</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-grid two">
+                    <div class="field">
+                        <label>Tous les cours trouves?</label>
+                        <select class="input" value="@BoolText(_form.FoundAllCourses)" @onchange="@((ChangeEventArgs e) => _form.FoundAllCourses = ParseBool(e.Value?.ToString()))">
+                            <option value="">Non precise</option>
+                            <option value="true">Oui</option>
+                            <option value="false">Non</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label>Mises a jour permises?</label>
+                        <select class="input" value="@BoolText(_form.AllowsUpdates)" @onchange="@((ChangeEventArgs e) => _form.AllowsUpdates = ParseBool(e.Value?.ToString()))">
+                            <option value="">Non precise</option>
+                            <option value="true">Oui</option>
+                            <option value="false">Non</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="field">
+                    <label>Modifications souhaitees</label>
+                    <InputTextArea @bind-Value="_form.DesiredModifications" />
+                </div>
+                <div class="field">
+                    <label>Notes</label>
+                    <InputTextArea @bind-Value="_form.Notes" />
+                </div>
+                <div class="field">
+                    <label>Commentaires additionnels</label>
+                    <InputTextArea @bind-Value="_form.AdditionalComments" />
+                </div>
+            </EditForm>
+        </section>
+
+        @if (_history.Count > 0)
+        {
+            <section class="panel">
+                <h2>Historique du cours</h2>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Session</th>
+                                <th>Statut</th>
+                                <th>Items</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in _history)
+                            {
+                                <tr>
+                                    <td>@item.SessionId</td>
+                                    <td><StatusBadge Status="@item.Status" IsNeed="true" /></td>
+                                    <td>@item.Items.Count</td>
+                                    <td><FluentButton Appearance="@Appearance.Lightweight" OnClick="@(() => CloneHistoryAsync(item.Id))">Reprendre</FluentButton></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        }
+
+        <section class="panel">
+            <div class="toolbar">
+                <h2>Items de besoin</h2>
+                <div class="actions">
+                    <select class="input" style="width:auto" @bind="_newItemType">
+                        @foreach (var type in NeedItemTypes.TeacherTypes)
+                        {
+                            <option value="@type">@NeedItemTypes.Label(type)</option>
+                        }
+                    </select>
+                    <FluentButton Appearance="@Appearance.Neutral" OnClick="AddItem">Ajouter</FluentButton>
+                </div>
+            </div>
+
+            @if (_items.Count == 0)
+            {
+                <p class="muted">Aucun item ajoute.</p>
+            }
+            else
+            {
+                @foreach (var item in _items)
+                {
+                    <div class="panel">
+                        <div class="toolbar">
+                            <h3>@NeedItemTypes.Label(item.ItemType)</h3>
+                            <FluentButton Appearance="@Appearance.Neutral" OnClick="@(() => RemoveItem(item))">Retirer</FluentButton>
+                        </div>
+                        @RenderItemFields(item)
+                    </div>
+                }
+            }
+        </section>
+
+        <section class="panel">
+            <div class="actions">
+                <FluentButton Appearance="@Appearance.Neutral" OnClick="@(() => SaveAsync(false))" Disabled="@_busy">Sauvegarder brouillon</FluentButton>
+                <FluentButton Appearance="@Appearance.Accent" OnClick="@(() => SaveAsync(true))" Disabled="@_busy">Soumettre</FluentButton>
+                <NavButton Appearance="@Appearance.Lightweight" Href="@($"/sessions/{SessionId}/courses")">Retour aux cours</NavButton>
+            </div>
+        </section>
+    }
+</div>
+
+@code {
+    [Parameter] public int SessionId { get; set; }
+    [Parameter] public int CourseId { get; set; }
+    [Parameter] public int? NeedId { get; set; }
+
+    private sealed class NeedDraft
+    {
+        public int? ExistingId { get; set; }
+        public string ItemType { get; set; } = NeedItemTypes.Software;
+        public Dictionary<string, string> Values { get; set; } = [];
+    }
+
+    private readonly UpdateTeachingNeedRequest _form = new();
+    private readonly List<NeedDraft> _items = [];
+    private List<OSResponse> _operatingSystems = [];
+    private List<LaboratoryResponse> _laboratories = [];
+    private List<PhysicalServerResponse> _servers = [];
+    private List<SoftwareCatalogEntry> _softwareCatalog = [];
+    private List<TeachingNeedResponse> _history = [];
+    private CourseResponse? _course;
+    private TeachingNeedResponse? _existing;
+    private string _newItemType = NeedItemTypes.Software;
+    private bool _loading = true;
+    private bool _busy;
+    private string? _error;
+    private string? _success;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loading = true;
+        _error = null;
+
+        try
+        {
+            _course = await Api.GetAsync<CourseResponse>($"courses/{CourseId}");
+            _operatingSystems = await Api.GetAsync<List<OSResponse>>("operatingsystems");
+            _laboratories = await Api.GetAsync<List<LaboratoryResponse>>("laboratories");
+            _servers = await Api.GetAsync<List<PhysicalServerResponse>>("physicalservers");
+
+            try
+            {
+                _softwareCatalog = await Api.GetAsync<List<SoftwareCatalogEntry>>("softwares/catalog");
+            }
+            catch
+            {
+                _softwareCatalog = [];
+            }
+
+            try
+            {
+                _history = await Api.GetAsync<List<TeachingNeedResponse>>($"courses/{CourseId}/needs/history");
+            }
+            catch
+            {
+                _history = [];
+            }
+
+            _form.CourseId = CourseId;
+
+            if (NeedId is int needId)
+            {
+                _existing = await Api.GetAsync<TeachingNeedResponse>($"sessions/{SessionId}/needs/{needId}");
+                LoadExisting(_existing);
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void LoadExisting(TeachingNeedResponse need)
+    {
+        _form.CourseId = need.CourseId;
+        _form.Notes = need.Notes;
+        _form.ExpectedStudents = need.ExpectedStudents;
+        _form.HasTechNeeds = need.HasTechNeeds;
+        _form.FoundAllCourses = need.FoundAllCourses;
+        _form.DesiredModifications = need.DesiredModifications;
+        _form.AllowsUpdates = need.AllowsUpdates;
+        _form.AdditionalComments = need.AdditionalComments;
+
+        _items.Clear();
+        foreach (var item in need.Items)
+        {
+            if (!NeedItemTypes.TeacherTypes.Contains(item.ItemType))
+            {
+                continue;
+            }
+
+            _items.Add(new NeedDraft
+            {
+                ExistingId = item.Id,
+                ItemType = item.ItemType,
+                Values = MergeDefaults(item.ItemType, NeedItemHelpers.ParseDetails(item.DetailsJson))
+            });
+        }
+    }
+
+    private void AddItem()
+    {
+        _items.Add(new NeedDraft
+        {
+            ItemType = _newItemType,
+            Values = MergeDefaults(_newItemType, [])
+        });
+    }
+
+    private void RemoveItem(NeedDraft item) => _items.Remove(item);
+
+    private async Task CloneHistoryAsync(int sourceNeedId)
+    {
+        try
+        {
+            var cloned = await Api.PostAsync<object?, TeachingNeedResponse>(
+                $"sessions/{SessionId}/needs/from-template/{sourceNeedId}",
+                new { courseId = CourseId });
+            Navigation.NavigateTo($"/sessions/{SessionId}/courses/{CourseId}/needs/{cloned.Id}/edit", replace: true);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task SaveAsync(bool submit)
+    {
+        _busy = true;
+        _error = null;
+        _success = null;
+
+        try
+        {
+            TeachingNeedResponse saved;
+            if (NeedId is int needId)
+            {
+                saved = await Api.PutAsync<UpdateTeachingNeedRequest, TeachingNeedResponse>($"sessions/{SessionId}/needs/{needId}", _form);
+                foreach (var existingItem in _existing?.Items ?? [])
+                {
+                    await Api.DeleteAsync($"sessions/{SessionId}/needs/{needId}/items/{existingItem.Id}");
+                }
+            }
+            else
+            {
+                saved = await Api.PostAsync<UpdateTeachingNeedRequest, TeachingNeedResponse>($"sessions/{SessionId}/needs", _form);
+                NeedId = saved.Id;
+            }
+
+            foreach (var item in _items)
+            {
+                await Api.PostAsync<AddNeedItemRequest>($"sessions/{SessionId}/needs/{saved.Id}/items", new AddNeedItemRequest
+                {
+                    ItemType = item.ItemType,
+                    DetailsJson = NeedItemHelpers.SerializeDetails(item.Values)
+                });
+            }
+
+            if (submit)
+            {
+                if (_existing?.Status == "Rejected")
+                {
+                    await Api.PostAsync($"sessions/{SessionId}/needs/{saved.Id}/revise");
+                }
+
+                var result = await Api.PostAsync<object?, SubmitTeachingNeedResponse>($"sessions/{SessionId}/needs/{saved.Id}/submit", null);
+                _success = result.Warnings.Count > 0
+                    ? $"Besoin soumis avec avertissements: {string.Join("; ", result.Warnings)}"
+                    : "Besoin soumis.";
+            }
+            else
+            {
+                _success = "Brouillon sauvegarde.";
+            }
+
+            Navigation.NavigateTo($"/sessions/{SessionId}/courses/{CourseId}/needs/{saved.Id}/edit", replace: true);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private RenderFragment RenderItemFields(NeedDraft item) => builder =>
+    {
+        var sequence = 0;
+        foreach (var field in FieldDefinitions(item.ItemType))
+        {
+            builder.OpenElement(sequence++, "div");
+            builder.AddAttribute(sequence++, "class", "field");
+            builder.OpenElement(sequence++, "label");
+            builder.AddContent(sequence++, field.Label);
+            builder.CloseElement();
+
+            if (field.Kind == "textarea")
+            {
+                builder.OpenElement(sequence++, "textarea");
+                builder.AddAttribute(sequence++, "class", "input");
+                builder.AddAttribute(sequence++, "value", BindConverter.FormatValue(item.Values[field.Key]));
+                builder.AddAttribute(sequence++, "onchange", EventCallback.Factory.CreateBinder<string>(this, value => item.Values[field.Key] = value ?? "", item.Values[field.Key]));
+                builder.CloseElement();
+            }
+            else if (field.Kind == "select-os")
+            {
+                RenderSelect(builder, ref sequence, item, field.Key, _operatingSystems.Select(os => (os.Id.ToString(), os.Name)));
+            }
+            else if (field.Kind == "select-server")
+            {
+                RenderSelect(builder, ref sequence, item, field.Key, _servers.Select(server => (server.Id.ToString(), server.Hostname)));
+            }
+            else if (field.Kind == "select-lab-multi")
+            {
+                RenderInput(builder, ref sequence, item, field.Key, "text", "IDs separes par des virgules: " + string.Join(", ", _laboratories.Select(l => $"{l.Id}={l.Name}")));
+            }
+            else if (field.Kind == "select-os-multi")
+            {
+                RenderInput(builder, ref sequence, item, field.Key, "text", "IDs separes par des virgules: " + string.Join(", ", _operatingSystems.Select(os => $"{os.Id}={os.Name}")));
+            }
+            else
+            {
+                RenderInput(builder, ref sequence, item, field.Key, field.Kind == "number" ? "number" : "text", field.Placeholder);
+            }
+
+            builder.CloseElement();
+        }
+    };
+
+    private static void RenderInput(RenderTreeBuilder builder, ref int sequence, NeedDraft item, string key, string type, string? placeholder)
+    {
+        builder.OpenElement(sequence++, "input");
+        builder.AddAttribute(sequence++, "class", "input");
+        builder.AddAttribute(sequence++, "type", type);
+        builder.AddAttribute(sequence++, "placeholder", placeholder);
+        builder.AddAttribute(sequence++, "value", BindConverter.FormatValue(item.Values[key]));
+        builder.AddAttribute(sequence++, "onchange", EventCallback.Factory.CreateBinder<string>(item, value => item.Values[key] = value ?? "", item.Values[key]));
+        builder.CloseElement();
+    }
+
+    private static void RenderSelect(RenderTreeBuilder builder, ref int sequence, NeedDraft item, string key, IEnumerable<(string Value, string Label)> options)
+    {
+        builder.OpenElement(sequence++, "select");
+        builder.AddAttribute(sequence++, "class", "input");
+        builder.AddAttribute(sequence++, "value", BindConverter.FormatValue(item.Values[key]));
+        builder.AddAttribute(sequence++, "onchange", EventCallback.Factory.CreateBinder<string>(item, value => item.Values[key] = value ?? "", item.Values[key]));
+        builder.OpenElement(sequence++, "option");
+        builder.AddAttribute(sequence++, "value", "");
+        builder.AddContent(sequence++, "Selectionner");
+        builder.CloseElement();
+        foreach (var option in options)
+        {
+            builder.OpenElement(sequence++, "option");
+            builder.AddAttribute(sequence++, "value", option.Value);
+            builder.AddContent(sequence++, option.Label);
+            builder.CloseElement();
+        }
+        builder.CloseElement();
+    }
+
+    private IEnumerable<(string Key, string Label, string Kind, string? Placeholder)> FieldDefinitions(string type) => type switch
+    {
+        NeedItemTypes.SaaS =>
+        [
+            ("name", "Nom", "text", null),
+            ("numberOfAccounts", "Nombre de comptes", "number", null),
+            ("notes", "Notes", "textarea", null)
+        ],
+        NeedItemTypes.Software =>
+        [
+            ("softwareName", "Logiciel", "text", string.Join(", ", _softwareCatalog.Select(s => s.Name).Take(8))),
+            ("versionNumber", "Version", "text", null),
+            ("osId", "Systeme d'exploitation", "select-os", null),
+            ("installationDetails", "Details d'installation", "text", null),
+            ("notes", "Notes", "textarea", null)
+        ],
+        NeedItemTypes.Configuration =>
+        [
+            ("title", "Titre", "text", null),
+            ("osIds", "Systemes d'exploitation", "select-os-multi", null),
+            ("laboratoryIds", "Laboratoires", "select-lab-multi", null),
+            ("notes", "Notes", "textarea", null)
+        ],
+        NeedItemTypes.VirtualMachine =>
+        [
+            ("quantity", "Quantite", "number", null),
+            ("cpuCores", "CPU", "number", null),
+            ("ramGb", "RAM (Go)", "number", null),
+            ("storageGb", "Stockage (Go)", "number", null),
+            ("accessType", "Type d'acces", "text", "SSH, RDP, VNC"),
+            ("osId", "Systeme d'exploitation", "select-os", null),
+            ("hostServerId", "Serveur hote", "select-server", null),
+            ("notes", "Notes", "textarea", null)
+        ],
+        NeedItemTypes.PhysicalServer =>
+        [
+            ("hostname", "Hostname", "text", null),
+            ("cpuCores", "CPU", "number", null),
+            ("ramGb", "RAM (Go)", "number", null),
+            ("storageGb", "Stockage (Go)", "number", null),
+            ("accessType", "Type d'acces", "text", "SSH, IPMI"),
+            ("osId", "Systeme d'exploitation", "select-os", null),
+            ("notes", "Notes", "textarea", null)
+        ],
+        _ =>
+        [
+            ("name", "Nom", "text", null),
+            ("quantity", "Quantite", "number", null),
+            ("defaultAccessories", "Accessoires", "text", null),
+            ("notes", "Notes", "textarea", null)
+        ]
+    };
+
+    private static Dictionary<string, string> MergeDefaults(string type, Dictionary<string, string> values)
+    {
+        var merged = NeedItemHelpers.Defaults[type].ToDictionary(entry => entry.Key, entry => entry.Value);
+        foreach (var entry in values)
+        {
+            merged[entry.Key] = entry.Value;
+        }
+        return merged;
+    }
+
+    private static string BoolText(bool? value) => value switch
+    {
+        true => "true",
+        false => "false",
+        _ => ""
+    };
+
+    private static bool? ParseBool(string? value) => value switch
+    {
+        "true" => true,
+        "false" => false,
+        _ => null
+    };
+}

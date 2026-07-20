@@ -1,0 +1,121 @@
+@page "/matrice"
+@attribute [Authorize(Roles = "admin,lab_instructor")]
+@inject ApiClient Api
+
+<PageTitle>Matrice</PageTitle>
+
+<div class="page-stack">
+    <PageHeader Title="Matrice logiciels-laboratoires"
+                Eyebrow="Affectations"
+                Description="Suivi et mise a jour des statuts d'installation par laboratoire." />
+
+    <ErrorBanner Message="@_error" />
+    <SuccessBanner Message="@_success" />
+
+    @if (_loading)
+    {
+        <LoadingPanel />
+    }
+    else
+    {
+        <section class="panel">
+            <div class="toolbar">
+                <h2>Matrice</h2>
+                <FluentButton Appearance="@Appearance.Neutral" OnClick="LoadAsync">Rafraichir</FluentButton>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Logiciel</th>
+                            @foreach (var lab in _laboratories.OrderBy(l => l.Name))
+                            {
+                                <th>@lab.Name</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var software in _softwares.OrderBy(s => s.Name))
+                        {
+                            <tr>
+                                <td><strong>@software.Name</strong></td>
+                                @foreach (var lab in _laboratories.OrderBy(l => l.Name))
+                                {
+                                    var key = (lab.Id, software.Id);
+                                    <td>
+                                        <select class="input" value="@StatusFor(key)" @onchange="@((ChangeEventArgs e) => SaveStatusAsync(lab.Id, software.Id, e.Value?.ToString() ?? string.Empty))">
+                                            <option value="">Non renseigne</option>
+                                            <option value="installed">Installe</option>
+                                            <option value="missing">Manquant</option>
+                                            <option value="planned">Planifie</option>
+                                            <option value="not_required">Non requis</option>
+                                        </select>
+                                    </td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+</div>
+
+@code {
+    private List<LaboratoryResponse> _laboratories = [];
+    private List<SoftwareResponse> _softwares = [];
+    private Dictionary<(int LaboratoryId, int SoftwareId), string> _statuses = [];
+    private bool _loading = true;
+    private string? _error;
+    private string? _success;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        _success = null;
+        try
+        {
+            _laboratories = await Api.GetAsync<List<LaboratoryResponse>>("laboratories");
+            _softwares = await Api.GetAsync<List<SoftwareResponse>>("softwares");
+            var entries = await Api.GetAsync<List<LaboratorySoftwareResponse>>("laboratorysoftwares");
+            _statuses = entries.ToDictionary(e => (e.LaboratoryId, e.SoftwareId), e => e.Status);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private string StatusFor((int LaboratoryId, int SoftwareId) key) =>
+        _statuses.TryGetValue(key, out var status) ? status : "";
+
+    private async Task SaveStatusAsync(int laboratoryId, int softwareId, string status)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(status))
+            {
+                await Api.DeleteAsync($"laboratorysoftwares/{laboratoryId}/{softwareId}");
+                _statuses.Remove((laboratoryId, softwareId));
+            }
+            else
+            {
+                await Api.PutAsync($"laboratorysoftwares/{laboratoryId}/{softwareId}", new UpsertLaboratorySoftwareRequest { Status = status });
+                _statuses[(laboratoryId, softwareId)] = status;
+            }
+
+            _success = "Matrice mise a jour.";
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+}

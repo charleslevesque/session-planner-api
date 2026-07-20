@@ -1,0 +1,93 @@
+@page "/sessions/{SessionId:int}/courses/{CourseId:int}"
+@attribute [Authorize]
+@inject ApiClient Api
+
+<PageTitle>Ressources du cours</PageTitle>
+
+<div class="page-stack">
+    <PageHeader Title="@(_course is null ? "Ressources du cours" : $"{_course.Code} - {_course.Name}")"
+                Eyebrow="Ressources"
+                Description="Catalogue rattache au cours pour la session." />
+
+    <ErrorBanner Message="@_error" />
+
+    @if (_loading)
+    {
+        <LoadingPanel />
+    }
+    else if (_resources is not null)
+    {
+        <div class="tabs">
+            @foreach (var tab in Tabs)
+            {
+                <button class="@($"tab {(_activeTab == tab.Key ? "active" : "")}")" @onclick="@(() => _activeTab = tab.Key)">
+                    @tab.Value
+                </button>
+            }
+        </div>
+
+        <section class="panel">
+            @switch (_activeTab)
+            {
+                case "saas":
+                    <ResourceTable Items="@_resources.SaaS.Select(x => (x.Name, x.NumberOfAccounts?.ToString() ?? "", x.Notes ?? ""))" />
+                    break;
+                case "softwares":
+                    <ResourceTable Items="@_resources.Softwares.Select(x => (x.Name, x.InstallCommand ?? "", ""))" />
+                    break;
+                case "configurations":
+                    <ResourceTable Items="@_resources.Configurations.Select(x => (x.Title, $"OS: {string.Join(",", x.OsIds ?? new List<int>())}", x.Notes ?? ""))" />
+                    break;
+                case "vms":
+                    <ResourceTable Items="@_resources.VirtualMachines.Select(x => ($"{x.Quantity} VM", $"{x.CpuCores} CPU / {x.RamGb} Go RAM / {x.OsName}", x.Notes ?? ""))" />
+                    break;
+                case "servers":
+                    <ResourceTable Items="@_resources.PhysicalServers.Select(x => (x.Hostname, $"{x.CpuCores} CPU / {x.RamGb} Go RAM / {x.OsName}", x.Notes ?? ""))" />
+                    break;
+                case "equipment":
+                    <ResourceTable Items="@_resources.Equipment.Select(x => (x.Name, $"Quantite: {x.Quantity}", x.Notes ?? ""))" />
+                    break;
+            }
+        </section>
+    }
+</div>
+
+@code {
+    [Parameter] public int SessionId { get; set; }
+    [Parameter] public int CourseId { get; set; }
+
+    private static readonly Dictionary<string, string> Tabs = new()
+    {
+        ["saas"] = "SaaS",
+        ["softwares"] = "Logiciels",
+        ["configurations"] = "Configurations",
+        ["vms"] = "Machines virtuelles",
+        ["servers"] = "Serveurs physiques",
+        ["equipment"] = "Prets d'equipement"
+    };
+
+    private string _activeTab = "softwares";
+    private CourseResponse? _course;
+    private CourseResourcesResponse? _resources;
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            _course = await Api.GetAsync<CourseResponse>($"courses/{CourseId}");
+            _resources = await Api.GetAsync<CourseResourcesResponse>($"courses/{CourseId}/resources");
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

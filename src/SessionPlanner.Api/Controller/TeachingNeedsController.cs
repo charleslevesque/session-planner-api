@@ -57,7 +57,7 @@ public class TeachingNeedsController : ControllerBase
     {
         int? filterByPersonnelId = null;
 
-        if (IsTeachingRole())
+        if (IsNeedAuthorRole() && !IsAdminOrLabInstructor())
         {
             var userId = GetCurrentUserId();
             if (userId is null)
@@ -115,7 +115,7 @@ public class TeachingNeedsController : ControllerBase
         if (need is null)
             return NotFound(new ApiErrorResponse("Teaching need not found.", ErrorCodes.NotFound));
 
-        if (IsTeachingRole() && !await IsOwner(need.PersonnelId))
+        if (IsNeedAuthorRole() && !IsAdminOrLabInstructor() && !await IsOwner(need.PersonnelId))
             return Forbid();
 
         var installedMap = await _installationCheckService.GetInstalledMapAsync(
@@ -167,7 +167,7 @@ public class TeachingNeedsController : ControllerBase
 
         int personnelId;
 
-        if (IsTeachingRole())
+        if (IsTeachingRole() || (User.IsInRole(Roles.LabInstructor) && request.PersonnelId is null))
         {
             var ownPersonnelId = await _needService.GetOrCreatePersonnelIdForUserAsync(userId.Value);
             if (ownPersonnelId is null)
@@ -185,7 +185,7 @@ public class TeachingNeedsController : ControllerBase
             if (request.PersonnelId is null)
             {
                 return BadRequest(new ApiErrorResponse(
-                    Error: "personnelId is required for non-teaching-role users.",
+                    Error: "personnelId is required when creating a need for another personnel record.",
                     Code: ErrorCodes.BadRequest
                 ));
             }
@@ -221,7 +221,7 @@ public class TeachingNeedsController : ControllerBase
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<TeachingNeedResponse>> CloneFromTemplate(int sessionId, int sourceNeedId)
     {
-        if (!IsTeachingRole()) return Forbid();
+        if (!IsNeedAuthorRole()) return Forbid();
 
         var userId = GetCurrentUserId();
         if (userId is null)
@@ -549,7 +549,7 @@ public class TeachingNeedsController : ControllerBase
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<SubmitTeachingNeedResponse>> Submit(int sessionId, int id)
     {
-        if (!IsTeachingRole()) return Forbid();
+        if (!IsNeedAuthorRole()) return Forbid();
 
         var need = await _needService.GetByIdAsync(sessionId, id);
         if (need is null)
@@ -796,7 +796,7 @@ public class TeachingNeedsController : ControllerBase
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<TeachingNeedResponse>> Revise(int sessionId, int id)
     {
-        if (!IsTeachingRole()) return Forbid();
+        if (!IsNeedAuthorRole()) return Forbid();
 
         var need = await _needService.GetByIdAsync(sessionId, id);
         if (need is null)
@@ -851,7 +851,7 @@ public class TeachingNeedsController : ControllerBase
         [FromQuery] int? courseId,
         [FromQuery] string? status)
     {
-        if (!IsTeachingRole())
+        if (!IsNeedAuthorRole())
             return Forbid();
 
         var userId = GetCurrentUserId();
@@ -898,7 +898,7 @@ public class TeachingNeedsController : ControllerBase
     [ProducesResponseType(typeof(IEnumerable<RenewableCourseResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetRenewableCourses(int sessionId)
     {
-        if (!IsTeachingRole()) return Forbid();
+        if (!IsNeedAuthorRole()) return Forbid();
 
         var userId = GetCurrentUserId();
         if (userId is null) return Unauthorized(new ApiErrorResponse("Unauthorized.", ErrorCodes.Unauthorized));
@@ -944,7 +944,7 @@ public class TeachingNeedsController : ControllerBase
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<RenewNeedsResponse>> RenewFromHistory(int sessionId, int courseId)
     {
-        if (!IsTeachingRole()) return Forbid();
+        if (!IsNeedAuthorRole()) return Forbid();
 
         var userId = GetCurrentUserId();
         if (userId is null) return Unauthorized(new ApiErrorResponse("Unauthorized.", ErrorCodes.Unauthorized));
@@ -976,7 +976,7 @@ public class TeachingNeedsController : ControllerBase
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> RenewAll(int sessionId)
     {
-        if (!IsTeachingRole()) return Forbid();
+        if (!IsNeedAuthorRole()) return Forbid();
 
         var userId = GetCurrentUserId();
         if (userId is null) return Unauthorized(new ApiErrorResponse("Unauthorized.", ErrorCodes.Unauthorized));
@@ -1014,6 +1014,9 @@ public class TeachingNeedsController : ControllerBase
 
     private bool IsTeachingRole() =>
         User.IsInRole(Roles.Professor) || User.IsInRole(Roles.CourseInstructor);
+
+    private bool IsNeedAuthorRole() =>
+        IsTeachingRole() || User.IsInRole(Roles.LabInstructor);
 
     private bool IsAdminOrLabInstructor() =>
         User.IsInRole(Roles.Admin) || User.IsInRole(Roles.LabInstructor);

@@ -1,10 +1,14 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using FluentAssertions;
+using SessionPlanner.Api.Dtos.Personnel;
 using Microsoft.Extensions.DependencyInjection;
 using SessionPlanner.Api.Dtos.CourseResources;
 using SessionPlanner.Core.Entities;
 using SessionPlanner.Core.Entities.Joins;
+using SessionPlanner.Core.Enums;
 using SessionPlanner.Infrastructure.Data;
 using SessionPlanner.Tests.Integration.Fixtures;
 
@@ -15,6 +19,10 @@ public class CourseResourcesControllerTests : IClassFixture<CustomWebApplication
     private readonly HttpClient _client;
     private readonly CustomWebApplicationFactory _factory;
     private const string BaseUrl = "/api/v1/Courses";
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        Converters = { new JsonStringEnumConverter() }
+    };
 
     public CourseResourcesControllerTests(CustomWebApplicationFactory factory)
     {
@@ -89,6 +97,29 @@ public class CourseResourcesControllerTests : IClassFixture<CustomWebApplication
         await db.SaveChangesAsync();
 
         return course.Id;
+    }
+
+    private async Task<(int CourseId, int PersonnelId)> SeedCourseAndPersonnel(
+        PersonnelFunction function = PersonnelFunction.Professor)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+
+        var course = new Course { Code = $"PER{suffix[..5]}", Name = "Course Personnel" };
+        var personnel = new Personnel
+        {
+            FirstName = "Alex",
+            LastName = $"Personnel{suffix}",
+            Function = function,
+            Email = $"alex.{suffix}@test.dev"
+        };
+
+        db.Courses.Add(course);
+        db.Personnel.Add(personnel);
+        await db.SaveChangesAsync();
+
+        return (course.Id, personnel.Id);
     }
 
     #region Aggregated endpoint
@@ -295,6 +326,81 @@ public class CourseResourcesControllerTests : IClassFixture<CustomWebApplication
     public async Task GetEquipment_InvalidCourse_Returns404()
     {
         var response = await _client.GetAsync($"{BaseUrl}/99999/equipment");
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    #endregion
+
+    #region Personnel associations
+
+    [Fact]
+    public async Task GetPersonnel_ValidCourse_ReturnsAssignedPersonnel()
+    {
+        var (courseId, personnelId) = await SeedCourseAndPersonnel(PersonnelFunction.CourseInstructor);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.CoursePersonnels.Add(new CoursePersonnel { CourseId = courseId, PersonnelId = personnelId });
+        await db.SaveChangesAsync();
+
+        var response = await _client.GetAsync($"{BaseUrl}/{courseId}/personnel");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var personnel = await response.Content.ReadFromJsonAsync<List<PersonnelResponse>>(JsonOptions);
+        personnel.Should().ContainSingle(p =>
+            p.Id == personnelId &&
+            p.Function == PersonnelFunction.CourseInstructor);
+    }
+
+    [Fact]
+    public async Task AssociatePersonnel_ValidPersonnel_ReturnsNoContentAndListsAssignment()
+    {
+        var (courseId, personnelId) = await SeedCourseAndPersonnel(PersonnelFunction.LabInstructor);
+
+        var associateResponse = await _client.PostAsync($"{BaseUrl}/{courseId}/personnel/{personnelId}", null);
+        associateResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var getResponse = await _client.GetAsync($"{BaseUrl}/{courseId}/personnel");
+        var personnel = await getResponse.Content.ReadFromJsonAsync<List<PersonnelResponse>>(JsonOptions);
+        personnel.Should().ContainSingle(p =>
+            p.Id == personnelId &&
+            p.Function == PersonnelFunction.LabInstructor);
+    }
+
+    [Fact]
+    public async Task AssociatePersonnel_WhenAlreadyAssigned_ReturnsConflict()
+    {
+        var (courseId, personnelId) = await SeedCourseAndPersonnel();
+        var first = await _client.PostAsync($"{BaseUrl}/{courseId}/personnel/{personnelId}", null);
+        first.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var second = await _client.PostAsync($"{BaseUrl}/{courseId}/personnel/{personnelId}", null);
+
+        second.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task DissociatePersonnel_ValidAssignment_RemovesAssociation()
+    {
+        var (courseId, personnelId) = await SeedCourseAndPersonnel();
+        var associate = await _client.PostAsync($"{BaseUrl}/{courseId}/personnel/{personnelId}", null);
+        associate.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var delete = await _client.DeleteAsync($"{BaseUrl}/{courseId}/personnel/{personnelId}");
+        delete.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var getResponse = await _client.GetAsync($"{BaseUrl}/{courseId}/personnel");
+        var personnel = await getResponse.Content.ReadFromJsonAsync<List<PersonnelResponse>>(JsonOptions);
+        personnel.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task AssociatePersonnel_InvalidPersonnel_Returns404()
+    {
+        var courseId = await SeedEmptyCourse();
+
+        var response = await _client.PostAsync($"{BaseUrl}/{courseId}/personnel/99999", null);
+
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 

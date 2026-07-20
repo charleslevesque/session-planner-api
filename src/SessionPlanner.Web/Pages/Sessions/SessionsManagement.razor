@@ -1,0 +1,223 @@
+@page "/sessions/manage"
+@attribute [Authorize(Roles = "admin,lab_instructor")]
+@inject ApiClient Api
+
+<PageTitle>Sessions</PageTitle>
+
+<div class="page-stack">
+    <PageHeader Title="Sessions"
+                Eyebrow="Cycle de vie"
+                Description="Creer, modifier, ouvrir, fermer et archiver les sessions." />
+
+    <ErrorBanner Message="@_error" />
+    <SuccessBanner Message="@_success" />
+
+    <section class="panel">
+        <h2>@(_editingId is null ? "Nouvelle session" : "Modifier la session")</h2>
+        <EditForm Model="_form" OnValidSubmit="SaveAsync" class="form-grid">
+            <div class="form-grid two">
+                <div class="field">
+                    <label>Titre</label>
+                    <InputText @bind-Value="_form.Title" />
+                </div>
+                <div class="field">
+                    <label>Copier les cours depuis</label>
+                    <InputSelect @bind-Value="_form.CopyFromSessionId" disabled="@(_editingId is not null)">
+                        <option value="">Aucune session</option>
+                        @foreach (var session in _sessions)
+                        {
+                            <option value="@session.Id">@session.Title</option>
+                        }
+                    </InputSelect>
+                </div>
+            </div>
+            <div class="form-grid two">
+                <div class="field">
+                    <label>Date de debut</label>
+                    <InputDate @bind-Value="_form.StartDate" />
+                </div>
+                <div class="field">
+                    <label>Date de fin</label>
+                    <InputDate @bind-Value="_form.EndDate" />
+                </div>
+            </div>
+            <div class="actions">
+                <FluentButton Type="ButtonType.Submit" Appearance="@Appearance.Accent" Disabled="@_busy">Enregistrer</FluentButton>
+                @if (_editingId is not null)
+                {
+                    <FluentButton Appearance="@Appearance.Neutral" OnClick="ResetForm">Annuler</FluentButton>
+                }
+            </div>
+        </EditForm>
+    </section>
+
+    @if (_loading)
+    {
+        <LoadingPanel />
+    }
+    else
+    {
+        <section class="panel">
+            <div class="toolbar">
+                <h2>Sessions</h2>
+                <FluentButton Appearance="@Appearance.Neutral" OnClick="LoadAsync">Rafraichir</FluentButton>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Titre</th>
+                            <th>Statut</th>
+                            <th>Periode</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var session in _sessions.OrderByDescending(s => s.StartDate))
+                        {
+                            <tr>
+                                <td><strong>@session.Title</strong></td>
+                                <td><StatusBadge Status="@session.Status" /></td>
+                                <td>@session.StartDate.ToString("yyyy-MM-dd") - @session.EndDate.ToString("yyyy-MM-dd")</td>
+                                <td>
+                                    <div class="actions">
+                                        <FluentButton Appearance="@Appearance.Lightweight" OnClick="@(() => Edit(session))">Modifier</FluentButton>
+                                        <NavButton Appearance="@Appearance.Lightweight" Href="@($"/sessions/{session.Id}/courses")">Cours</NavButton>
+                                        <NavButton Appearance="@Appearance.Lightweight" Href="@($"/sessions/{session.Id}/needs")">Besoins</NavButton>
+                                        @if (session.Status == "Draft")
+                                        {
+                                            <FluentButton Appearance="@Appearance.Accent" OnClick="@(() => TransitionAsync(session.Id, "open"))">Ouvrir</FluentButton>
+                                        }
+                                        @if (session.Status == "Open")
+                                        {
+                                            <FluentButton Appearance="@Appearance.Neutral" OnClick="@(() => TransitionAsync(session.Id, "close"))">Fermer</FluentButton>
+                                        }
+                                        @if (session.Status == "Closed")
+                                        {
+                                            <FluentButton Appearance="@Appearance.Neutral" OnClick="@(() => TransitionAsync(session.Id, "archive"))">Archiver</FluentButton>
+                                        }
+                                        @if (session.Status == "Draft")
+                                        {
+                                            <FluentButton Appearance="@Appearance.Neutral" OnClick="@(() => DeleteAsync(session.Id))">Supprimer</FluentButton>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+</div>
+
+@code {
+    private readonly CreateSessionRequest _form = new() { Title = $"Session {DateTime.Today:yyyy-MM}" };
+    private List<SessionResponse> _sessions = [];
+    private int? _editingId;
+    private bool _loading = true;
+    private bool _busy;
+    private string? _error;
+    private string? _success;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            _sessions = await Api.GetAsync<List<SessionResponse>>("sessions");
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        _busy = true;
+        _error = null;
+        _success = null;
+
+        try
+        {
+            if (_editingId is int id)
+            {
+                await Api.PutAsync($"sessions/{id}", new UpdateSessionRequest
+                {
+                    Title = _form.Title,
+                    StartDate = _form.StartDate,
+                    EndDate = _form.EndDate
+                });
+                _success = "Session mise a jour.";
+            }
+            else
+            {
+                await Api.PostAsync<CreateSessionRequest, SessionResponse>("sessions", _form);
+                _success = "Session creee.";
+            }
+
+            ResetForm();
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void Edit(SessionResponse session)
+    {
+        _editingId = session.Id;
+        _form.Title = session.Title;
+        _form.StartDate = session.StartDate;
+        _form.EndDate = session.EndDate;
+        _form.CopyFromSessionId = null;
+    }
+
+    private void ResetForm()
+    {
+        _editingId = null;
+        _form.Title = $"Session {DateTime.Today:yyyy-MM}";
+        _form.StartDate = DateTime.Today;
+        _form.EndDate = DateTime.Today.AddMonths(4);
+        _form.CopyFromSessionId = null;
+    }
+
+    private async Task TransitionAsync(int sessionId, string action)
+    {
+        try
+        {
+            await Api.PostAsync($"sessions/{sessionId}/{action}");
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task DeleteAsync(int id)
+    {
+        try
+        {
+            await Api.DeleteAsync($"sessions/{id}");
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+}

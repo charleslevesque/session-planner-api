@@ -262,7 +262,7 @@ public class SessionsController : ControllerBase
             ));
         }
 
-        var courses = await _sessionService.GetSessionCoursesAsync(id);
+        var courses = await _sessionService.GetSessionCoursesAsync(id, await GetPersonnelScopeForCoursesAsync());
         return Ok(courses.Select(c => c.ToCourseResponse()));
     }
 
@@ -559,5 +559,20 @@ public class SessionsController : ControllerBase
                 Code: ErrorCodes.InvalidSessionTransition
             ));
         }
+    }
+
+    private async Task<int?> GetPersonnelScopeForCoursesAsync()
+    {
+        if (!User.IsInRole(Roles.Professor) && !User.IsInRole(Roles.CourseInstructor))
+            return null;
+
+        if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
+            return null;
+
+        return await _db.Users
+            .AsNoTracking()
+            .Where(u => u.Id == userId && u.IsActive)
+            .Select(u => u.PersonnelId)
+            .FirstOrDefaultAsync();
     }
 }
