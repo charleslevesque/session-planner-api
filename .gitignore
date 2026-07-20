@@ -15,7 +15,12 @@
 
 # IDEs
 .vs/
-.vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
 .idea/
 
 # Local agent / worktree artifacts
